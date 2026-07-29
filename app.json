@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "PigeonSub",
+    "slug": "pigeonsub",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "pigeonsub",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.pigeonsub.app"
+    },
+    "android": {
+      "package": "com.pigeonsub.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#7C3AED"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Allow PigeonSub to use Face ID to secure your account."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow PigeonSub to access your photos to attach receipts.",
+          "cameraPermission": "Allow PigeonSub to use the camera to capture receipts."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "REPLACE_WITH_YOUR_BACKEND_URL"
+    }
+  }
+}
