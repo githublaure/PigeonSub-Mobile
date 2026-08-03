@@ -1,0 +1,134 @@
+Le simulateur iOS a maintenant une NOUVELLE erreur :
+
+"There was a problem running the requested app.
+Failed to parse manifest JSON: The data couldn't be read because it isn't in the correct format."
+
+URL affichée :
+exps://<REPLIT_EXPO_DEV_DOMAIN>
+
+C'est différent de l'ancienne erreur "Could not connect to development server".
+
+Donc la connexion réseau semble désormais atteindre un endpoint, mais le simulateur reçoit probablement autre chose que le manifest JSON Expo attendu.
+
+IMPORTANT :
+Ne change aucune dépendance.
+Ne réinstalle pas ngrok.
+Ne remets pas --tunnel.
+Ne touche pas au code applicatif.
+Ne committe/push rien.
+Conserve babel-preset-expo.
+
+Pour l'instant, conserve également les changements actuels de .replit afin de pouvoir les diagnostiquer :
+
+REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN npx expo start
+
+et :
+
+localPort = 8081
+externalPort = 8081
+
+Je veux maintenant diagnostiquer précisément la RÉPONSE MANIFEST.
+
+1. Teste le manifest directement en LOCAL avec les headers d'un client Expo iOS.
+
+Par exemple :
+
+curl -i \
+  -H "Accept: application/expo+json,application/json" \
+  -H "Expo-Platform: ios" \
+  http://localhost:8081/
+
+Affiche :
+- status HTTP
+- Content-Type
+- éventuelles redirections
+- les 500 premiers caractères du body
+
+2. Fais exactement le même test sur l'URL PUBLIQUE utilisée par le simulateur :
+
+https://$REPLIT_EXPO_DEV_DOMAIN:8081/
+
+avec les mêmes headers.
+
+Je veux comparer LOCAL vs PUBLIC.
+
+3. Détermine explicitement ce que reçoit le simulateur.
+
+Est-ce :
+A. un JSON Expo valide
+B. une page HTML Replit
+C. une page d'erreur proxy
+D. du texte Metro
+E. une redirection
+F. autre chose
+
+4. Pendant que je recharge le simulateur, vérifie les logs Metro.
+
+Je veux savoir si la requête de MANIFEST "/" provenant du simulateur atteint Metro.
+
+Ce n'est plus seulement entry.bundle qu'il faut surveiller.
+
+5. Vérifie particulièrement :
+- status HTTP du manifest
+- Content-Type retourné
+- Host reçu par Metro
+- protocole HTTP/HTTPS
+- présence d'une redirection
+- si Replit proxy modifie la réponse
+
+6. Compare la réponse de :
+
+http://localhost:8081/
+
+et :
+
+https://$REPLIT_EXPO_DEV_DOMAIN:8081/
+
+avec les mêmes headers Expo.
+
+Si localhost retourne du JSON valide mais l'URL publique retourne HTML / erreur / autre contenu :
+=> le problème vient du proxy/port Replit.
+
+Si les deux retournent une réponse non-JSON :
+=> le problème vient de la manière dont Expo est lancé/configuré.
+
+7. Vérifie ensuite si le fait d'avoir ajouté :
+
+REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN
+
+est réellement compatible avec le simulateur Mobile Replit SDK 54.
+
+Ne suppose pas que cette variable est correcte uniquement parce que Metro affiche maintenant le bon hostname.
+
+Vérifie si Replit configure déjà lui-même le hostname Expo via :
+REPLIT_EXPO_DEV_DOMAIN
+
+et si notre override REACT_NATIVE_PACKAGER_HOSTNAME crée un manifest incorrect.
+
+8. Vérifie également les valeurs générées par Expo pour :
+- hostUri
+- debuggerHost si présent
+- bundleUrl
+- scheme
+- expoGo / developer metadata
+
+Ne révèle aucun secret.
+
+9. Si nécessaire, lance Expo avec DEBUG Expo activé pour voir comment le manifest et les URLs sont générés, sans modifier les dépendances.
+
+10. Ne fais aucune correction avant de me présenter :
+
+CAUSE PROBABLE
+LOCAL MANIFEST RESPONSE
+PUBLIC MANIFEST RESPONSE
+CONTENT-TYPE
+HTTP STATUS
+REDIRECTS
+REQUÊTE VUE OU NON PAR METRO
+RÔLE DE REACT_NATIVE_PACKAGER_HOSTNAME
+
+CRITÈRE DE RÉUSSITE :
+
+Le simulateur doit recevoir un JSON Expo valide, puis demander entry.bundle, puis afficher PigeonSub.
+
+Ne considère pas la tâche terminée simplement parce que Metro affiche une URL correcte.

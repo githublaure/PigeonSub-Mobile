@@ -27,6 +27,10 @@ args = "REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN npx expo start"
 
 [[ports]]
 localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 8081
 externalPort = 8081
 
 [[ports]]
