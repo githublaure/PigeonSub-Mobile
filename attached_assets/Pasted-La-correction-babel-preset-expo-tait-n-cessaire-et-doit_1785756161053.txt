@@ -1,0 +1,134 @@
+La correction babel-preset-expo était nécessaire et doit être conservée.
+
+Cependant, la tâche n'est PAS terminée.
+
+Le simulateur iOS Replit affiche encore exactement :
+
+"Could not connect to development server"
+
+Il essaie actuellement de charger le bundle depuis une URL de cette forme :
+
+https://e5b18622-...expo.kirk.replit.dev:8081/node_modules/expo-router/entry.bundle?platform=ios...
+
+Donc le fait que :
+
+curl http://localhost:8081
+
+renvoie HTTP 200 prouve uniquement que Metro répond DANS le container Replit.
+Cela ne prouve pas que le simulateur iOS peut joindre Metro via l'URL publique.
+
+NE MODIFIE PAS :
+- Expo SDK 54
+- React Native
+- les écrans
+- la navigation
+- les features
+- babel-preset-expo maintenant installé
+
+NE RÉINSTALLE PAS :
+- ngrok
+- @expo/ngrok
+- --tunnel
+
+NE COMMITTE ET NE PUSH RIEN.
+
+Je veux maintenant diagnostiquer UNIQUEMENT le chemin réseau :
+
+simulateur iOS Replit
+→ URL publique Replit
+→ port externe
+→ port local 8081
+→ Metro
+
+Point particulièrement suspect :
+
+Tu m'as indiqué :
+
+localPort 8081 → externalPort 80
+
+mais le simulateur essaie explicitement d'accéder à :
+
+https://<domain>.replit.dev:8081/...
+
+Il y a donc potentiellement un mismatch entre le port que le simulateur utilise (8081)
+et le port externe déclaré dans .replit (80).
+
+Commence par afficher SANS MODIFIER :
+
+1. La totalité des blocs [[ports]] actuels de .replit.
+
+2. Pour chaque port :
+   - localPort
+   - externalPort
+   - exposeLocalhost
+
+3. L'URL publique exacte que Replit associe au localPort 8081.
+
+4. Pourquoi le simulateur reçoit une URL contenant explicitement :8081 alors que tu dis que 8081 est mappé vers externalPort 80.
+
+5. Vérifie avec ss -ltnp que Metro écoute bien sur une interface accessible, idéalement 0.0.0.0:8081 et pas uniquement 127.0.0.1:8081.
+
+6. Affiche les variables Expo/Replit susceptibles de définir l'URL du packager :
+   - REACT_NATIVE_PACKAGER_HOSTNAME
+   - EXPO_PACKAGER_PROXY_URL
+   - REPLIT_DEV_DOMAIN
+   - REPLIT_DOMAINS
+   - toute variable contenant EXPO, PACKAGER, HOST ou REPLIT liée au réseau
+
+Ne révèle évidemment aucune valeur de secret.
+
+7. Teste séparément :
+
+A. le serveur local :
+curl -v http://localhost:8081
+
+B. l'URL publique exacte utilisée par le simulateur :
+https://<domain-exact-utilisé-par-le-simulateur>:8081/
+
+Je veux le status HTTP exact pour LES DEUX.
+
+8. Teste également la même URL publique sans :8081 si le port externe actuel est réellement 80.
+
+9. Pendant que je clique Reload dans le simulateur iOS, surveille les logs Metro.
+
+Dis-moi explicitement si la requête entry.bundle provenant du simulateur arrive ou NON dans Metro.
+
+C'est le test décisif.
+
+Si aucune requête n'arrive :
+=> problème de port / proxy / URL publique Replit.
+
+Si elle arrive et renvoie une erreur :
+=> donne l'erreur Metro exacte.
+
+10. Vérifie dans la documentation/configuration Replit Mobile Artifact si le simulateur iOS attend spécifiquement que Metro soit exposé avec :
+
+localPort = 8081
+externalPort = 8081
+
+plutôt que :
+
+localPort = 8081
+externalPort = 80
+
+Ne change ce mapping qu'après avoir vérifié cette hypothèse.
+
+CRITÈRE DE SUCCÈS :
+
+Je ne veux plus que tu considères :
+- QR code affiché
+- Metro démarré
+- localhost:8081 = HTTP 200
+- expo-doctor 18/18
+
+comme suffisants.
+
+La tâche est terminée UNIQUEMENT quand :
+
+1. le simulateur demande entry.bundle ;
+2. cette requête atteint Metro ;
+3. Metro répond HTTP 200 à CETTE requête ;
+4. l'écran rouge "Could not connect to development server" disparaît ;
+5. PigeonSub s'affiche dans le simulateur iOS Replit.
+
+Donne-moi d'abord le diagnostic réseau et le contenu actuel des [[ports]] avant d'effectuer une nouvelle modification.
