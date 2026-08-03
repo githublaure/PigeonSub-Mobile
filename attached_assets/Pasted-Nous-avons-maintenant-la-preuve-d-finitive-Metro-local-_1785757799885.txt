@@ -1,0 +1,126 @@
+Nous avons maintenant la preuve définitive :
+
+- Metro local 8081 fonctionne
+- le manifest public via https://$REPLIT_EXPO_DEV_DOMAIN fonctionne
+- le simulateur reçoit le manifest
+- MAIS le manifest génère le bundle URL avec :
+
+https://$REPLIT_EXPO_DEV_DOMAIN:8081/...
+
+- le simulateur essaie cette URL
+- aucune requête entry.bundle n'arrive dans Metro
+- donc le port public :8081 est inaccessible depuis le simulateur Replit
+
+Je ne veux PLUS essayer de réparer l'exposition publique du port 8081.
+
+La stratégie à tester maintenant est :
+
+faire utiliser au bundle EXACTEMENT le même endpoint public HTTPS fonctionnel que le manifest :
+
+https://$REPLIT_EXPO_DEV_DOMAIN/
+
+sans :8081.
+
+IMPORTANT :
+ne modifie encore aucun fichier.
+ne change aucune dépendance.
+ne touche pas au code applicatif.
+ne réinstalle pas ngrok.
+ne committe/push rien.
+
+ÉTAPE 1 — test temporaire uniquement
+
+Vérifie si Expo SDK 54 / @expo/cli actuellement installé supporte encore :
+
+EXPO_PACKAGER_PROXY_URL
+
+Inspecte si nécessaire le code de @expo/cli installé dans node_modules pour voir exactement comment cette variable est utilisée.
+
+Je ne veux pas une supposition basée sur une ancienne documentation : vérifie la version réellement installée.
+
+ÉTAPE 2
+
+Si cette variable est supportée, arrête Metro puis lance TEMPORAIREMENT :
+
+EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN \
+npx expo start --clear
+
+ou, uniquement si nécessaire en plus :
+
+REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN \
+EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN \
+npx expo start --clear
+
+Ne persiste rien dans .replit pour l'instant.
+
+ÉTAPE 3 — test décisif
+
+Récupère le manifest local avec headers Expo et inspecte l'URL du bundle.
+
+Je veux savoir si elle passe de :
+
+https://$REPLIT_EXPO_DEV_DOMAIN:8081/node_modules/...
+
+à :
+
+https://$REPLIT_EXPO_DEV_DOMAIN/node_modules/...
+
+SANS port 8081.
+
+Si EXPO_PACKAGER_PROXY_URL ne change pas le bundle URL :
+STOP.
+Ne cherche pas à bricoler cette variable.
+Explique quel composant de @expo/cli génère l'URL :8081 et quelles options supportées existent réellement dans notre version.
+
+ÉTAPE 4
+
+Si le bundle URL est maintenant sans :8081 :
+
+vérifie publiquement :
+
+curl -I "https://$REPLIT_EXPO_DEV_DOMAIN/node_modules/expo-router/entry.bundle?platform=ios&dev=true"
+
+avec les paramètres nécessaires.
+
+Puis je rechargerai le simulateur.
+
+Pendant mon Reload, vérifie :
+
+1. manifest reçu
+2. entry.bundle arrive dans Metro
+3. HTTP status du bundle
+4. première erreur éventuelle après chargement
+
+ÉTAPE 5 — seulement si cela fonctionne
+
+Alors propose le diff minimal de .replit.
+
+L'état final attendu serait probablement quelque chose comme :
+
+workflow avec :
+EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN npx expo start
+
+et uniquement :
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+car le simulateur n'aurait alors plus besoin d'accéder publiquement à :8081.
+
+Mais NE FAIS PAS encore ce changement permanent.
+Prouve d'abord que le manifest généré contient une bundleUrl sans :8081.
+
+CRITÈRE DE SUCCÈS :
+
+https://domain/node_modules/...entry.bundle
+                     ↓
+proxy Replit 443/80
+                     ↓
+Metro local 8081
+                     ↓
+HTTP 200
+                     ↓
+simulateur affiche PigeonSub
+
+Commence par vérifier dans la version @expo/cli réellement installée si EXPO_PACKAGER_PROXY_URL est encore supporté.
