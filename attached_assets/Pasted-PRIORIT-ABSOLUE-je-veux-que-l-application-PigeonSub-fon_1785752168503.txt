@@ -1,0 +1,123 @@
+PRIORITÉ ABSOLUE : je veux que l'application PigeonSub fonctionne à nouveau dans le SIMULATEUR iOS INTÉGRÉ au panneau Preview de Replit.
+
+Je ne parle PAS pour l'instant d'un vrai iPhone avec Expo Go.
+Je parle du simulateur iOS affiché directement dans le Project Editor Replit.
+
+État actuel :
+
+- branche : feat/mascot-integration
+- ne change pas de branche
+- ne committe rien
+- ne pousse rien sur GitHub
+- Expo SDK 54
+- expo-doctor : 18/18
+- TypeScript : 0 erreur
+- @expo/ngrok supprimé
+- --tunnel supprimé
+- workflow actuel : npx expo start
+
+Erreur actuelle dans le simulateur Replit :
+
+"Could not connect to development server"
+
+Le simulateur essaie notamment d'accéder à une URL ressemblant à :
+
+https://<replit-dev-domain>:8081/node_modules/expo-router/entry.bundle?platform=ios...
+
+Mon objectif est de réparer la connexion entre le simulateur iOS Replit et Metro.
+
+IMPORTANT :
+Replit possède un simulateur iOS intégré au Project Editor. Je veux utiliser CE simulateur sans ngrok.
+
+Ne réinstalle PAS @expo/ngrok.
+Ne remets PAS --tunnel.
+Ne demande PAS de NGROK_AUTHTOKEN.
+
+Ne modifie pas non plus les versions Expo/React Native puisque :
+- expo-doctor = 18/18
+- TypeScript = 0 erreur.
+
+Ne touche pas aux écrans, features, mascottes ou navigation de PigeonSub sauf si une erreur applicative réelle apparaît APRÈS que Metro soit joignable.
+
+Commence par DIAGNOSTIQUER, sans modifier quoi que ce soit.
+
+Vérifie précisément :
+
+1. Le workflow Replit actuel et le contenu complet pertinent de .replit.
+
+2. Que le projet est bien reconnu par Replit comme mobile/native artifact et que le simulateur iOS est configuré pour ce projet.
+
+3. Metro :
+   - est-il réellement lancé ?
+   - PID/processus
+   - port exact
+   - adresse/interface d'écoute
+   - localhost / 127.0.0.1 / 0.0.0.0 / IP privée
+   - commande exacte utilisée.
+
+4. Exécute :
+   curl -v http://localhost:8081
+   et vérifie que Metro répond.
+
+5. Vérifie également avec ss/netstat sur quelle interface le port 8081 écoute.
+
+6. Inspecte toutes les configurations [[ports]] dans .replit :
+   - localPort
+   - externalPort
+   - exposeLocalhost
+   et vérifie qu'elles correspondent réellement au port de Metro.
+
+7. Vérifie pourquoi le simulateur iOS reçoit une URL :
+   https://<domain>.replit.dev:8081/...
+
+et si cette URL correspond réellement à l'URL publique que Replit associe au port local 8081.
+
+8. Vérifie les variables d'environnement pouvant modifier l'adresse du bundler :
+   - REACT_NATIVE_PACKAGER_HOSTNAME
+   - EXPO_PACKAGER_PROXY_URL
+   - REPLIT_DEV_DOMAIN
+   - REPLIT_DOMAINS
+   - toute variable Replit/Expo concernant host, proxy ou Metro.
+
+9. Regarde les logs Metro exactement au moment où je clique Reload dans le simulateur.
+Je veux savoir si :
+   A. la requête n'arrive jamais à Metro
+   B. elle arrive mais Metro la refuse
+   C. Metro répond avec une erreur
+   D. l'URL générée pour le simulateur est incorrecte.
+
+10. Si nécessaire, teste un redémarrage propre avec :
+    npx expo start --clear
+mais ne change aucune dépendance.
+
+Je veux ensuite que tu appliques LA PLUS PETITE correction possible pour que le simulateur iOS intégré à Replit affiche PigeonSub.
+
+Tu peux modifier si nécessaire :
+- .replit
+- la commande du workflow
+- la configuration de ports
+- une variable d'environnement liée au host/proxy Metro
+
+mais PAS les dépendances applicatives tant qu'aucune preuve ne montre qu'elles sont responsables.
+
+Après correction :
+
+1. démarre le workflow ;
+2. vérifie que Metro reste actif ;
+3. ouvre/recharge le simulateur iOS Replit ;
+4. vérifie qu'une requête iOS entry.bundle apparaît dans les logs Metro ;
+5. vérifie que le bundle retourne HTTP 200 ;
+6. vérifie visuellement que PigeonSub apparaît dans la preview.
+
+Ne considère PAS la tâche terminée simplement parce que `npx expo start` fonctionne.
+La tâche est terminée uniquement lorsque LA PREVIEW iOS REPLIT affiche effectivement l'application.
+
+À la fin, donne-moi :
+- la cause racine ;
+- les fichiers modifiés ;
+- le diff exact ;
+- le mapping de ports final ;
+- la commande finale du workflow ;
+- la preuve que le simulateur charge le bundle.
+
+Ne committe et ne pousse rien.
