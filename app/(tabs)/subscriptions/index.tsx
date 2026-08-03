@@ -121,13 +121,13 @@ export default function SubscriptionsScreen() {
             onPress={() => router.push(`/(tabs)/subscriptions/${item.id}`)}
           />
         )}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, filtered.length === 0 && styles.listEmpty]}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         refreshing={refreshing}
         onRefresh={() => { setRefreshing(true); load(); }}
         ListEmptyComponent={
           <EmptyState
-            icon="card-outline"
+            imageSource={require('../../../assets/mascots/pigeon-money-bag.png')}
             title="No subscriptions found"
             description={search ? 'Try a different search term.' : 'Tap + to add your first subscription.'}
             actionLabel={search ? undefined : 'Add subscription'}
@@ -192,4 +192,5 @@ const styles = StyleSheet.create({
   sortChipText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '500' },
   sortChipTextActive: { color: Colors.white },
   list: { paddingHorizontal: 24, paddingBottom: 32 },
+  listEmpty: { flexGrow: 1 },
 });

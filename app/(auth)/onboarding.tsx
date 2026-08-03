@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -19,19 +19,19 @@ const { width } = Dimensions.get('window');
 const SLIDES = [
   {
     key: '1',
-    icon: 'wallet-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-money-bag.png'),
     title: 'Stop being a pigeon',
     subtitle: 'Track every subscription you pay for — and stop paying for ones you forgot about.',
   },
   {
     key: '2',
-    icon: 'notifications-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-spray-paint.png'),
     title: 'Renewals before they hit',
     subtitle: 'Get ahead of charges with a calendar view and upcoming-renewal alerts.',
   },
   {
     key: '3',
-    icon: 'mic-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-microphone.png'),
     title: 'AI voice reminders',
     subtitle: 'Generate personalised voice nudges powered by ElevenLabs — in your style.',
   },
@@ -81,7 +81,7 @@ export default function OnboardingScreen() {
         renderItem={({ item }) => (
           <View style={styles.slide}>
             <View style={styles.iconCircle}>
-              <Ionicons name={item.icon} size={64} color={Colors.primary} />
+              <Image source={item.imageSource} style={styles.slideImage} resizeMode="contain" />
             </View>
             <Text style={styles.slideTitle}>{item.title}</Text>
             <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
@@ -147,6 +147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  slideImage: { width: 136, height: 136 },
   slideTitle: {
     color: Colors.text,
     fontSize: 28,
