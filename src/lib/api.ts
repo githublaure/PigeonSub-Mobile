@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { buildApiUrl } from './api-url';
 import { API_BASE_URL } from './config';
 
 // ---------------------------------------------------------------------------
@@ -48,7 +49,7 @@ async function apiFetch<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api${path}`, {
+  const res = await fetch(buildApiUrl(API_BASE_URL, path), {
     ...options,
     headers,
   });
