@@ -10,4 +10,8 @@ function buildApiUrl(baseUrl, path) {
   return `${apiBaseUrl}${normalizedPath}`;
 }
 
-module.exports = { buildApiUrl };
+function stripQueryForLog(url) {
+  return url.replace(/[?#].*$/, '');
+}
+
+module.exports = { buildApiUrl, stripQueryForLog };
