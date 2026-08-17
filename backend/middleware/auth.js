@@ -1,7 +1,11 @@
 'use strict';
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.SESSION_SECRET || 'pigeonsub-dev-secret';
+const JWT_SECRET = process.env.SESSION_SECRET;
+if (!JWT_SECRET) {
+  console.error('[auth] FATAL: SESSION_SECRET is not set. Refusing to start with an insecure fallback.');
+  process.exit(1);
+}
 
 function requireAuth(req, res, next) {
   const header = req.headers['authorization'] || '';

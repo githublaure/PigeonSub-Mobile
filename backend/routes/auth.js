@@ -106,7 +106,7 @@ router.post('/forgot-password', async (req, res) => {
         'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1,$2,$3)',
         [rows[0].id, token, expires]
       );
-      console.log(`[password-reset] token for ${email}: ${token}`);
+      // NOTE: token intentionally not logged. In production, send it by email.
     }
   } catch (err) {
     console.error('[auth/forgot-password]', err.message);
@@ -129,6 +129,19 @@ router.post('/reset-password', async (req, res) => {
     await pool.query('UPDATE password_reset_tokens SET used = TRUE WHERE id = $1', [rows[0].id]);
     res.json({ message: 'Password reset successful' });
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /api/auth/account — permanently delete user and all related data
+router.delete('/account', requireAuth, async (req, res) => {
+  try {
+    // FK cascades handle subscriptions, voice_reminders, user_settings, password_reset_tokens
+    const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    if (!rowCount) return res.status(404).json({ error: 'User not found' });
+    res.status(204).end();
+  } catch (err) {
+    console.error('[auth/delete-account]', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -78,7 +78,7 @@ async function start() {
 
       CREATE TABLE IF NOT EXISTS voice_reminders (
         id SERIAL PRIMARY KEY,
-        subscription_id INTEGER NOT NULL,
+        subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
         audio_url TEXT NOT NULL,
         reminder_type VARCHAR(50) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

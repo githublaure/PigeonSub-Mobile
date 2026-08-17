@@ -64,7 +64,7 @@ function SettingsRow({
 }
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   const router = useRouter();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [pwSuccess, setPwSuccess] = useState('');
@@ -89,6 +89,36 @@ export default function ProfileScreen() {
     } catch (e: unknown) {
       setPwError(e instanceof Error ? e.message : 'Failed to change password');
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This will permanently delete your account and all your data (subscriptions, settings, reminders). This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Are you absolutely sure?', 'All your data will be erased permanently.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, delete everything',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deleteAccount();
+                  } catch (e: unknown) {
+                    Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete account');
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -177,6 +207,14 @@ export default function ProfileScreen() {
               icon="log-out-outline"
               label="Sign out"
               onPress={handleLogout}
+              destructive
+            />
+            <View style={styles.rowDivider} />
+            <SettingsRow
+              icon="trash-outline"
+              label="Delete account"
+              value="Permanently erase account and data"
+              onPress={handleDeleteAccount}
               destructive
             />
           </Card>

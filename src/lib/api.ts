@@ -212,6 +212,9 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify(data),
     }, false),
+
+  deleteAccount: () =>
+    apiFetch<void>('/auth/account', { method: 'DELETE' }),
 };
 
 // ---------------------------------------------------------------------------
@@ -300,10 +303,10 @@ export const voice = {
       method: 'POST',
       body: JSON.stringify(data),
       headers: { 'x-elevenlabs-key': elevenLabsKey } as Record<string, string>,
-    }, false),
+    }),
 
   getReminders: (subscriptionId: number) =>
-    apiFetch<VoiceReminder[]>(`/voice/reminders/${subscriptionId}`, {}, false),
+    apiFetch<VoiceReminder[]>(`/voice/reminders/${subscriptionId}`),
 
-  getAllReminders: () => apiFetch<VoiceReminder[]>('/voice/reminders', {}, false),
+  getAllReminders: () => apiFetch<VoiceReminder[]>('/voice/reminders'),
 };
