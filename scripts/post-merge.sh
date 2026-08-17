@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
 
-# Install dependencies after a task merge
+# Install mobile app dependencies
 npm ci
+
+# Install backend dependencies
+cd backend && npm ci

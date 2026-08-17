@@ -1,0 +1,92 @@
+Reprends à partir de l’état actuel, sans reconstruire inutilement le projet. Mon objectif prioritaire est de publier au plus vite une V1 fonctionnelle de PigeonSub sur l’Apple App Store ET le Google Play Store.
+
+Commence par auditer tout ce que tu viens de créer ou modifier. Ne supprime et ne remplace rien avant d’avoir vérifié l’existant.
+
+PRIORITÉ 1 — Stabiliser l’architecture minimale
+
+* L’application Expo/React Native doit fonctionner sur iOS et Android.
+* Le backend Express doit être indépendant de l’application mobile, écouter sur `0.0.0.0` et utiliser un port exposé par Replit.
+* La base PostgreSQL Replit doit être utilisée côté serveur uniquement.
+* Aucun secret, `DATABASE_URL`, token ou clé privée ne doit apparaître dans le code mobile, `.replit` ou une variable `EXPO_PUBLIC_*`.
+* `EXPO_PUBLIC_API_BASE_URL` doit contenir uniquement l’URL HTTPS publique du backend.
+* Le domaine `*.replit.dev` est un domaine de développement temporaire : ne le considère pas comme l’URL de production. Prépare une variable distincte pour l’URL permanente du backend déployé.
+* Vérifie la configuration SSL PostgreSQL appropriée à Replit au lieu de désactiver SSL globalement sans justification.
+* Les workflows `Start Backend` et `Start Expo` doivent pouvoir fonctionner simultanément.
+
+PRIORITÉ 2 — Limiter la V1 aux fonctions indispensables
+
+Pour cette première publication, rends réellement fonctionnels uniquement :
+
+1. création de compte et connexion ;
+2. ajout, modification, suppression et consultation d’un abonnement ;
+3. montant mensuel et annuel ;
+4. date du prochain prélèvement ;
+5. liste et calendrier des renouvellements ;
+6. notification locale avant renouvellement ;
+7. profil ;
+8. suppression du compte et de ses données.
+
+Ne développe pas maintenant les rappels vocaux IA, coupons, statistiques avancées, partage, import bancaire ou autres fonctions secondaires si elles ne sont pas déjà terminées. Elles peuvent rester masquées dans la V1. Ne crée pas de faux endpoints uniquement pour faire disparaître les erreurs.
+
+PRIORITÉ 3 — Tester la chaîne complète
+
+Avant de modifier le design, vérifie réellement :
+
+* `GET /health` ;
+* création d’un utilisateur ;
+* connexion ;
+* création d’un abonnement ;
+* lecture de cet abonnement ;
+* modification ;
+* suppression ;
+* persistance après redémarrage du backend ;
+* séparation correcte des données entre deux utilisateurs ;
+* suppression complète du compte.
+
+Teste ensuite ces opérations depuis l’application Expo elle-même, pas seulement avec curl. L’application ne doit plus produire de 404 ni dépendre de l’ancien repo PigeonSubscription.
+
+PRIORITÉ 4 — Préparer iOS ET Android
+
+Vérifie et complète la configuration Expo nécessaire aux deux stores :
+
+* `ios.bundleIdentifier` unique et définitif ;
+* `android.package` unique et définitif ;
+* nom public `PigeonSub` ;
+* version et numéros de build cohérents ;
+* icône, adaptive icon Android et splash screen ;
+* configuration EAS avec profils `development`, `preview` et `production` ;
+* permissions minimales et justifiées ;
+* notifications configurées pour iOS et Android ;
+* aucune URL de développement codée en dur dans les builds de production ;
+* compatibilité avec les exigences actuelles Apple App Store et Google Play ;
+* politique de confidentialité accessible ;
+* suppression du compte dans l’application si un compte peut être créé ;
+* aucune fonction annoncée dans l’interface si elle ne fonctionne pas réellement.
+
+PRIORITÉ 5 — Vérification finale
+
+Exécute :
+
+* TypeScript ;
+* Expo Doctor ;
+* vérification des dépendances Expo ;
+* tests du backend ;
+* test de démarrage simultané backend + Expo ;
+* vérification iOS ;
+* vérification Android.
+
+Ne lance pas encore de build payant et ne publie rien sans mon accord.
+
+À la fin, donne-moi un rapport précis contenant :
+
+1. tous les fichiers créés ou modifiés ;
+2. les éventuelles erreurs restantes ;
+3. l’URL utilisée en développement ;
+4. ce qu’il faut faire pour obtenir l’URL permanente de production ;
+5. les commandes exactes pour lancer le backend et Expo ;
+6. les commandes exactes pour produire les builds iOS et Android ;
+7. les fonctionnalités réellement testées ;
+8. ce qui a été volontairement reporté après la V1 ;
+9. les décisions ou informations qui nécessitent encore mon accord.
+
+Ne considère pas la tâche terminée tant que l’ajout d’un abonnement depuis Expo est enregistré dans PostgreSQL puis correctement relu sur iOS et Android.
