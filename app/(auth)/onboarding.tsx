@@ -63,73 +63,76 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} onLayout={() => setContentReady(true)}>
-      {/* Skip */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🐦 PigeonSub</Text>
-        <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={12}>
-          <Text style={styles.skip}>Skip</Text>
-        </Pressable>
-      </View>
-
-      {/* Slides */}
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.key}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <View style={styles.iconCircle}>
-              <Image source={item.imageSource} style={styles.slideImage} resizeMode="contain" />
-            </View>
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
-          </View>
-        )}
-      />
-
-      {/* Dots */}
-      <View style={styles.dots}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === currentIndex && styles.dotActive]}
-          />
-        ))}
-      </View>
-
-      {/* CTA */}
-      <View style={styles.actions}>
-        <Button
-          title={isLast ? 'Get started' : 'Next'}
-          onPress={next}
-          fullWidth
-          size="lg"
-        />
-        {isLast && (
-          <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
-            <Text style={styles.loginLink}>
-              Already have an account?{' '}
-              <Text style={styles.loginLinkBold}>Sign in</Text>
-            </Text>
+    <View style={styles.screen} onLayout={() => setContentReady(true)}>
+      <SafeAreaView style={styles.safe}>
+        {/* Skip */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>🐦 PigeonSub</Text>
+          <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={12}>
+            <Text style={styles.skip}>Skip</Text>
           </Pressable>
-        )}
-      </View>
+        </View>
+
+        {/* Slides */}
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.key}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+          renderItem={({ item }) => (
+            <View style={styles.slide}>
+              <View style={styles.iconCircle}>
+                <Image source={item.imageSource} style={styles.slideImage} resizeMode="contain" />
+              </View>
+              <Text style={styles.slideTitle}>{item.title}</Text>
+              <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+            </View>
+          )}
+        />
+
+        {/* Dots */}
+        <View style={styles.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === currentIndex && styles.dotActive]}
+            />
+          ))}
+        </View>
+
+        {/* CTA */}
+        <View style={styles.actions}>
+          <Button
+            title={isLast ? 'Get started' : 'Next'}
+            onPress={next}
+            fullWidth
+            size="lg"
+          />
+          {isLast && (
+            <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
+              <Text style={styles.loginLink}>
+                Already have an account?{' '}
+                <Text style={styles.loginLinkBold}>Sign in</Text>
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </SafeAreaView>
 
       <FeatherRevealOverlay
         contentReady={contentReady}
         enabled={!isLoading && !isAuthenticated}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',

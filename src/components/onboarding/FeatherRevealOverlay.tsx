@@ -1,5 +1,12 @@
 import { SplashScreen } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -90,6 +97,27 @@ export function FeatherRevealOverlay({
   const [maskLoaded, setMaskLoaded] = useState(false);
   const [maskFailed, setMaskFailed] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [revealWithoutOverlay, setRevealWithoutOverlay] = useState(false);
+  const splashHideStarted = useRef(false);
+
+  const hideSplashOnce = useCallback(async () => {
+    if (splashHideStarted.current) return;
+    splashHideStarted.current = true;
+    await SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!enabled || !revealWithoutOverlay || visible) return;
+
+    // The overlay has already been removed by this layout commit. Waiting for
+    // the next frame keeps the native splash visible until that commit is ready
+    // to be presented, without introducing an arbitrary time delay.
+    const frame = requestAnimationFrame(() => {
+      void hideSplashOnce();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [enabled, hideSplashOnce, revealWithoutOverlay, visible]);
 
   useEffect(() => {
     if (!enabled || !contentReady || !maskLoaded) return;
@@ -111,13 +139,14 @@ export function FeatherRevealOverlay({
         secondFrame = requestAnimationFrame(async () => {
           if (cancelled) return;
 
-          await SplashScreen.hideAsync().catch(() => undefined);
-          if (cancelled) return;
-
           if (reduceMotion || maskFailed) {
+            setRevealWithoutOverlay(true);
             setVisible(false);
             return;
           }
+
+          await hideSplashOnce();
+          if (cancelled) return;
 
           animation = Animated.sequence([
             Animated.timing(scale, {
@@ -153,6 +182,7 @@ export function FeatherRevealOverlay({
     contentReady,
     enabled,
     geometry.finalScale,
+    hideSplashOnce,
     maskFailed,
     maskLoaded,
     opacity,

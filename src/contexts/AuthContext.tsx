@@ -5,7 +5,50 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { auth, clearStoredToken, getStoredToken, setStoredToken, User } from '../lib/api';
+import {
+  ApiError,
+  auth,
+  clearStoredToken,
+  getStoredToken,
+  setStoredToken,
+  User,
+} from '../lib/api';
+
+const SESSION_RESTORE_TIMEOUT_MS = 8_000;
+
+class SessionRestoreTimeoutError extends Error {
+  constructor() {
+    super('Session restoration timed out');
+    this.name = 'SessionRestoreTimeoutError';
+  }
+}
+
+async function restoreUserWithinTimeout(): Promise<User> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      auth.me(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new SessionRestoreTimeoutError()),
+          SESSION_RESTORE_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+function isExplicitlyInvalidToken(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  if (error.status === 401) return true;
+
+  return /(?:invalid|expired).*token|token.*(?:invalid|expired)/i.test(
+    error.message
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,21 +84,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // On mount, try to restore session from SecureStore
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
+      let token: string | null = null;
+      let user: User | null = null;
+      let isAuthenticated = false;
+
       try {
-        const token = await getStoredToken();
+        token = await getStoredToken();
         if (token) {
-          const user = await auth.me();
-          setState({ user, token, isLoading: false, isAuthenticated: true });
-        } else {
-          setState((s) => ({ ...s, isLoading: false }));
+          try {
+            user = await restoreUserWithinTimeout();
+            isAuthenticated = true;
+          } catch (error) {
+            if (isExplicitlyInvalidToken(error)) {
+              token = null;
+              try {
+                await clearStoredToken();
+              } catch {
+                // A secondary SecureStore failure must not block startup.
+              }
+            } else {
+              // Preserve a potentially valid local session during timeouts,
+              // network failures and server errors. Late auth.me responses are
+              // ignored because only the bounded race updates local state.
+              isAuthenticated = true;
+            }
+          }
         }
       } catch {
-        // Token invalid/expired — clear it
-        await clearStoredToken();
-        setState({ user: null, token: null, isLoading: false, isAuthenticated: false });
+        // SecureStore could not be read. Do not attempt destructive cleanup.
+      } finally {
+        if (!cancelled) {
+          setState({
+            user,
+            token,
+            isLoading: false,
+            isAuthenticated,
+          });
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleAuthResponse = useCallback(async (token: string, user: User) => {
