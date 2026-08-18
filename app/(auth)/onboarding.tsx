@@ -12,6 +12,8 @@ import {
   ViewToken,
 } from 'react-native';
 import { Button } from '../../src/components/ui/Button';
+import { FeatherRevealOverlay } from '../../src/components/onboarding/FeatherRevealOverlay';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { Colors } from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -39,7 +41,9 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [contentReady, setContentReady] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const onViewableItemsChanged = useRef(
@@ -59,7 +63,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} onLayout={() => setContentReady(true)}>
       {/* Skip */}
       <View style={styles.header}>
         <Text style={styles.logo}>🐦 PigeonSub</Text>
@@ -116,6 +120,11 @@ export default function OnboardingScreen() {
           </Pressable>
         )}
       </View>
+
+      <FeatherRevealOverlay
+        contentReady={contentReady}
+        enabled={!isLoading && !isAuthenticated}
+      />
     </SafeAreaView>
   );
 }
