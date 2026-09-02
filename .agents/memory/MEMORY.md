@@ -1,2 +1,2 @@
 - [Expo Replit proxy setup](expo-replit-proxy-setup.md) — EXPO_PACKAGER_PROXY_URL + externalPort 80 is the working config for Replit iOS/Android simulator; bundle URL must not contain :8081.
-- [PigeonSub backend](pigeonsub-backend.md) — self-hosted Express API on :8082→ext 3000; API URL injected via workflow env (stale .env overridden); pg needs ssl:false; JWT requires SESSION_SECRET.
+- [PigeonSub backend](pigeonsub-backend.md) — Express API; dynamic workflow URL; PostgreSQL needs conditional TLS (off in dev, on when published); JWT requires SESSION_SECRET.
