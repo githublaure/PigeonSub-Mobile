@@ -4,12 +4,13 @@ const cors = require('cors');
 const pool = require('./db');
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 8082;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 8082;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Health check
+// Health checks (the production startup probe calls GET /)
+app.get('/', (_, res) => res.json({ status: 'ok', service: 'pigeonsub-api' }));
 app.get('/health', (_, res) => res.json({ status: 'ok', service: 'pigeonsub-api' }));
 
 // Routes

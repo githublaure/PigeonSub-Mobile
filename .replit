@@ -60,3 +60,8 @@ timeoutMs = 60000
 
 [userenv.shared]
 EXPO_PUBLIC_API_BASE_URL = "https://e5b18622-a6aa-4209-8a82-0d7a9b4f1f82-00-3ftjn5pyf7wdb.kirk.replit.dev:3000/api"
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["node", "backend/server.js"]
+build = ["bash", "-c", "npm ci --prefix backend"]
