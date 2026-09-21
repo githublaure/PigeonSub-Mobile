@@ -12,3 +12,9 @@ web-build/
 
 expo-env.d.ts
 # @end expo-clizipFile.zip
+
+# Local Apple signing material
+credentials.json
+*.p12
+*.p8
+*.mobileprovision
