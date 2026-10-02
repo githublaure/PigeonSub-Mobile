@@ -1,0 +1,50 @@
+Je ne veux pas utiliser ngrok pour PigeonSub et je ne veux pas créer/configurer de NGROK_AUTHTOKEN.
+
+Le tunnel ngrok a été introduit uniquement parce que le workflow utilisait `npx expo start --tunnel`. Ce n'est pas une dépendance fonctionnelle de PigeonSub.
+
+Corrige proprement la configuration avec les règles suivantes :
+
+1. CONSERVE l'upgrade Expo SDK 54 déjà effectué.
+   - Ne downgrade aucune dépendance.
+   - Ne modifie pas les versions Expo / React Native déjà validées si ce n'est pas nécessaire.
+   - Le projet est actuellement validé par expo-doctor 18/18 et TypeScript sans erreur : ne casse pas cet état.
+
+2. SUPPRIME l'utilisation de `--tunnel`.
+   - Cherche dans package.json, .replit, les workflows et toute autre configuration où `npx expo start --tunnel` est utilisé.
+   - Remplace le workflow de développement par un lancement Expo sans tunnel.
+   - Je n'ai pas besoin que le QR code Replit soit accessible depuis mon iPhone pour l'instant.
+   - Je testerai l'application mobile depuis mon Mac avec `npx expo start` lorsque nécessaire.
+
+3. NGROK
+   - Ne me demande plus de NGROK_AUTHTOKEN.
+   - Ne crée aucun secret NGROK_AUTHTOKEN.
+   - Si `@expo/ngrok` a été ajouté uniquement pour permettre `--tunnel`, supprime-le proprement des devDependencies et du package-lock.
+   - Vérifie d'abord qu'aucune autre partie du projet n'en dépend.
+
+4. NE TOUCHE PAS au code fonctionnel de PigeonSub pour résoudre ce problème.
+   - Pas de modification des écrans.
+   - Pas de modification de la navigation.
+   - Pas de modification des features.
+   - Pas de refactor non demandé.
+
+5. Après nettoyage, exécute uniquement les vérifications nécessaires :
+   - npm ci
+   - npx expo-doctor
+   - npx tsc --noEmit
+
+6. Je veux obtenir à la fin :
+   - expo-doctor : 18/18 si possible
+   - TypeScript : 0 erreur
+   - aucune dépendance ngrok si elle n'est plus nécessaire
+   - aucun workflow utilisant `--tunnel`
+   - aucune demande de NGROK_AUTHTOKEN
+
+7. IMPORTANT :
+   Ne committe et ne pousse RIEN sur GitHub pour le moment.
+   Avant tout commit, montre-moi :
+   - les fichiers modifiés
+   - le diff pertinent
+   - les dépendances supprimées/modifiées
+   - la commande exacte utilisée par le nouveau workflow
+
+Commence par inspecter l'état actuel avant de modifier quoi que ce soit.

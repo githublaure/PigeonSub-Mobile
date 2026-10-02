@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, ImageSourcePropType, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { Button } from './Button';
 
 interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
+  imageSource?: ImageSourcePropType;
   title: string;
   description?: string;
   actionLabel?: string;
@@ -14,6 +15,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   icon = 'file-tray-outline',
+  imageSource,
   title,
   description,
   actionLabel,
@@ -21,7 +23,11 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <Ionicons name={icon} size={56} color={Colors.textMuted} />
+      {imageSource ? (
+        <Image source={imageSource} style={styles.image} resizeMode="contain" />
+      ) : (
+        <Ionicons name={icon} size={56} color={Colors.textMuted} />
+      )}
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
       {actionLabel && onAction ? (
@@ -38,6 +44,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 40,
     gap: 12,
+  },
+  image: {
+    width: 128,
+    height: 128,
   },
   title: {
     color: Colors.text,

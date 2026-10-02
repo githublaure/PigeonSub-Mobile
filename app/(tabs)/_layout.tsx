@@ -1,11 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Image, ImageSourcePropType } from 'react-native';
 import { Colors } from '../../src/theme/colors';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
+type PigeonTabIconPair = {
+  filled: ImageSourcePropType;
+  outline: ImageSourcePropType;
+};
+
+const DASHBOARD_ICONS: PigeonTabIconPair = {
+  filled: require('../../assets/icons/navigation/plume-tab-filled.png'),
+  outline: require('../../assets/icons/navigation/plume-tab-outline.png'),
+};
+
+const CALENDAR_ICONS: PigeonTabIconPair = {
+  filled: require('../../assets/icons/navigation/security-calendar-filled.png'),
+  outline: require('../../assets/icons/navigation/security-calendar-outline.png'),
+};
 
 function tabIcon(focused: boolean, name: IoniconName, outlineName: IoniconName) {
   return <Ionicons name={focused ? name : outlineName} size={24} color={focused ? Colors.primary : Colors.textMuted} />;
+}
+
+function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
+  return (
+    <Image
+      accessible={false}
+      source={focused ? icons.filled : icons.outline}
+      resizeMode="contain"
+      style={{ width: 24, height: 24 }}
+    />
+  );
 }
 
 export default function TabsLayout() {
@@ -30,7 +56,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'home', 'home-outline'),
+          tabBarIcon: ({ focused }) => pigeonTabIcon(focused, DASHBOARD_ICONS),
         }}
       />
       <Tabs.Screen
@@ -44,7 +70,7 @@ export default function TabsLayout() {
         name="calendar"
         options={{
           title: 'Calendar',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'calendar', 'calendar-outline'),
+          tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
         }}
       />
       <Tabs.Screen

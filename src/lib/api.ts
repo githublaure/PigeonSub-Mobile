@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { buildApiUrl, stripQueryForLog } from './api-url';
 import { API_BASE_URL } from './config';
 
 // ---------------------------------------------------------------------------
@@ -48,10 +49,18 @@ async function apiFetch<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}/api${path}`, {
+  const requestUrl = buildApiUrl(API_BASE_URL, path);
+  const method = options.method ?? 'GET';
+  const diagnosticUrl = stripQueryForLog(requestUrl);
+
+  if (__DEV__) console.info(`[PigeonSub API] ${method} ${diagnosticUrl}`);
+
+  const res = await fetch(requestUrl, {
     ...options,
     headers,
   });
+
+  if (__DEV__) console.info(`[PigeonSub API] ${method} ${diagnosticUrl} -> ${res.status}`);
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -212,6 +221,9 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify(data),
     }, false),
+
+  deleteAccount: () =>
+    apiFetch<void>('/auth/account', { method: 'DELETE' }),
 };
 
 // ---------------------------------------------------------------------------
@@ -300,10 +312,10 @@ export const voice = {
       method: 'POST',
       body: JSON.stringify(data),
       headers: { 'x-elevenlabs-key': elevenLabsKey } as Record<string, string>,
-    }, false),
+    }),
 
   getReminders: (subscriptionId: number) =>
-    apiFetch<VoiceReminder[]>(`/voice/reminders/${subscriptionId}`, {}, false),
+    apiFetch<VoiceReminder[]>(`/voice/reminders/${subscriptionId}`),
 
-  getAllReminders: () => apiFetch<VoiceReminder[]>('/voice/reminders', {}, false),
+  getAllReminders: () => apiFetch<VoiceReminder[]>('/voice/reminders'),
 };

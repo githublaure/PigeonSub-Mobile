@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -71,7 +72,12 @@ export default function LoginScreen() {
             <Text style={styles.backText}>← Back</Text>
           </Pressable>
 
-          <Text style={styles.title}>Welcome back 🐦</Text>
+          <Image
+            source={require('../../assets/branding/pigeonsub-logo.png')}
+            style={styles.brandImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your PigeonSub account</Text>
 
           {/* Form */}
@@ -165,7 +171,8 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
   back: { paddingTop: 16, paddingBottom: 8 },
   backText: { color: Colors.textSecondary, fontSize: 15 },
-  title: { color: Colors.text, fontSize: 32, fontWeight: '800', marginTop: 16 },
+  brandImage: { width: 92, height: 92, alignSelf: 'center', marginTop: 8 },
+  title: { color: Colors.text, fontSize: 32, fontWeight: '800', marginTop: 8 },
   subtitle: { color: Colors.textSecondary, fontSize: 16, marginTop: 6, marginBottom: 32 },
   form: { gap: 16 },
   forgotRow: { alignSelf: 'flex-end' },

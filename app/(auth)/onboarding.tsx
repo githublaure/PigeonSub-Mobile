@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -12,6 +12,8 @@ import {
   ViewToken,
 } from 'react-native';
 import { Button } from '../../src/components/ui/Button';
+import { FeatherRevealOverlay } from '../../src/components/onboarding/FeatherRevealOverlay';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { Colors } from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -19,19 +21,19 @@ const { width } = Dimensions.get('window');
 const SLIDES = [
   {
     key: '1',
-    icon: 'wallet-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-money-bag.png'),
     title: 'Stop being a pigeon',
     subtitle: 'Track every subscription you pay for — and stop paying for ones you forgot about.',
   },
   {
     key: '2',
-    icon: 'notifications-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-spray-paint.png'),
     title: 'Renewals before they hit',
     subtitle: 'Get ahead of charges with a calendar view and upcoming-renewal alerts.',
   },
   {
     key: '3',
-    icon: 'mic-outline' as const,
+    imageSource: require('../../assets/mascots/pigeon-microphone.png'),
     title: 'AI voice reminders',
     subtitle: 'Generate personalised voice nudges powered by ElevenLabs — in your style.',
   },
@@ -39,7 +41,9 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [contentReady, setContentReady] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const onViewableItemsChanged = useRef(
@@ -59,68 +63,76 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Skip */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🐦 PigeonSub</Text>
-        <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={12}>
-          <Text style={styles.skip}>Skip</Text>
-        </Pressable>
-      </View>
-
-      {/* Slides */}
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.key}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <View style={styles.iconCircle}>
-              <Ionicons name={item.icon} size={64} color={Colors.primary} />
-            </View>
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
-          </View>
-        )}
-      />
-
-      {/* Dots */}
-      <View style={styles.dots}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === currentIndex && styles.dotActive]}
-          />
-        ))}
-      </View>
-
-      {/* CTA */}
-      <View style={styles.actions}>
-        <Button
-          title={isLast ? 'Get started' : 'Next'}
-          onPress={next}
-          fullWidth
-          size="lg"
-        />
-        {isLast && (
-          <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
-            <Text style={styles.loginLink}>
-              Already have an account?{' '}
-              <Text style={styles.loginLinkBold}>Sign in</Text>
-            </Text>
+    <View style={styles.screen} onLayout={() => setContentReady(true)}>
+      <SafeAreaView style={styles.safe}>
+        {/* Skip */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>🐦 PigeonSub</Text>
+          <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={12}>
+            <Text style={styles.skip}>Skip</Text>
           </Pressable>
-        )}
-      </View>
-    </SafeAreaView>
+        </View>
+
+        {/* Slides */}
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.key}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+          renderItem={({ item }) => (
+            <View style={styles.slide}>
+              <View style={styles.iconCircle}>
+                <Image source={item.imageSource} style={styles.slideImage} resizeMode="contain" />
+              </View>
+              <Text style={styles.slideTitle}>{item.title}</Text>
+              <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+            </View>
+          )}
+        />
+
+        {/* Dots */}
+        <View style={styles.dots}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === currentIndex && styles.dotActive]}
+            />
+          ))}
+        </View>
+
+        {/* CTA */}
+        <View style={styles.actions}>
+          <Button
+            title={isLast ? 'Get started' : 'Next'}
+            onPress={next}
+            fullWidth
+            size="lg"
+          />
+          {isLast && (
+            <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
+              <Text style={styles.loginLink}>
+                Already have an account?{' '}
+                <Text style={styles.loginLinkBold}>Sign in</Text>
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </SafeAreaView>
+
+      <FeatherRevealOverlay
+        contentReady={contentReady}
+        enabled={!isLoading && !isAuthenticated}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',
@@ -147,6 +159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  slideImage: { width: 136, height: 136 },
   slideTitle: {
     color: Colors.text,
     fontSize: 28,
