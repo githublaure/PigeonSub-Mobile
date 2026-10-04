@@ -8,6 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "mobile:check": "node scripts/mobile-build.js check",
+    "mobile:prepare:ios": "node scripts/mobile-build.js prepare",
+    "mobile:export:ios": "node scripts/mobile-build.js export",
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
