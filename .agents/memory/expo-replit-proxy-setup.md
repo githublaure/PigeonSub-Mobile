@@ -45,6 +45,13 @@ EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN npx expo start --clear
 **Why:** These are expected by expo SDK 54 internals but not auto-installed via `expo install`.
 
 ## Diagnostic flow for "Could not connect to development server"
+
+If Metro reports missing dependency files that exist on disk after a dependency reinstall, restart Metro with its cache cleared before changing package versions.
+
+**Why:** Replacing node_modules while Metro is running can leave its file map stale, producing false missing-module errors.
+
+**How to apply:** Verify the reported file exists, restart the Expo workflow, and request an iOS bundle through the Expo proxy domain to confirm resolution.
+
 1. Check Metro is running: `curl http://localhost:8081/` → should return `application/expo+json`
 2. Check public manifest: `curl https://$REPLIT_EXPO_DEV_DOMAIN/` → same check
 3. Inspect bundle URL in manifest — must NOT contain `:8081`
