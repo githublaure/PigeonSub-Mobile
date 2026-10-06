@@ -1,7 +1,7 @@
 import { useThemedStyles, useTheme } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
 import { useRouter } from 'expo-router';
-import { parseDay } from '../../lib/subscription-math';
+import { addDays, dayKey, parseDay } from '../../lib/subscription-math';
 import { categoryLabels } from '../../lib/labels';
 /**
  * Shared form used by both Add and Edit subscription screens.
@@ -9,7 +9,7 @@ import { categoryLabels } from '../../lib/labels';
  */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Pressable,
@@ -30,6 +30,7 @@ import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
 import { ColorPicker } from './ColorPicker';
+import { DatePickerField } from './DatePickerField';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
@@ -248,7 +249,9 @@ export function SubscriptionForm({
     control,
     handleSubmit,
     watch,
-    formState: { errors, isSubmitting },
+    trigger,
+    setValue,
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<SubscriptionFormValues>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
@@ -274,6 +277,29 @@ export function SubscriptionForm({
 
   const isTrial = watch('isTrial');
   const useSafetyDate = watch('useSafetyDate');
+  const frequency = watch('frequency');
+  const nextRenewal = watch('nextRenewal');
+  const trialEndsAt = watch('trialEndsAt');
+  const safetyDate = watch('safetyDate');
+  const deadline = parseDay(isTrial ? trialEndsAt : nextRenewal);
+  const lastSafetyDay = deadline ? dayKey(addDays(deadline, -1)) : undefined;
+  useEffect(() => {
+    if (isSubmitted) void trigger(['nextRenewal', 'trialEndsAt', 'safetyDate']);
+  }, [
+    nextRenewal,
+    trialEndsAt,
+    safetyDate,
+    isTrial,
+    useSafetyDate,
+    isSubmitted,
+    trigger,
+  ]);
+  useEffect(() => {
+    if (frequency === 'lifetime') {
+      setValue('useSafetyDate', false);
+      setValue('isTrial', false);
+    }
+  }, [frequency, setValue]);
 
   const handleSubmitWrapped = handleSubmit(async (values) => {
     setApiError('');
@@ -340,8 +366,7 @@ export function SubscriptionForm({
               name="isTrial"
               render={({ field }) => (
                 <ToggleRow
-                  label="Abonnement en période d’essai"
-                  description="Gratuit maintenant, puis au tarif renseigné. Les essais comptent parmi vos 5 abonnements gratuits."
+                  label="Essai gratuit"
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -353,14 +378,11 @@ export function SubscriptionForm({
                 control={control}
                 name="trialEndsAt"
                 render={({ field }) => (
-                  <StyledTextInput
-                    label="Fin de l’essai (AAAA-MM-JJ, obligatoire)"
-                    placeholder="2026-12-15"
-                    keyboardType="numbers-and-punctuation"
-                    autoCorrect={false}
+                  <DatePickerField
+                    label="Fin de l’essai"
                     error={errors.trialEndsAt?.message}
                     value={field.value ?? ''}
-                    onChangeText={field.onChange}
+                    onChange={field.onChange}
                     onBlur={field.onBlur}
                   />
                 )}
@@ -433,19 +455,15 @@ export function SubscriptionForm({
               control={control}
               name="nextRenewal"
               render={({ field }) => (
-                <StyledTextInput
+                <DatePickerField
                   label={
-                    isTrial
-                      ? 'Premier prélèvement (facultatif si identique à la fin de l’essai)'
-                      : 'Prochain prélèvement (AAAA-MM-JJ)'
+                    isTrial ? 'Premier prélèvement' : 'Prochain prélèvement'
                   }
-                  placeholder="2026-12-31"
-                  keyboardType="numbers-and-punctuation"
-                  autoCorrect={false}
-                  returnKeyType="next"
+                  optional={!useSafetyDate || isTrial}
+                  minDate={isTrial ? trialEndsAt : undefined}
                   error={errors.nextRenewal?.message}
                   value={field.value ?? ''}
-                  onChangeText={field.onChange}
+                  onChange={field.onChange}
                   onBlur={field.onBlur}
                 />
               )}
@@ -455,68 +473,59 @@ export function SubscriptionForm({
               control={control}
               name="purchaseDate"
               render={({ field }) => (
-                <StyledTextInput
-                  label="Date de souscription (AAAA-MM-JJ, facultatif)"
-                  placeholder="2024-01-15"
-                  keyboardType="numbers-and-punctuation"
-                  autoCorrect={false}
+                <DatePickerField
+                  label="Date de souscription"
+                  optional
                   error={errors.purchaseDate?.message}
                   value={field.value ?? ''}
-                  onChangeText={field.onChange}
+                  onChange={field.onChange}
                   onBlur={field.onBlur}
                 />
               )}
             />
 
-            <SectionTitle>Date de sûreté</SectionTitle>
-            {safetyEditable ? (
+            {frequency !== 'lifetime' && (
               <>
-                <Controller
-                  control={control}
-                  name="useSafetyDate"
-                  render={({ field }) => (
-                    <ToggleRow
-                      label="Choisir ma date de sûreté"
-                      value={field.value}
-                      onChange={field.onChange}
-                      description="Le jour où agir pour éviter un renouvellement non souhaité."
+                <SectionTitle>Date de sûreté</SectionTitle>
+                {safetyEditable ? (
+                  <>
+                    <Controller
+                      control={control}
+                      name="useSafetyDate"
+                      render={({ field }) => (
+                        <ToggleRow
+                          label="Choisir ma date de sûreté"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      )}
                     />
-                  )}
-                />
-                {useSafetyDate && (
-                  <Controller
-                    control={control}
-                    name="safetyDate"
-                    render={({ field }) => (
-                      <StyledTextInput
-                        label="Date de sûreté (AAAA-MM-JJ)"
-                        placeholder="2026-12-25"
-                        keyboardType="numbers-and-punctuation"
-                        autoCorrect={false}
-                        error={errors.safetyDate?.message}
-                        value={field.value ?? ''}
-                        onChangeText={field.onChange}
-                        onBlur={field.onBlur}
+                    {useSafetyDate && (
+                      <Controller
+                        control={control}
+                        name="safetyDate"
+                        render={({ field }) => (
+                          <DatePickerField
+                            label="Date de sûreté"
+                            maxDate={lastSafetyDay}
+                            initialDate={lastSafetyDay}
+                            error={errors.safetyDate?.message}
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                          />
+                        )}
                       />
                     )}
-                  />
+                  </>
+                ) : (
+                  <Text style={styles.toggleDesc}>
+                    Les réglages existants sont conservés. Plus permet de
+                    personnaliser tous vos abonnements.
+                  </Text>
                 )}
-                <Text style={styles.toggleDesc}>
-                  Incluse pour vos 5 abonnements gratuits. L’avance choisie est
-                  conservée aux prochains renouvellements.
-                </Text>
               </>
-            ) : (
-              <Text style={styles.toggleDesc}>
-                Les réglages existants sont conservés. Plus permet de
-                personnaliser tous vos abonnements.
-              </Text>
             )}
-
-            <Text style={styles.toggleDesc}>
-              Le préavis et les rappels se règlent sur la fiche de l’abonnement
-              après son enregistrement. Vous pourrez aussi y joindre vos photos.
-            </Text>
 
             {/* ── Usage ── */}
             <SectionTitle>Utilisation</SectionTitle>
@@ -559,10 +568,9 @@ export function SubscriptionForm({
               name="isActive"
               render={({ field }) => (
                 <ToggleRow
-                  label="Actif"
-                  description="Désactivez pour archiver cet abonnement"
-                  value={field.value}
-                  onChange={field.onChange}
+                  label="Archivé"
+                  value={!field.value}
+                  onChange={(archived) => field.onChange(!archived)}
                 />
               )}
             />
@@ -573,7 +581,6 @@ export function SubscriptionForm({
               render={({ field }) => (
                 <ToggleRow
                   label="À examiner"
-                  description="À revoir plus tard"
                   value={field.value}
                   onChange={field.onChange}
                 />

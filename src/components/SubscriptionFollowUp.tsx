@@ -18,6 +18,7 @@ import {
   shortDate,
   type FollowUp,
 } from '../lib/subscription-math';
+import { DatePickerField } from './forms/DatePickerField';
 import { Button } from './ui/Button';
 import { useUI } from './ui/Page';
 
@@ -125,10 +126,7 @@ export function SafetyPanel({
           si le prochain prélèvement peut encore être évité.
         </Text>
       )}
-      <Text style={ui.small}>
-        Préavis de votre contrat, en jours. Vérifiez ses conditions : PigeonSub
-        calcule une estimation à partir de vos informations.
-      </Text>
+      <Text style={ui.small}>Préavis du contrat · jours</Text>
       <TextInput
         accessibilityLabel="Préavis en jours"
         value={notice}
@@ -140,13 +138,6 @@ export function SafetyPanel({
       />
       {sub.useSafetyDate && sub.safetyDate ? (
         <>
-          <Text style={ui.small}>
-            {sub.isTrial
-              ? 'Votre date de sûreté concerne la fin de cet essai. Aucun renouvellement payant n’est supposé confirmé.'
-              : 'Votre date choisie se répète avec le même nombre de jours d’avance à chaque renouvellement.'}{' '}
-            Si le préavis l’exige, elle est avancée à la date limite
-            contractuelle estimée.
-          </Text>
           <Button
             title="Modifier ma date de sûreté"
             variant="secondary"
@@ -155,9 +146,7 @@ export function SafetyPanel({
         </>
       ) : (
         <>
-          <Text style={ui.body}>
-            Combien de jours avant la date limite voulez-vous agir ?
-          </Text>
+          <Text style={ui.body}>Avance du rappel · jours</Text>
           <TextInput
             accessibilityLabel="Avance du rappel en jours"
             value={lead}
@@ -169,10 +158,7 @@ export function SafetyPanel({
           />
         </>
       )}
-      <Text style={ui.small}>
-        Une date de sûreté personnalisée et un rappel à 9 h, inclus pour vos 5
-        abonnements gratuits.
-      </Text>
+
       {!editable && (
         <Button
           title="Personnaliser tous mes abonnements avec Plus"
@@ -188,7 +174,7 @@ export function SafetyPanel({
         onPress={() => void save()}
       />
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={ui.body}>Recevoir le rappel</Text>
+        <Text style={ui.body}>Rappel à 9 h</Text>
         <Switch
           accessibilityLabel="Recevoir un rappel pour cet abonnement"
           value={follow.reminderEnabled ?? false}
@@ -197,10 +183,7 @@ export function SafetyPanel({
           trackColor={{ true: Colors.primary }}
         />
       </View>
-      <Text style={ui.small}>
-        Un rappel par échéance. Les prochaines dates sont programmées sur cet
-        appareil ; rouvrez l’app régulièrement pour renouveler la programmation.
-      </Text>
+
       {message ? <Text style={[ui.small, ui.success]}>{message}</Text> : null}
       {error ? <Text style={ui.error}>{error}</Text> : null}
       {error.includes('réglages') && (
@@ -302,15 +285,10 @@ export function CancellationPanel({
             PigeonSub ne résilie pas à votre place. L’économie reste potentielle
             tant que vous n’avez pas confirmé la démarche.
           </Text>
-          <Text style={ui.body}>Date de fin effective (AAAA-MM-JJ)</Text>
-          <TextInput
-            accessibilityLabel="Date de fin effective"
-            style={ui.input}
+          <DatePickerField
+            label="Date de fin effective"
             value={effective}
-            onChangeText={setEffective}
-            placeholder="2026-10-31"
-            placeholderTextColor={Colors.textMuted}
-            autoCorrect={false}
+            onChange={setEffective}
           />
           <Text style={ui.body}>Référence de confirmation (facultatif)</Text>
           <TextInput

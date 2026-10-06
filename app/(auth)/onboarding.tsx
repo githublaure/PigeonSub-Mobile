@@ -16,7 +16,6 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { Button } from '../../src/components/ui/Button';
-import { FeatherRevealOverlay } from '../../src/components/onboarding/FeatherRevealOverlay';
 import { useAuth } from '../../src/contexts/AuthContext';
 
 const SLIDES = [
@@ -47,9 +46,8 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const styles = useThemedStyles(createStyles);
 
-  const { isAuthenticated, isLoading, startGuest, demoLogin } = useAuth();
+  const { startGuest, demoLogin } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [contentReady, setContentReady] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -91,11 +89,19 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={styles.screen} onLayout={() => setContentReady(true)}>
+    <View style={styles.screen}>
       <SafeAreaView style={styles.safe}>
         {/* Skip */}
         <View style={styles.header}>
-          <Text style={styles.logo}>🐦 PigeonSub</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Image
+              source={require('../../assets/icons/navigation/plume-tab-filled.png')}
+              style={{ width: 28, height: 28 }}
+              resizeMode="contain"
+              accessibilityLabel="Plume PigeonSub"
+            />
+            <Text style={styles.logo}>PigeonSub</Text>
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <ThemeControls compact />
             <Pressable
@@ -172,17 +178,11 @@ export default function OnboardingScreen() {
           )}
           {isLast && (
             <Text style={styles.loginLink}>
-              Vos données restent sur cet appareil tant que vous utilisez le
-              mode sans compte.
+              Sans compte · données sur cet appareil.
             </Text>
           )}
         </View>
       </SafeAreaView>
-
-      <FeatherRevealOverlay
-        contentReady={contentReady}
-        enabled={!isLoading && !isAuthenticated}
-      />
     </View>
   );
 }

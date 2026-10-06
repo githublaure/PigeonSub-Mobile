@@ -1,4 +1,3 @@
-import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -16,15 +15,14 @@ export function DecisionActions({
   sub,
   follow = {},
   inDetail = false,
-  highlightSavings = false,
+  showSavings = true,
 }: {
   sub: Subscription;
   follow?: FollowUp;
   inDetail?: boolean;
-  highlightSavings?: boolean;
+  showSavings?: boolean;
 }) {
   const ui = useUI();
-  const { colors } = useTheme();
 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -58,44 +56,11 @@ export function DecisionActions({
     return <Text style={ui.small}>Abonnement archivé</Text>;
   return (
     <View style={{ gap: 10 }}>
-      {monthlyCost(sub) > 0 &&
-        (highlightSavings ? (
-          <View
-            style={{
-              backgroundColor: colors.savingsBackground,
-              borderRadius: 12,
-              padding: 12,
-              gap: 3,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.savingsText,
-                fontSize: 12,
-                fontWeight: '600',
-              }}
-            >
-              {sub.isTrial
-                ? 'Dépense évitable si l’essai est arrêté à temps'
-                : 'Économie possible si résilié'}
-            </Text>
-            <Text
-              style={{
-                color: colors.savingsText,
-                fontSize: 24,
-                fontWeight: '800',
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {euro(monthlyCost(sub) * 12)}{' '}
-              <Text style={{ fontSize: 14, fontWeight: '500' }}>/ an</Text>
-            </Text>
-          </View>
-        ) : (
-          <Text style={ui.body}>
-            Jusqu’à {euro(monthlyCost(sub) * 12)} / an évitables
-          </Text>
-        ))}
+      {showSavings && monthlyCost(sub) > 0 && (
+        <Text style={ui.body}>
+          Jusqu’à {euro(monthlyCost(sub) * 12)} / an évitables
+        </Text>
+      )}
       {follow.decision === 'keep' && (
         <Text style={[ui.small, ui.success]}>
           Vous avez choisi de le conserver.

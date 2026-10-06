@@ -24,7 +24,7 @@ export const subscriptionFormSchema = z
       .string()
       .refine(
         (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
+        'Choisissez une date valide.',
       )
       .optional()
       .or(z.literal('')),
@@ -33,7 +33,7 @@ export const subscriptionFormSchema = z
       .string()
       .refine(
         (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
+        'Choisissez une date valide.',
       )
       .optional()
       .or(z.literal('')),
@@ -42,7 +42,7 @@ export const subscriptionFormSchema = z
       .string()
       .refine(
         (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
+        'Choisissez une date valide.',
       )
       .optional()
       .or(z.literal('')),
@@ -50,7 +50,7 @@ export const subscriptionFormSchema = z
       .string()
       .refine(
         (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
+        'Choisissez une date valide.',
       )
       .optional()
       .or(z.literal('')),
@@ -84,23 +84,31 @@ export const subscriptionFormSchema = z
             'Le premier prélèvement doit être à la fin de l’essai ou après.',
         });
     }
-    if (!values.useSafetyDate) return;
+    if (!values.useSafetyDate || values.frequency === 'lifetime') return;
     const safety = parseDay(values.safetyDate);
     const renewal = parseDay(
       values.isTrial ? values.trialEndsAt : values.nextRenewal,
     );
-    if (
-      !safety ||
-      !renewal ||
-      safety >= renewal ||
-      values.frequency === 'lifetime'
-    )
+    if (!renewal) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [values.isTrial ? 'trialEndsAt' : 'nextRenewal'],
+        message: values.isTrial
+          ? 'Choisissez la fin de l’essai.'
+          : 'Choisissez le prochain prélèvement pour définir la sûreté.',
+      });
+    }
+    if (!safety || (renewal && safety >= renewal)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['safetyDate'],
-        message:
-          'Choisissez une date de sûreté avant le prochain prélèvement ou la fin de l’essai.',
+        message: !safety
+          ? 'Choisissez votre date de sûreté.'
+          : values.isTrial
+            ? 'La sûreté doit précéder la fin de l’essai.'
+            : 'La sûreté doit précéder le prélèvement.',
       });
+    }
   });
 
 export type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;

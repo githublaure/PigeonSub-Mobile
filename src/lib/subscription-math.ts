@@ -212,6 +212,25 @@ export function deadlines(
     : addDays(actionBy, -(follow.leadDays ?? 1));
   return { renewal, actionBy, safety };
 }
+/** Renewal order for the home screen; safety deadlines remain attached to each item. */
+export function upcomingRenewals(
+  subs: Subscription[],
+  follow: FollowUps,
+  now = new Date(),
+) {
+  return subs
+    .map((sub) => ({ sub, dates: deadlines(sub, follow[sub.id], now) }))
+    .filter(
+      (item): item is typeof item & { dates: { renewal: Date } } =>
+        item.dates.renewal !== null,
+    )
+    .sort(
+      (a, b) =>
+        a.dates.renewal.getTime() - b.dates.renewal.getTime() ||
+        a.sub.id - b.sub.id,
+    );
+}
+
 export function overview(
   subs: Subscription[],
   follow: FollowUps,

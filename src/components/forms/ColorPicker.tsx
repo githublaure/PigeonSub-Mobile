@@ -10,13 +10,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
-import {
-  clamp,
-  DEFAULT_CATEGORY_COLOR,
-  hexToHsv,
-  hsvToHex,
-  type HSV,
-} from '../../lib/color-picker';
+import { clamp, hexToHsv, hsvToHex, type HSV } from '../../lib/color-picker';
 
 const PRESETS = [
   ['Violet', '#7C3AED'],
@@ -113,10 +107,6 @@ export function ColorPicker({
       </Pressable>
       {expanded && (
         <View style={{ gap: 10 }}>
-          <Text style={styles.hint}>
-            Glissez dans le carré pour la nuance, puis sur la bande pour la
-            teinte.
-          </Text>
           <View
             accessibilityRole="adjustable"
             accessibilityLabel="Nuance de la couleur"
@@ -189,7 +179,11 @@ export function ColorPicker({
           <View
             accessibilityRole="adjustable"
             accessibilityLabel="Teinte de la couleur"
-            accessibilityValue={{ min: 0, max: 360, now: Math.round(hsv.h) }}
+            accessibilityValue={{
+              min: 0,
+              max: 360,
+              now: Math.round(hsv.h),
+            }}
             accessibilityActions={[
               { name: 'increment' },
               { name: 'decrement' },
@@ -238,32 +232,13 @@ export function ColorPicker({
               pointerEvents="none"
               style={[
                 styles.knob,
-                { left: `${hsv.h / 3.6}%`, top: 22, backgroundColor: hueColor },
+                {
+                  left: `${hsv.h / 3.6}%`,
+                  top: 22,
+                  backgroundColor: hueColor,
+                },
               ]}
             />
-          </View>
-          <View style={styles.adjustments}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => choose({ ...hsv, v: clamp(hsv.v + 0.1) })}
-              style={styles.adjustButton}
-            >
-              <Text style={styles.hint}>Éclaircir</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => choose({ ...hsv, v: clamp(hsv.v - 0.1) })}
-              style={styles.adjustButton}
-            >
-              <Text style={styles.hint}>Assombrir</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => choose(hexToHsv(DEFAULT_CATEGORY_COLOR))}
-              style={styles.adjustButton}
-            >
-              <Text style={styles.hint}>Réinitialiser</Text>
-            </Pressable>
           </View>
         </View>
       )}
@@ -324,16 +299,5 @@ const createStyles = (c: Palette) =>
       borderColor: '#FFFFFF',
       borderRadius: 10,
       boxShadow: '0 0 0 1px #333333',
-    },
-    adjustments: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-    },
-    adjustButton: {
-      minHeight: 44,
-      paddingHorizontal: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
   });

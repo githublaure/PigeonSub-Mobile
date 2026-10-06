@@ -1,3 +1,4 @@
+import { DatePickerField } from '../../src/components/forms/DatePickerField';
 import { useLocalSearchParams } from 'expo-router';
 import { TrialsList } from '../../src/components/TrialsList';
 import React, { useEffect, useState } from 'react';
@@ -132,7 +133,7 @@ export default function CouponsScreen() {
             [
               ['provider', 'Service', 'Ex. ElevenLabs'],
               ['title', 'Offre', 'Ex. Deux semaines offertes'],
-              ['expiresOn', 'Date de fin (AAAA-MM-JJ)', '2026-10-12'],
+              ['expiresOn', 'Date de fin', ''],
               ['code', 'Code promo (facultatif)', 'Votre code'],
               ['url', 'Lien de l’offre (facultatif)', 'https://…'],
               [
@@ -141,28 +142,35 @@ export default function CouponsScreen() {
                 'Formule éligible, renouvellement, préavis…',
               ],
             ] as const
-          ).map(([field, label, placeholder]) => (
-            <View key={field} style={{ gap: 7 }}>
-              <Text style={ui.label}>{label}</Text>
-              <TextInput
-                accessibilityLabel={label}
-                value={draft[field]}
-                onChangeText={(value) => setDraft({ ...draft, [field]: value })}
-                placeholder={placeholder}
-                placeholderTextColor={c.textMuted}
-                style={ui.input}
-                autoCapitalize={
-                  field === 'url' || field === 'expiresOn'
-                    ? 'none'
-                    : 'sentences'
-                }
-                autoCorrect={field !== 'url' && field !== 'code'}
-                keyboardType={field === 'url' ? 'url' : 'default'}
-                multiline={field === 'notes'}
-                maxLength={field === 'notes' ? 1000 : 500}
+          ).map(([field, label, placeholder]) =>
+            field === 'expiresOn' ? (
+              <DatePickerField
+                key={field}
+                label={label}
+                value={draft.expiresOn}
+                onChange={(value) => setDraft({ ...draft, expiresOn: value })}
               />
-            </View>
-          ))}
+            ) : (
+              <View key={field} style={{ gap: 7 }}>
+                <Text style={ui.label}>{label}</Text>
+                <TextInput
+                  accessibilityLabel={label}
+                  value={draft[field]}
+                  onChangeText={(value) =>
+                    setDraft({ ...draft, [field]: value })
+                  }
+                  placeholder={placeholder}
+                  placeholderTextColor={c.textMuted}
+                  style={ui.input}
+                  autoCapitalize={field === 'url' ? 'none' : 'sentences'}
+                  autoCorrect={field !== 'url' && field !== 'code'}
+                  keyboardType={field === 'url' ? 'url' : 'default'}
+                  multiline={field === 'notes'}
+                  maxLength={field === 'notes' ? 1000 : 500}
+                />
+              </View>
+            ),
+          )}
           {!!failure && (
             <Text accessibilityRole="alert" style={ui.error}>
               {failure}

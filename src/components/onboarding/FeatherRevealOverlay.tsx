@@ -42,7 +42,7 @@ const FADE_DURATION_MS = 100;
 
 interface FeatherRevealOverlayProps {
   contentReady: boolean;
-  enabled: boolean;
+  onFinished: () => void;
 }
 
 function getRevealGeometry(viewportWidth: number, viewportHeight: number) {
@@ -56,7 +56,7 @@ function getRevealGeometry(viewportWidth: number, viewportHeight: number) {
       width / (2 * REVEAL_ANCHOR.x),
       width / (2 * (MASK_WIDTH - REVEAL_ANCHOR.x)),
       height / (2 * REVEAL_ANCHOR.y),
-      height / (2 * (MASK_HEIGHT - REVEAL_ANCHOR.y))
+      height / (2 * (MASK_HEIGHT - REVEAL_ANCHOR.y)),
     ) * INITIAL_OVERSCAN;
 
   const renderedWidth = MASK_WIDTH * maskScale;
@@ -85,15 +85,16 @@ function getRevealGeometry(viewportWidth: number, viewportHeight: number) {
 
 export function FeatherRevealOverlay({
   contentReady,
-  enabled,
+  onFinished,
 }: FeatherRevealOverlayProps) {
   const { width, height } = useWindowDimensions();
   const geometry = useMemo(
     () => getRevealGeometry(width, height),
-    [height, width]
+    [height, width],
   );
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  const curtain = useRef(new Animated.Value(1)).current;
   const [maskLoaded, setMaskLoaded] = useState(false);
   const [maskFailed, setMaskFailed] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -107,20 +108,20 @@ export function FeatherRevealOverlay({
   }, []);
 
   useLayoutEffect(() => {
-    if (!enabled || !revealWithoutOverlay || visible) return;
+    if (!revealWithoutOverlay || visible) return;
 
     // The overlay has already been removed by this layout commit. Waiting for
     // the next frame keeps the native splash visible until that commit is ready
     // to be presented, without introducing an arbitrary time delay.
     const frame = requestAnimationFrame(() => {
-      void hideSplashOnce();
+      void hideSplashOnce().then(onFinished);
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [enabled, hideSplashOnce, revealWithoutOverlay, visible]);
+  }, [hideSplashOnce, revealWithoutOverlay, visible, onFinished]);
 
   useEffect(() => {
-    if (!enabled || !contentReady || !maskLoaded) return;
+    if (!contentReady || !maskLoaded) return;
 
     let cancelled = false;
     let firstFrame: number | undefined;
@@ -128,9 +129,8 @@ export function FeatherRevealOverlay({
     let animation: Animated.CompositeAnimation | undefined;
 
     const startReveal = async () => {
-      const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled().catch(
-        () => false
-      );
+      const reduceMotion =
+        await AccessibilityInfo.isReduceMotionEnabled().catch(() => false);
       if (cancelled) return;
 
       // Two frames ensure the fully opaque cache has been committed before the
@@ -149,12 +149,19 @@ export function FeatherRevealOverlay({
           if (cancelled) return;
 
           animation = Animated.sequence([
-            Animated.timing(scale, {
-              toValue: geometry.finalScale,
-              duration: REVEAL_DURATION_MS,
-              easing: Easing.bezier(0.45, 0, 0.2, 1),
-              useNativeDriver: true,
-            }),
+            Animated.parallel([
+              Animated.timing(curtain, {
+                toValue: 0,
+                duration: 180,
+                useNativeDriver: true,
+              }),
+              Animated.timing(scale, {
+                toValue: geometry.finalScale,
+                duration: REVEAL_DURATION_MS,
+                easing: Easing.bezier(0.45, 0, 0.2, 1),
+                useNativeDriver: true,
+              }),
+            ]),
             Animated.timing(opacity, {
               toValue: 0,
               duration: FADE_DURATION_MS,
@@ -164,7 +171,10 @@ export function FeatherRevealOverlay({
           ]);
 
           animation.start(({ finished }) => {
-            if (finished && !cancelled) setVisible(false);
+            if (finished && !cancelled) {
+              setVisible(false);
+              onFinished();
+            }
           });
         });
       });
@@ -180,7 +190,8 @@ export function FeatherRevealOverlay({
     };
   }, [
     contentReady,
-    enabled,
+    curtain,
+    onFinished,
     geometry.finalScale,
     hideSplashOnce,
     maskFailed,
@@ -189,10 +200,24 @@ export function FeatherRevealOverlay({
     scale,
   ]);
 
-  if (!enabled || !visible) return null;
+  if (!visible) return null;
 
   return (
-    <View pointerEvents="none" style={styles.overlay} testID="feather-reveal-overlay">
+    <View
+      style={styles.overlay}
+      testID="feather-reveal-overlay"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: maskLoaded ? '#FFFFFF' : '#6226FB',
+            opacity: curtain,
+          },
+        ]}
+      />
       <Animated.Image
         onError={() => {
           setMaskFailed(true);
