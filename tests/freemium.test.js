@@ -312,3 +312,40 @@ test('paid access is scoped to verified user identity; demo preview does not tra
   local.setDataSession('guest', 'guest');
   assert.equal(entitlement.hasPlusAccess(), false);
 });
+
+test('color picker preserves stored colors including gray, black, white and shorthand', () => {
+  const { hexToHsv, hsvToHex } = load('color-picker');
+  for (const hex of [
+    '#7C3AED',
+    '#00FF00',
+    '#DB2777',
+    '#000000',
+    '#FFFFFF',
+    '#808080',
+    '#123ABC',
+  ]) {
+    assert.equal(hsvToHex(hexToHsv(hex)), hex);
+  }
+  assert.equal(hsvToHex(hexToHsv('#f0a')), '#FF00AA');
+  assert.equal(hsvToHex(hexToHsv('invalid stored color')), '#7C3AED');
+});
+
+test('color picker handles hue wrap and clamps gestures outside the gradient', () => {
+  const { hsvToHex, clamp } = load('color-picker');
+  assert.equal(hsvToHex({ h: 360, s: 1, v: 1 }), '#FF0000');
+  assert.equal(hsvToHex({ h: 120, s: 1, v: 1 }), '#00FF00');
+  assert.equal(hsvToHex({ h: 240, s: 1, v: 1 }), '#0000FF');
+  assert.equal(hsvToHex({ h: -120, s: 1, v: 1 }), '#0000FF');
+  assert.equal(clamp(-1), 0);
+  assert.equal(clamp(1.2), 1);
+});
+
+test('appearance keeps explicit choices and migrates the old automatic mode once', () => {
+  const { resolveThemePreference } = load('appearance');
+  assert.equal(resolveThemePreference('dark', 'light'), 'dark');
+  assert.equal(resolveThemePreference('light', 'dark'), 'light');
+  assert.equal(resolveThemePreference('system', 'dark'), 'dark');
+  assert.equal(resolveThemePreference('system', 'light'), 'light');
+  assert.equal(resolveThemePreference(null, 'dark'), 'light');
+  assert.equal(resolveThemePreference('invalid', 'dark'), 'light');
+});

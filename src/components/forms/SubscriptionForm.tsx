@@ -26,6 +26,7 @@ import { z } from 'zod';
 import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
+import { ColorPicker } from './ColorPicker';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
@@ -202,29 +203,33 @@ function ChipGroup<T extends string>({
   );
 }
 
-const createChipStyles = (Colors: Palette) => StyleSheet.create({
-  container: { gap: 8 },
-  label: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 36,
-  },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { color: Colors.textSecondary, fontSize: 13 },
-  chipTextActive: { color: Colors.white, fontWeight: '600' },
-});
+const createChipStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    container: { gap: 8 },
+    label: {
+      color: Colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.surface,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      minHeight: 36,
+    },
+    chipActive: {
+      backgroundColor: Colors.primary,
+      borderColor: Colors.primary,
+    },
+    chipText: { color: Colors.textSecondary, fontSize: 13 },
+    chipTextActive: { color: Colors.white, fontWeight: '600' },
+  });
 
 function ToggleRow({
   label,
@@ -426,16 +431,7 @@ export function SubscriptionForm({
               control={control}
               name="categoryColor"
               render={({ field }) => (
-                <StyledTextInput
-                  label="Couleur de catégorie (facultatif)"
-                  placeholder="#7C3AED"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  error={errors.categoryColor?.message}
-                  value={field.value ?? ''}
-                  onChangeText={field.onChange}
-                  onBlur={field.onBlur}
-                />
+                <ColorPicker value={field.value} onChange={field.onChange} />
               )}
             />
 
@@ -624,53 +620,54 @@ export function SubscriptionForm({
   );
 }
 
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  kav: { flex: 1 },
-  scroll: { flexGrow: 1, paddingBottom: 48 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  cancel: { color: Colors.textSecondary, fontSize: 16 },
-  title: { color: Colors.text, fontSize: 18, fontWeight: '700' },
-  form: { paddingHorizontal: 24, gap: 20 },
-  sectionTitle: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginTop: 8,
-    marginBottom: -8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-    paddingTop: 16,
-  },
-  fieldError: { color: Colors.danger, fontSize: 12, marginTop: 2 },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-    minHeight: 52,
-    gap: 12,
-  },
-  toggleText: { flex: 1 },
-  toggleLabel: { color: Colors.text, fontSize: 15 },
-  toggleDesc: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  ratingContainer: { gap: 10 },
-  apiErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: Colors.danger + '14',
-    borderRadius: 10,
-    padding: 12,
-  },
-  apiError: { color: Colors.danger, fontSize: 14, flex: 1 },
-});
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: Colors.background },
+    kav: { flex: 1 },
+    scroll: { flexGrow: 1, paddingBottom: 48 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: 20,
+    },
+    cancel: { color: Colors.textSecondary, fontSize: 16 },
+    title: { color: Colors.text, fontSize: 18, fontWeight: '700' },
+    form: { paddingHorizontal: 24, gap: 20 },
+    sectionTitle: {
+      color: Colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      marginTop: 8,
+      marginBottom: -8,
+      borderTopWidth: 1,
+      borderTopColor: Colors.divider,
+      paddingTop: 16,
+    },
+    fieldError: { color: Colors.danger, fontSize: 12, marginTop: 2 },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+      minHeight: 52,
+      gap: 12,
+    },
+    toggleText: { flex: 1 },
+    toggleLabel: { color: Colors.text, fontSize: 15 },
+    toggleDesc: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+    ratingContainer: { gap: 10 },
+    apiErrorBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      backgroundColor: Colors.danger + '14',
+      borderRadius: 10,
+      padding: 12,
+    },
+    apiError: { color: Colors.danger, fontSize: 14, flex: 1 },
+  });

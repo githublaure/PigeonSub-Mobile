@@ -1,5 +1,7 @@
 # PigeonSub — livraison onboarding, date de sûreté et Plus
 
+> Mise à jour du 6 octobre : la PR #2 décrite ci-dessous a depuis été fusionnée dans main (`f59cfb5`). Ce document conserve le contexte de la livraison initiale. Pour l'état actuel et la nouvelle branche de retouches, lire [le guide accueil/économies](ACCUEIL-ECONOMIES-20261006.md).
+
 ## Référence et stratégie Git
 
 - Main de départ : `e94accafa3ec11aaf93baa1428cc1ce4554d2e8c`.

@@ -9,7 +9,7 @@ import {
 } from '../../../src/lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -23,7 +23,6 @@ import { EmptyState } from '../../../src/components/ui/EmptyState';
 import { ErrorState } from '../../../src/components/ui/ErrorState';
 import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
 import { SubscriptionCard } from '../../../src/components/ui/SubscriptionCard';
-import { Subscription, subscriptions } from '../../../src/lib/api';
 
 type SortKey = 'name' | 'price' | 'renewal';
 
@@ -118,6 +117,10 @@ export default function SubscriptionsScreen() {
         ))}
         <Pressable
           onPress={() => setIncludeArchived((v) => !v)}
+          accessibilityRole="switch"
+          accessibilityLabel="Afficher aussi les abonnements archivés"
+          accessibilityState={{ checked: includeArchived }}
+          aria-checked={includeArchived}
           style={[styles.sortChip, includeArchived && styles.sortChipActive]}
         >
           <Text
@@ -137,6 +140,7 @@ export default function SubscriptionsScreen() {
         renderItem={({ item }) => (
           <SubscriptionCard
             subscription={item}
+            archived={isEnded(item, follow[item.id])}
             onPress={() => router.push(`/(tabs)/subscriptions/${item.id}`)}
           />
         )}
@@ -165,65 +169,66 @@ export default function SubscriptionsScreen() {
   );
 }
 
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    marginHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    height: 44,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 15 },
-  toolbar: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 8,
-    marginBottom: 16,
-    flexWrap: 'wrap',
-  },
-  sortChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 34,
-  },
-  sortChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  sortChipText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  sortChipTextActive: { color: Colors.white },
-  list: { paddingHorizontal: 24, paddingBottom: 32 },
-  listEmpty: { flexGrow: 1 },
-});
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: Colors.background },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: 12,
+    },
+    title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
+    addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: Colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.surface,
+      marginHorizontal: 24,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      paddingHorizontal: 12,
+      marginBottom: 12,
+      height: 44,
+    },
+    searchIcon: { marginRight: 8 },
+    searchInput: { flex: 1, color: Colors.text, fontSize: 15 },
+    toolbar: {
+      flexDirection: 'row',
+      paddingHorizontal: 24,
+      gap: 8,
+      marginBottom: 16,
+      flexWrap: 'wrap',
+    },
+    sortChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 20,
+      backgroundColor: Colors.surface,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      minHeight: 34,
+    },
+    sortChipActive: {
+      backgroundColor: Colors.primary,
+      borderColor: Colors.primary,
+    },
+    sortChipText: {
+      color: Colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    sortChipTextActive: { color: Colors.white },
+    list: { paddingHorizontal: 24, paddingBottom: 32 },
+    listEmpty: { flexGrow: 1 },
+  });

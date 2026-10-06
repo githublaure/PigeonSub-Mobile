@@ -5,7 +5,6 @@ import {
   euro,
   frequencyLabels,
   nextRenewal,
-  dayKey,
 } from '../../lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -15,6 +14,7 @@ import { Subscription } from '../../lib/api';
 interface SubscriptionCardProps {
   subscription: Subscription;
   onPress: () => void;
+  archived?: boolean;
 }
 
 function formatPrice(price: string, frequency: string): string {
@@ -34,20 +34,29 @@ function daysUntil(dateStr: string | null): number | null {
 export function SubscriptionCard({
   subscription,
   onPress,
+  archived = !subscription.isActive,
 }: SubscriptionCardProps) {
   const { colors: Colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  const days = daysUntil(nextRenewal(subscription)?.toISOString() ?? null);
+  const days = archived
+    ? null
+    : daysUntil(nextRenewal(subscription)?.toISOString() ?? null);
   const isUrgent = days !== null && days <= 7;
-  const accentColor = subscription.categoryColor || Colors.primary;
+  const accentColor = archived
+    ? Colors.archiveBorder
+    : subscription.categoryColor || Colors.primary;
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        archived && styles.archivedCard,
+        pressed && styles.pressed,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${subscription.name}, ${formatPrice(subscription.price, subscription.frequency)}`}
+      accessibilityLabel={`${subscription.name}${archived ? ', archivé' : ''}, ${formatPrice(subscription.price, subscription.frequency)}`}
     >
       {/* Colour accent bar */}
       <View style={[styles.accent, { backgroundColor: accentColor }]} />
@@ -55,29 +64,42 @@ export function SubscriptionCard({
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text
+              style={[styles.name, archived && styles.archivedText]}
+              numberOfLines={1}
+            >
               {subscription.name}
             </Text>
-            {subscription.isTrial && (
+            {!archived && subscription.isTrial && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>ESSAI</Text>
               </View>
             )}
-            {subscription.isSuspect && (
+            {!archived && subscription.isSuspect && (
               <View style={[styles.badge, styles.badgeSuspect]}>
                 <Text style={styles.badgeText}>⚠</Text>
               </View>
             )}
           </View>
-          <Text style={styles.price}>
+          <Text style={[styles.price, archived && styles.archivedText]}>
             {formatPrice(subscription.price, subscription.frequency)}
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.category}>
+          <Text style={[styles.category, archived && styles.archivedText]}>
             {categoryLabels[subscription.category] ?? subscription.category}
           </Text>
+          {archived && (
+            <View style={styles.archivedBadge}>
+              <Ionicons
+                name="archive-outline"
+                size={12}
+                color={Colors.archiveText}
+              />
+              <Text style={styles.archivedBadgeText}>Archivé</Text>
+            </View>
+          )}
           {days !== null && (
             <Text style={[styles.renewal, isUrgent && styles.renewalUrgent]}>
               <Ionicons name="calendar-outline" size={12} />{' '}
@@ -94,81 +116,93 @@ export function SubscriptionCard({
   );
 }
 
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    minHeight: 72,
-  },
-  pressed: { opacity: 0.8 },
-  accent: {
-    width: 4,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-  content: {
-    flex: 1,
-    padding: 14,
-    gap: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-    marginRight: 8,
-  },
-  name: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  price: {
-    color: Colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  category: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    textTransform: 'capitalize',
-  },
-  renewal: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-  },
-  renewalUrgent: {
-    color: Colors.warning,
-    fontWeight: '600',
-  },
-  badge: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  badgeSuspect: {
-    backgroundColor: '#FEF3C7',
-  },
-  badgeText: {
-    color: Colors.primaryDark,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-});
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: Colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      flexDirection: 'row',
+      overflow: 'hidden',
+      minHeight: 72,
+    },
+    archivedCard: {
+      backgroundColor: Colors.archiveBackground,
+      borderColor: Colors.archiveBorder,
+    },
+    archivedText: { color: Colors.archiveText },
+    archivedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    archivedBadgeText: {
+      color: Colors.archiveText,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    pressed: { opacity: 0.8 },
+    accent: {
+      width: 4,
+      borderTopLeftRadius: 14,
+      borderBottomLeftRadius: 14,
+    },
+    content: {
+      flex: 1,
+      padding: 14,
+      gap: 8,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flex: 1,
+      marginRight: 8,
+    },
+    name: {
+      color: Colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+      flex: 1,
+    },
+    price: {
+      color: Colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    category: {
+      color: Colors.textSecondary,
+      fontSize: 13,
+      textTransform: 'capitalize',
+    },
+    renewal: {
+      color: Colors.textSecondary,
+      fontSize: 12,
+    },
+    renewalUrgent: {
+      color: Colors.warning,
+      fontWeight: '600',
+    },
+    badge: {
+      backgroundColor: Colors.primaryLight,
+      borderRadius: 4,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+    },
+    badgeSuspect: {
+      backgroundColor: '#FEF3C7',
+    },
+    badgeText: {
+      color: Colors.primaryDark,
+      fontSize: 9,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+  });

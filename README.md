@@ -2,6 +2,11 @@
 
 Standalone Expo (React Native) app for PigeonSub.
 
+The SDK 57 feature delivery is now merged into main (PR #2, `f59cfb5`).
+The next UI changes live in `feat/savings-home-polish`.
+See [main retrieval and savings UI changes](docs/ACCUEIL-ECONOMIES-20261006.md)
+for the current Replit commands, backup reference and screenshots.
+
 ## Setup
 
 1. Install dependencies:
@@ -25,7 +30,7 @@ Then scan the QR code with Expo Go (iOS/Android) or run on a simulator.
 
 Use Node 22.13+ or Node 24 and npm. The mobile project is the repository root
 (the directory containing `app.json` and the package named `pigeonsub-mobile`),
-**not** `backend/`. This feature branch now uses **57.0.26 / SDK 57**.
+**not** `backend/`. Main and this feature branch use **57.0.26 / SDK 57**.
 See [SDK 57, themes and Replit preview](docs/SDK57-REPLIT-20261006.md) for retrieval,
 preview compatibility, validation and rollback. The SDK 54 build remains backed up.
 

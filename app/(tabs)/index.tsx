@@ -1,7 +1,9 @@
-import { useTheme } from '../../src/contexts/ThemeContext';
+import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useBilling } from '../../src/contexts/BillingContext';
 import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
@@ -20,21 +22,26 @@ import {
   overview,
   shortDate,
 } from '../../src/lib/subscription-math';
-export default function HomeScreen() {
-  const { colors: Colors } = useTheme();
-  const ui = useUI();
 
+export default function HomeScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const ui = useUI();
   const router = useRouter();
-  const { mode, user, startGuest } = useAuth();
+  const { mode, user } = useAuth();
   const { canUsePlus } = useBilling();
   const { data, follow, loading, error, reload } = useSubscriptionData();
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const total = overview(data, follow);
+  const pending = data.filter(
+    (s) => s.isActive && follow[s.id]?.decision === 'cancel_requested',
+  ).length;
   const upcoming = data
     .filter(
       (s) =>
         !isEnded(s, follow[s.id]) &&
+        s.frequency !== 'lifetime' &&
         follow[s.id]?.decision !== 'cancel_confirmed',
     )
     .map((sub) => ({ sub, dates: deadlines(sub, follow[sub.id]) }))
@@ -50,6 +57,7 @@ export default function HomeScreen() {
         ? '/(tabs)/subscriptions/new'
         : '/(tabs)/premium?reason=limit',
     );
+
   return (
     <Page
       title={
@@ -60,48 +68,80 @@ export default function HomeScreen() {
             : 'Vos abonnements'
       }
       subtitle="Décidez avant le prochain prélèvement."
+      headerAccessory={
+        mode === 'demo' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Compte de démonstration : gérer ou quitter la démo"
+            onPress={() => router.push('/(tabs)/profile')}
+            style={styles.demoBadge}
+          >
+            <Ionicons
+              name="flask-outline"
+              size={13}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.demoText}>Démo</Text>
+          </Pressable>
+        ) : undefined
+      }
     >
-      {mode === 'demo' && (
-        <View
-          style={[
-            ui.card,
-            {
-              borderColor: Colors.warning,
-              padding: 8,
-              gap: 6,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            },
-          ]}
-        >
-          <Text style={ui.label}>DÉMO FICTIVE</Text>
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Mes abonnements"
-            onPress={() => void startGuest()}
-          />
+      <View style={styles.savingsCard}>
+        <View style={ui.row}>
+          <Ionicons name="trending-down" size={20} color={colors.savingsText} />
+          <Text style={styles.savingsLabel}>ÉCONOMIES POTENTIELLES</Text>
         </View>
-      )}
-      <View
-        style={[ui.card, { backgroundColor: Colors.surfaceRaised, gap: 8, padding: 16 }]}
-      >
-        <View style={[ui.row, { justifyContent: 'space-between' }]}>
-          <Text style={ui.label}>VOTRE COÛT MENSUEL</Text>
-          <Image
-            source={require('../../assets/mascots/pigeon-money-bag.png')}
-            style={{ width: 32, height: 32 }}
-          />
+        <View style={styles.amountRow}>
+          <Text style={styles.savingsAmount}>
+            {euro(total.potentialAnnual)}
+          </Text>
+          <Text style={styles.savingsPeriod}>/ an</Text>
         </View>
-        <Text style={ui.value}>{euro(total.monthly)}</Text>
-        <Text style={ui.body}>
-          {euro(total.annual)} / an · {total.active} abonnement
-          {total.active > 1 ? 's' : ''} actif{total.active > 1 ? 's' : ''}
+        <Text style={styles.savingsHint}>
+          {pending
+            ? `${euro(total.potentialAnnual / 12)} / mois · ${pending} démarche${pending > 1 ? 's' : ''} à terminer`
+            : 'Choisissez Résilier sur un abonnement pour suivre une économie potentielle.'}
+        </Text>
+        <View style={styles.confirmedRow}>
+          <View style={styles.confirmedLabel}>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color={colors.savingsText}
+            />
+            <Text style={styles.savingsHint}>Confirmées par vous</Text>
+          </View>
+          <Text style={styles.confirmedAmount}>
+            {euro(total.confirmedAnnual)} / an
+          </Text>
+        </View>
+        <Text style={styles.savingsNote}>
+          Projections annuelles après résiliation, pas des remboursements.
         </Text>
       </View>
+
+      <View style={styles.costRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={ui.small}>Coût de vos abonnements</Text>
+          <Text style={styles.costAmount}>
+            {euro(total.monthly)} <Text style={styles.costPeriod}>/ mois</Text>
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 3 }}>
+          <Text style={styles.annualCost}>{euro(total.annual)} / an</Text>
+          <Text style={ui.small}>
+            {total.active} actif{total.active > 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
+
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={ui.heading}>À venir</Text>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={ui.heading}>À décider bientôt</Text>
+          <Text style={ui.small}>
+            Les dates limites les plus proches d’abord.
+          </Text>
+        </View>
         <Button title="+ Ajouter" size="sm" variant="secondary" onPress={add} />
       </View>
       {!upcoming.length && (
@@ -119,67 +159,52 @@ export default function HomeScreen() {
         </View>
       )}
       {upcoming.map(({ sub, dates }) => (
-        <View key={sub.id} style={[ui.card, { gap: 8, padding: 16 }]}>
+        <View key={sub.id} style={[ui.card, { gap: 12, padding: 16 }]}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={`Voir ${sub.name}`}
             onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)}
             style={{ gap: 8 }}
           >
-            <View style={[ui.row, { justifyContent: 'space-between' }]}>
-              <Text style={ui.heading}>{sub.name}</Text>
+            <View
+              style={[
+                ui.row,
+                { justifyContent: 'space-between', alignItems: 'flex-start' },
+              ]}
+            >
+              <Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text>
               <Text style={ui.pill}>
                 {euro(Number(sub.price))} /{' '}
                 {frequencyLabels[sub.frequency] ?? sub.frequency}
               </Text>
             </View>
-            <Text style={ui.body}>
-              Prélèvement : {shortDate(dates.renewal)}
-            </Text>
             {dates.actionBy && (
-              <Text
-                style={[
-                  ui.body,
-                  dates.actionBy && dayKey(dates.actionBy) < dayKey(new Date())
-                    ? ui.warning
-                    : { color: Colors.text },
-                ]}
-              >
-                Agir avant le {shortDate(dates.actionBy)}
-              </Text>
+              <View style={styles.deadline}>
+                <Ionicons
+                  name="time-outline"
+                  size={15}
+                  color={colors.warning}
+                />
+                <Text style={styles.deadlineText}>
+                  {dayKey(dates.actionBy) < dayKey(new Date())
+                    ? 'Délai à vérifier · '
+                    : 'Agir avant le '}
+                  {shortDate(dates.actionBy)}
+                </Text>
+              </View>
             )}
-            {dates.safety && (
-              <Text style={ui.small}>
-                Date de sûreté : {shortDate(dates.safety)}
-              </Text>
-            )}
+            <Text style={ui.small}>
+              Prélèvement : {shortDate(dates.renewal)}
+              {dates.safety ? ` · Sûreté : ${shortDate(dates.safety)}` : ''}
+            </Text>
           </Pressable>
-          <DecisionActions sub={sub} follow={follow[sub.id]} />
+          <DecisionActions sub={sub} follow={follow[sub.id]} highlightSavings />
         </View>
       ))}
-      <View style={ui.row}>
-        <View style={[ui.card, { flex: 1, minWidth: 140 }]}>
-          <Text style={ui.label}>POTENTIELLES</Text>
-          <Text style={[ui.heading, ui.warning]}>
-            {euro(total.potentialAnnual)} / an
-          </Text>
-          <Text style={ui.small}>
-            Si vous terminez les résiliations envisagées.
-          </Text>
-        </View>
-        <View style={[ui.card, { flex: 1, minWidth: 140 }]}>
-          <Text style={ui.label}>CONFIRMÉES PAR VOUS</Text>
-          <Text style={[ui.heading, ui.success]}>
-            {euro(total.confirmedAnnual)} / an
-          </Text>
-          <Text style={ui.small}>
-            Projection après les dates de fin confirmées.
-          </Text>
-        </View>
-      </View>
       <Text style={ui.small}>
         Les coûts sont mensualisés, hors achats à vie ; les essais utilisent le
-        tarif après essai. Les économies sont des estimations annualisées, pas
-        des remboursements ni une vérification bancaire.
+        tarif après essai. Les économies sont des estimations, sans vérification
+        bancaire.
       </Text>
       {!!data.length && !canUsePlus && (
         <View style={ui.card}>
@@ -200,8 +225,113 @@ export default function HomeScreen() {
           ? 'Abonnements liés à votre compte. Les décisions et réglages de rappel sont enregistrés sur cet appareil.'
           : mode === 'guest'
             ? 'Mode sans compte : vos données sont enregistrées sur cet appareil. Ne désinstallez pas l’app sans les avoir sauvegardées.'
-            : 'Vous pouvez modifier librement les exemples de la démo.'}
+            : 'Montants fictifs. Vous pouvez modifier librement les exemples de la démo.'}
       </Text>
     </Page>
   );
 }
+
+const createStyles = (c: Palette) =>
+  StyleSheet.create({
+    demoBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      minHeight: 44,
+      paddingHorizontal: 9,
+      borderRadius: 14,
+      backgroundColor: c.surfaceRaised,
+    },
+    demoText: { color: c.textSecondary, fontSize: 12, fontWeight: '600' },
+    savingsCard: {
+      padding: 18,
+      gap: 8,
+      borderRadius: 22,
+      backgroundColor: c.savingsBackground,
+      borderWidth: 1,
+      borderColor: c.savingsBorder,
+    },
+    savingsLabel: {
+      color: c.savingsText,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      flexShrink: 1,
+    },
+    amountRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      flexWrap: 'wrap',
+      columnGap: 7,
+    },
+    savingsAmount: {
+      color: c.savingsText,
+      fontSize: 42,
+      lineHeight: 50,
+      fontWeight: '800',
+      letterSpacing: -1.6,
+      fontVariant: ['tabular-nums'],
+    },
+    savingsPeriod: { color: c.savingsText, fontSize: 20, fontWeight: '600' },
+    savingsHint: {
+      color: c.savingsText,
+      fontSize: 13,
+      lineHeight: 18,
+      flexShrink: 1,
+    },
+    confirmedRow: {
+      borderTopWidth: 1,
+      borderTopColor: c.savingsBorder,
+      paddingTop: 12,
+      marginTop: 4,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 6,
+    },
+    confirmedLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      flexShrink: 1,
+    },
+    confirmedAmount: {
+      color: c.savingsText,
+      fontSize: 15,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    savingsNote: { color: c.savingsText, fontSize: 11, lineHeight: 15 },
+    costRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 4,
+    },
+    costAmount: {
+      color: c.text,
+      fontSize: 24,
+      fontWeight: '800',
+      lineHeight: 32,
+    },
+    costPeriod: { fontSize: 14, fontWeight: '500' },
+    annualCost: { color: c.textSecondary, fontSize: 14, fontWeight: '600' },
+    deadline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 5,
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: c.warningSurface,
+    },
+    deadlineText: {
+      color: c.warning,
+      fontSize: 13,
+      fontWeight: '700',
+      flexShrink: 1,
+    },
+  });

@@ -53,7 +53,6 @@ export function ThemeControls({ compact = false }: { compact?: boolean }) {
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(
           [
-            ['system', 'Système'],
             ['light', 'Clair'],
             ['dark', 'Sombre'],
           ] as const

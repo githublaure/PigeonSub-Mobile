@@ -14,6 +14,12 @@ export const DarkColors = {
   border: '#3B2D6E', // border colour
   divider: '#2D2152', // divider
 
+  savingsBackground: '#102C25',
+  savingsText: '#72E4B0',
+  savingsBorder: '#285646',
+  archiveBackground: '#24242A',
+  archiveText: '#B6B6C0',
+  archiveBorder: '#414148',
   warningSurface: '#2D2000',
   success: '#10B981', // emerald-500
   warning: '#F59E0B', // amber-500
@@ -55,6 +61,12 @@ export const LightColors: Palette = {
   divider: '#E7DFEF',
   success: '#047857',
   warning: '#92400E',
+  savingsBackground: '#ECF8F0',
+  savingsText: '#116B46',
+  savingsBorder: '#BDDDCB',
+  archiveBackground: '#EFEFF2',
+  archiveText: '#666671',
+  archiveBorder: '#D1D1D9',
   warningSurface: '#FFF4D6',
   danger: '#B91C1C',
   info: '#1D4ED8',
