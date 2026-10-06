@@ -23,6 +23,7 @@
     "expo-asset": "~57.0.18",
     "expo-audio": "~57.0.5",
     "expo-build-properties": "~57.0.22",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.20",
@@ -56,6 +57,7 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
-    "tar": "^7.0.0"
+    "tar": "^7.0.0",
+    "shell-quote": "1.11.0"
   }
 }

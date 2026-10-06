@@ -87,8 +87,13 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.savingsCard}>
+        <View style={styles.heroAccent} />
         <View style={ui.row}>
-          <Ionicons name="trending-down" size={20} color={colors.savingsText} />
+          <Ionicons
+            name="sparkles-outline"
+            size={20}
+            color={colors.savingsText}
+          />
           <Text style={styles.savingsLabel}>ÉCONOMIES POTENTIELLES</Text>
         </View>
         <View style={styles.amountRow}>
@@ -201,13 +206,29 @@ export default function HomeScreen() {
           <DecisionActions sub={sub} follow={follow[sub.id]} highlightSavings />
         </View>
       ))}
+      <Button
+        title="Voir mes stats et mes économies"
+        variant="secondary"
+        onPress={() => router.push('/(tabs)/stats')}
+      />
       <Text style={ui.small}>
         Les coûts sont mensualisés, hors achats à vie ; les essais utilisent le
         tarif après essai. Les économies sont des estimations, sans vérification
         bancaire.
       </Text>
       {!!data.length && !canUsePlus && (
-        <View style={ui.card}>
+        <View
+          style={[
+            ui.card,
+            {
+              backgroundColor: colors.goldSurface,
+              borderColor: colors.goldBorder,
+            },
+          ]}
+        >
+          <Text style={[ui.label, { color: colors.gold }]}>
+            ✦ PIGEONSUB PLUS
+          </Text>
           <Text style={ui.heading}>Votre pigeon veille avant le jour J.</Text>
           <Text style={ui.body}>
             Personnalisez votre avance de rappel avec Plus. Vos 5 abonnements et
@@ -243,10 +264,22 @@ const createStyles = (c: Palette) =>
       backgroundColor: c.surfaceRaised,
     },
     demoText: { color: c.textSecondary, fontSize: 12, fontWeight: '600' },
+    heroAccent: {
+      position: 'absolute',
+      height: 4,
+      left: 22,
+      right: 22,
+      top: 0,
+      backgroundColor: c.goldBorder,
+      borderBottomLeftRadius: 6,
+      borderBottomRightRadius: 6,
+    },
     savingsCard: {
       padding: 18,
       gap: 8,
-      borderRadius: 22,
+      borderRadius: 26,
+      overflow: 'hidden',
+      boxShadow: '0 7px 22px rgba(151, 113, 35, 0.09)',
       backgroundColor: c.savingsBackground,
       borderWidth: 1,
       borderColor: c.savingsBorder,
@@ -308,7 +341,11 @@ const createStyles = (c: Palette) =>
       flexWrap: 'wrap',
       alignItems: 'center',
       gap: 12,
-      paddingHorizontal: 4,
+      padding: 16,
+      backgroundColor: c.surface,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: c.border,
     },
     costAmount: {
       color: c.text,

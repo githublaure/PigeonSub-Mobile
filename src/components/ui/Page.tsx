@@ -53,7 +53,8 @@ export const createUi = (Colors: Palette) =>
       letterSpacing: -1,
     },
     card: {
-      borderRadius: 20,
+      borderRadius: 24,
+      boxShadow: '0 6px 18px rgba(35, 22, 45, 0.035)',
       backgroundColor: Colors.surface,
       borderWidth: 1,
       borderColor: Colors.border,

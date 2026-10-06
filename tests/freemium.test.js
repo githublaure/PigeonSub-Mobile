@@ -349,3 +349,102 @@ test('appearance keeps explicit choices and migrates the old automatic mode once
   assert.equal(resolveThemePreference(null, 'dark'), 'light');
   assert.equal(resolveThemePreference('invalid', 'dark'), 'light');
 });
+
+test('offers validate real dates and reject executable or credential-bearing links', () => {
+  const offers = load('offers');
+  const draft = {
+    ...offers.emptyOffer(),
+    provider: 'Test',
+    title: 'Essai',
+    expiresOn: '2026-10-12',
+  };
+  assert.equal(offers.validateOffer(draft).provider, 'Test');
+  for (const url of [
+    'javascript:alert(1)',
+    'http://example.com',
+    'https://user:pass@example.com',
+  ])
+    assert.throws(() => offers.validateOffer({ ...draft, url }));
+  assert.throws(() =>
+    offers.validateOffer({ ...draft, expiresOn: '2026-02-30' }),
+  );
+  assert.equal(
+    offers.validateOffer({ ...draft, url: 'https://example.com', used: true })
+      .url,
+    'https://example.com',
+  );
+  assert.equal(offers.offerDays(draft, date('2026-10-12')), 0);
+  assert.equal(offers.offerDays(draft, date('2026-10-13')), -1);
+});
+test('offer create/edit/status/delete persist and stay isolated from demo and other accounts', async () => {
+  const h = harness();
+  const store = h.load('local-data');
+  const offers = h.load('offers');
+  store.setDataSession('guest', 'guest');
+  const draft = {
+    ...offers.emptyOffer(),
+    provider: 'Test',
+    title: 'Offre',
+    expiresOn: '2026-10-12',
+  };
+  await Promise.all([
+    store.saveOffer(draft),
+    store.saveOffer({ ...draft, provider: 'Autre' }),
+  ]);
+  let rows = await store.getSavedOffers();
+  assert.equal(rows.length, 2);
+  const id = rows[0].id;
+  await store.saveOffer({ ...draft, code: 'BONPLAN' }, id);
+  await store.changeOffer(id, 'used');
+  rows = await store.getSavedOffers();
+  assert.equal(rows.find((o) => o.id === id).used, true);
+  assert.equal(rows.find((o) => o.id === id).code, 'BONPLAN');
+  store.setDataSession('demo', 'demo');
+  await store.seedDemo();
+  assert.ok((await store.getSavedOffers()).every((o) => o.demo));
+  store.setDataSession('account', 'account:1');
+  assert.deepEqual(await store.getSavedOffers(), []);
+  await store.saveOffer(draft);
+  store.setDataSession('account', 'account:2');
+  assert.deepEqual(await store.getSavedOffers(), []);
+  await store.clearAccountFollowUps('account:1');
+  assert.deepEqual(await store.getSavedOffers('account:1'), []);
+  store.setDataSession('guest', 'guest');
+  assert.equal((await store.getSavedOffers()).length, 2);
+  await store.changeOffer(id, 'delete');
+  assert.equal((await store.getSavedOffers()).length, 1);
+});
+test('cost projections apply confirmed end dates but not a cancellation intention', () => {
+  const { costProjection } = load('stats-projection');
+  const rows = [
+    sub(),
+    sub({ id: 2, price: '120', frequency: 'yearly' }),
+    sub({ id: 3, isActive: false }),
+  ];
+  const projected = costProjection(
+    rows,
+    {
+      1: { decision: 'cancel_requested' },
+      2: { decision: 'cancel_confirmed', effectiveOn: '2026-11-12' },
+    },
+    3,
+    date('2026-10-06'),
+  );
+  assert.deepEqual(
+    projected.map((p) => p.amount),
+    [22, 12, 12],
+  );
+  assert.deepEqual(
+    projected.map((p) => p.month),
+    ['2026-10', '2026-11', '2026-12'],
+  );
+  assert.equal(costProjection([], {}, 3)[0].amount, 0);
+});
+test('shell-quote rejects the reported command-injection vector without executing it', () => {
+  const { quote } = require('shell-quote');
+  assert.throws(
+    () => quote(['echo', 'ok', { comment: 'x' }, 'a\nid;#']),
+    TypeError,
+  );
+  assert.ok(quote(['hello world']).includes('hello world'));
+});
