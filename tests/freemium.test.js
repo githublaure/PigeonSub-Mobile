@@ -601,3 +601,205 @@ test('failed photo index write rolls back image and keeps previous gallery', asy
   assert.equal((await photos.getPhotos('guest', item)).length, 1);
   assert.equal(h.memory.size, 2);
 });
+
+test('trial expiry is a single calendar event and never silently confirms a paid subscription', () => {
+  const item = sub({
+    isTrial: true,
+    trialEndsAt: '2026-10-10',
+    nextRenewal: '2026-10-15',
+  });
+  assert.equal(math.trialState(item, date('2026-10-10')), 'active');
+  assert.equal(math.trialState(item, date('2026-10-11')), 'expired');
+  assert.equal(
+    math.dayKey(math.nextRenewal(item, date('2027-02-01'))),
+    '2026-10-10',
+  );
+  assert.equal(math.currentMonthlyCost(item), 0);
+  assert.equal(
+    math.trialState(sub({ isTrial: true, trialEndsAt: null })),
+    'missing_date',
+  );
+  assert.equal(
+    math.nextRenewal(sub({ isTrial: true, trialEndsAt: null })),
+    null,
+  );
+  assert.match(math.trialLabel(item, date('2026-10-10')), /aujourd’hui/);
+  assert.match(math.trialLabel(item, date('2026-10-11')), /terminé/);
+});
+test('current totals exclude trials while hypothetical totals include their future tariffs', () => {
+  const trial = sub({
+    id: 2,
+    isTrial: true,
+    trialEndsAt: '2026-10-10',
+    price: '120',
+    frequency: 'yearly',
+  });
+  const total = math.overview([sub(), trial], {}, date('2026-10-11'));
+  assert.equal(total.monthly, 12);
+  assert.equal(total.trialMonthly, 10);
+  assert.equal(total.afterTrialsMonthly, 22);
+  assert.equal(total.active, 2);
+  assert.equal(total.expiredTrials, 1);
+  const cancelled = math.overview(
+    [sub(), trial],
+    { 2: { decision: 'cancel_confirmed', effectiveOn: '2026-10-10' } },
+    date('2026-10-11'),
+  );
+  assert.equal(cancelled.afterTrialsMonthly, 12);
+  assert.equal(cancelled.active, 1);
+});
+test('trial and paid subscriptions share five free slots, including overdue unresolved trials', () => {
+  const rows = Array.from({ length: 5 }, (_, i) =>
+    sub({ id: i + 1, isTrial: i > 2, trialEndsAt: '2020-01-01' }),
+  );
+  assert.equal(math.canAddSubscription(rows, false), false);
+  assert.equal(math.canAddSubscription(rows, true), true);
+  assert.equal(
+    math.canAddSubscription(rows, false, {
+      5: { decision: 'cancel_confirmed', effectiveOn: '2020-01-01' },
+    }),
+    true,
+  );
+});
+test('trial reminder fires once before its end, honors custom safety date, and never recurs', () => {
+  const item = sub({
+    isTrial: true,
+    trialEndsAt: '2026-10-10',
+    nextRenewal: '2026-10-15',
+    useSafetyDate: true,
+    safetyDate: '2026-10-08',
+  });
+  const follow = { 1: { reminderEnabled: true } };
+  const plan = reminderPlan([item], follow, false, date('2026-10-06'));
+  assert.equal(plan.length, 1);
+  assert.equal(math.dayKey(plan[0].at), '2026-10-08');
+  assert.equal(plan[0].isTrial, true);
+  assert.equal(
+    reminderPlan([item], follow, true, date('2026-10-11')).length,
+    0,
+  );
+  assert.equal(
+    reminderPlan(
+      [item],
+      {
+        1: {
+          ...follow[1],
+          decision: 'cancel_confirmed',
+          effectiveOn: '2026-10-09',
+        },
+      },
+      false,
+      date('2026-10-06'),
+    ).length,
+    0,
+  );
+});
+test('confirming the paid transition uses the first paid date and preserves the safety offset', () => {
+  const item = sub({
+    isTrial: true,
+    trialEndsAt: '2026-10-10',
+    nextRenewal: '2026-10-15',
+    useSafetyDate: true,
+    safetyDate: '2026-10-08',
+  });
+  assert.throws(() => math.paidTrialPatch(item, date('2026-10-09')));
+  assert.throws(() => math.paidTrialPatch(item, date('2026-10-12')));
+  const paid = { ...item, ...math.paidTrialPatch(item, date('2026-10-16')) };
+  assert.equal(paid.isTrial, false);
+  assert.equal(paid.nextRenewal, '2026-10-15');
+  assert.equal(paid.safetyDate, '2026-10-13');
+  assert.equal(
+    math.dayKey(math.nextRenewal(paid, date('2026-10-16'))),
+    '2026-11-15',
+  );
+  assert.equal(math.currentMonthlyCost(paid), 12);
+});
+test('conditional projections charge trials only from their first planned payment', () => {
+  const { costProjection } = load('stats-projection');
+  const trial = sub({
+    isTrial: true,
+    trialEndsAt: '2026-11-01',
+    nextRenewal: '2026-12-01',
+  });
+  const result = costProjection(
+    [sub({ id: 2 }), trial],
+    {},
+    3,
+    date('2026-10-06'),
+  );
+  assert.deepEqual(
+    result.map((p) => p.amount),
+    [12, 12, 24],
+  );
+  const cancelled = costProjection(
+    [trial],
+    { 1: { decision: 'cancel_confirmed', effectiveOn: '2026-11-01' } },
+    3,
+    date('2026-10-06'),
+  );
+  assert.deepEqual(
+    cancelled.map((p) => p.amount),
+    [0, 0, 0],
+  );
+});
+test('trial form requires a real end date even without safety enabled and rejects payment before expiry', () => {
+  const { subscriptionFormSchema: schema } = load('subscription-form-schema');
+  const base = {
+    name: 'Essai',
+    price: '9,99',
+    frequency: 'monthly',
+    category: 'other',
+    isTrial: true,
+    useSafetyDate: false,
+  };
+  for (const trialEndsAt of ['', '2026-02-30', undefined]) {
+    const result = schema.safeParse({ ...base, trialEndsAt });
+    assert.equal(result.success, false);
+    assert(result.error.issues.some((i) => i.path[0] === 'trialEndsAt'));
+  }
+  assert.equal(
+    schema.safeParse({
+      ...base,
+      trialEndsAt: '2026-10-12',
+      nextRenewal: '2026-10-11',
+    }).success,
+    false,
+  );
+  assert.equal(
+    schema.safeParse({ ...base, trialEndsAt: '2026-10-12', nextRenewal: '' })
+      .success,
+    true,
+  );
+  assert.equal(
+    schema.safeParse({
+      ...base,
+      trialEndsAt: '2026-10-12',
+      frequency: 'lifetime',
+    }).success,
+    false,
+  );
+  assert.equal(
+    schema.safeParse({
+      ...base,
+      trialEndsAt: '2026-10-12',
+      useSafetyDate: true,
+      safetyDate: '2026-10-13',
+    }).success,
+    false,
+  );
+});
+test('cancellation links reject executable URLs and credentials but can be cleared', () => {
+  const { cancellationUrl } = load('cancellation-url');
+  assert.equal(cancellationUrl(''), '');
+  assert.equal(
+    cancellationUrl(' https://example.com/account '),
+    'https://example.com/account',
+  );
+  for (const url of [
+    'javascript:alert(1)',
+    'file:///tmp/test',
+    'https://user:pass@example.com',
+    'http://example.com',
+  ])
+    assert.throws(() => cancellationUrl(url));
+});

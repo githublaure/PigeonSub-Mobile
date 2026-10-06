@@ -5,6 +5,8 @@ import {
   euro,
   frequencyLabels,
   nextRenewal,
+  trialState,
+  trialLabel,
 } from '../../lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -72,7 +74,11 @@ export function SubscriptionCard({
             </Text>
             {!archived && subscription.isTrial && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>ESSAI</Text>
+                <Text style={styles.badgeText}>
+                  {trialState(subscription) === 'active'
+                    ? 'ESSAI'
+                    : 'À CONFIRMER'}
+                </Text>
               </View>
             )}
             {!archived && subscription.isSuspect && (
@@ -82,10 +88,14 @@ export function SubscriptionCard({
             )}
           </View>
           <Text style={[styles.price, archived && styles.archivedText]}>
+            {subscription.isTrial && !archived ? 'Après essai\n' : ''}
             {formatPrice(subscription.price, subscription.frequency)}
           </Text>
         </View>
 
+        {subscription.isTrial && !archived && (
+          <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
+        )}
         <View style={styles.footer}>
           <Text style={[styles.category, archived && styles.archivedText]}>
             {categoryLabels[subscription.category] ?? subscription.category}

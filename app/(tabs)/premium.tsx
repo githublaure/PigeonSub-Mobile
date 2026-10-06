@@ -26,7 +26,7 @@ const PLANS = [
     type: 'LIFETIME',
     title: 'Fondateur à vie',
     price: '34,99 € une fois',
-    detail: 'Un achat unique pour les fonctions Plus',
+    detail: 'Un achat unique pour les fonctions Plus décrites ici',
     badge: 'Offre de lancement',
   },
 ];
@@ -96,17 +96,18 @@ export default function PremiumScreen() {
       <View style={ui.card}>
         <Text style={ui.heading}>Gratuit · 0 €</Text>
         <Text style={ui.body}>
-          5 abonnements actifs · date de sûreté personnalisée et un rappel par
-          abonnement · 5 photos par abonnement · totaux mensuel et annuel ·
-          calendrier · premier bilan d’économies.
+          5 abonnements actifs, essais gratuits compris · date de sûreté
+          personnalisée et un rappel par abonnement · 5 photos par abonnement ·
+          totaux mensuel et annuel · calendrier · économies estimées et export
+          de vos données.
         </Text>
       </View>
       <View style={ui.card}>
         <Text style={ui.heading}>Avec PigeonSub Plus</Text>
         <Text style={ui.body}>
-          ✓ Abonnements illimités{'\n'}✓ Dates de sûreté pour tous vos
-          abonnements{'\n'}✓ Photos et historique de vos résiliations{'\n'}✓
-          Suivi des économies potentielles et confirmées
+          ✓ Abonnements et essais suivis illimités{'\n'}✓ Dates de sûreté pour
+          tous vos abonnements{'\n'}✓ Davantage de photos par abonnement{'\n'}✓
+          Historique de vos décisions et résiliations
         </Text>
       </View>
       {PLANS.filter(

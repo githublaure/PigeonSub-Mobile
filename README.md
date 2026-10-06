@@ -2,6 +2,8 @@
 
 Standalone Expo (React Native) app for PigeonSub.
 
+Latest release: [free trials, current/future costs, free export and Replit retrieval](docs/ESSAIS-GRATUITS-20261006.md). This guide supersedes earlier quota/cost descriptions.
+
 The SDK 57 delivery and the savings, Coupons, Stats, safety-date and photo changes
 are integrated through PRs #2 and #3. See the [safety/photos release and Replit build guide](docs/SURETE-PHOTOS-20261006.md)
 for free/Plus limits, backups, validation and the exact publishing boundary.

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
   dateFieldToIso,
@@ -9,6 +9,7 @@ import { subscriptions } from '../../../src/lib/api';
 
 export default function NewSubscriptionScreen() {
   const router = useRouter();
+  const { trial } = useLocalSearchParams<{ trial?: string }>();
 
   const handleSubmit = async (values: SubscriptionFormValues) => {
     const created = await subscriptions.create({
@@ -36,7 +37,8 @@ export default function NewSubscriptionScreen() {
 
   return (
     <SubscriptionForm
-      title="Nouvel abonnement"
+      title={trial === '1' ? 'Nouvel essai gratuit' : 'Nouvel abonnement'}
+      defaultValues={{ isTrial: trial === '1' }}
       submitLabel="Ajouter cet abonnement"
       onSubmit={handleSubmit}
       onCancel={() => router.back()}

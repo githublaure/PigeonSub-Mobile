@@ -12,6 +12,7 @@ import {
   euro,
   isEnded,
   monthlyCost,
+  currentMonthlyCost,
   overview,
 } from '../../src/lib/subscription-math';
 import { costProjection } from '../../src/lib/stats-projection';
@@ -30,7 +31,7 @@ export default function StatsScreen() {
   const categories: Record<string, number> = {};
   for (const sub of active)
     categories[sub.category] =
-      (categories[sub.category] ?? 0) + monthlyCost(sub);
+      (categories[sub.category] ?? 0) + currentMonthlyCost(sub);
   const groups = Object.entries(categories)
     .filter(([, cost]) => cost > 0)
     .sort((a, b) => b[1] - a[1]);
@@ -55,7 +56,9 @@ export default function StatsScreen() {
     (s) =>
       follow[s.id]?.decision === 'cancel_confirmed' && isEnded(s, follow[s.id]),
   ).length;
-  const underused = active.filter((s) => s.usageFrequency === 'rarely_used');
+  const underused = active.filter(
+    (s) => !s.isTrial && s.usageFrequency === 'rarely_used',
+  );
   let offset = 0;
   return (
     <Page title="Stats" subtitle="Moins d’abos. Plus de projets.">
@@ -76,7 +79,7 @@ export default function StatsScreen() {
       <View style={ui.card}>
         <View style={[ui.row, { alignItems: 'center' }]}>
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={ui.label}>COÛT MENSUEL ÉQUIVALENT</Text>
+            <Text style={ui.label}>COÛT ACTUEL · HORS ESSAIS</Text>
             <Text style={ui.value}>{euro(summary.monthly)}</Text>
             <Text style={ui.small}>
               {euro(summary.annual)} / an · {summary.active} actifs
@@ -162,7 +165,8 @@ export default function StatsScreen() {
           À l’horizon choisi : {euro(projection[months - 1].amount)} / mois
         </Text>
         <Text style={ui.small}>
-          À tarifs constants, en tenant compte des fins confirmées. Ce graphique
+          À tarifs constants, si les essais deviennent payants à leur premier
+          prélèvement prévu, en tenant compte des fins confirmées. Ce graphique
           est une projection, pas un historique bancaire.
         </Text>
       </View>
@@ -309,9 +313,10 @@ export default function StatsScreen() {
         />
       </View>
       <Text style={ui.small}>
-        Les achats à vie sont exclus des dépenses récurrentes. Les essais
-        utilisent le tarif après essai. Les montants restent des estimations,
-        sans vérification bancaire.
+        Les essais non confirmés payants sont exclus du coût actuel et de sa
+        répartition. Leur tarif futur entre uniquement dans la projection, à
+        partir du premier prélèvement prévu. Les montants ne sont pas vérifiés
+        auprès de votre banque.
       </Text>
     </Page>
   );

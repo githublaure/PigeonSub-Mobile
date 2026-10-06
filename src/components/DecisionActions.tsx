@@ -75,7 +75,9 @@ export function DecisionActions({
                 fontWeight: '600',
               }}
             >
-              Économie possible si résilié
+              {sub.isTrial
+                ? 'Dépense évitable si l’essai est arrêté à temps'
+                : 'Économie possible si résilié'}
             </Text>
             <Text
               style={{
@@ -118,7 +120,9 @@ export function DecisionActions({
               ? inDetail
                 ? 'À confirmer ci-dessous'
                 : 'Continuer'
-              : 'Résilier'
+              : sub.isTrial
+                ? 'Arrêter l’essai'
+                : 'Résilier'
           }
           loading={busy}
           disabled={inDetail && follow.decision === 'cancel_requested'}

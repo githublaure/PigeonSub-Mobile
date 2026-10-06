@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useBilling } from '../../src/contexts/BillingContext';
 import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
+import { TrialStatus } from '../../src/components/TrialStatus';
 import { DecisionActions } from '../../src/components/DecisionActions';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
@@ -47,8 +48,10 @@ export default function HomeScreen() {
     .map((sub) => ({ sub, dates: deadlines(sub, follow[sub.id]) }))
     .sort(
       (a, b) =>
-        ((a.dates.actionBy ?? a.dates.renewal)?.getTime() ?? Infinity) -
-        ((b.dates.actionBy ?? b.dates.renewal)?.getTime() ?? Infinity),
+        ((a.dates.safety ?? a.dates.actionBy ?? a.dates.renewal)?.getTime() ??
+          Infinity) -
+        ((b.dates.safety ?? b.dates.actionBy ?? b.dates.renewal)?.getTime() ??
+          Infinity),
     )
     .slice(0, 5);
   const add = () =>
@@ -127,7 +130,7 @@ export default function HomeScreen() {
 
       <View style={styles.costRow}>
         <View style={{ flex: 1 }}>
-          <Text style={ui.small}>Coût de vos abonnements</Text>
+          <Text style={ui.small}>Coût actuel · hors essais</Text>
           <Text style={styles.costAmount}>
             {euro(total.monthly)} <Text style={styles.costPeriod}>/ mois</Text>
           </Text>
@@ -140,11 +143,35 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {total.trialCount > 0 && (
+        <View style={ui.card}>
+          <Text style={ui.heading}>
+            {total.trialCount} essai{total.trialCount > 1 ? 's' : ''} à suivre
+          </Text>
+          <Text style={ui.body}>
+            Si les essais non résiliés deviennent payants :{' '}
+            {euro(total.afterTrialsMonthly)} / mois, soit +
+            {euro(total.trialMonthly)}.
+          </Text>
+          {total.expiredTrials > 0 && (
+            <Text style={[ui.small, ui.warning]}>
+              {total.expiredTrials} statut{total.expiredTrials > 1 ? 's' : ''} à
+              vérifier.
+            </Text>
+          )}
+          <Button
+            title="Voir mes essais gratuits"
+            variant="secondary"
+            onPress={() => router.push('/(tabs)/coupons?view=trials')}
+          />
+        </View>
+      )}
+
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={ui.heading}>À décider bientôt</Text>
           <Text style={ui.small}>
-            Les dates limites les plus proches d’abord.
+            Les dates de sûreté les plus proches d’abord.
           </Text>
         </View>
         <Button title="+ Ajouter" size="sm" variant="secondary" onPress={add} />
@@ -179,10 +206,12 @@ export default function HomeScreen() {
             >
               <Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text>
               <Text style={ui.pill}>
+                {sub.isTrial ? 'Après essai · ' : ''}
                 {euro(Number(sub.price))} /{' '}
                 {frequencyLabels[sub.frequency] ?? sub.frequency}
               </Text>
             </View>
+            <TrialStatus sub={sub} follow={follow[sub.id]} />
             {dates.actionBy && (
               <View style={styles.deadline}>
                 <Ionicons
@@ -199,7 +228,8 @@ export default function HomeScreen() {
               </View>
             )}
             <Text style={ui.small}>
-              Prélèvement : {shortDate(dates.renewal)}
+              {sub.isTrial ? 'Fin de l’essai' : 'Prélèvement'} :{' '}
+              {shortDate(dates.renewal)}
               {dates.safety ? ` · Sûreté : ${shortDate(dates.safety)}` : ''}
             </Text>
           </Pressable>
@@ -212,8 +242,8 @@ export default function HomeScreen() {
         onPress={() => router.push('/(tabs)/stats')}
       />
       <Text style={ui.small}>
-        Les coûts sont mensualisés, hors achats à vie ; les essais utilisent le
-        tarif après essai. Les économies sont des estimations, sans vérification
+        Les coûts actuels sont mensualisés, hors achats à vie et essais non
+        confirmés payants. Les économies sont des projections, sans vérification
         bancaire.
       </Text>
       {!!data.length && !canUsePlus && (
@@ -231,13 +261,14 @@ export default function HomeScreen() {
           </Text>
           <Text style={ui.heading}>Votre pigeon veille avant le jour J.</Text>
           <Text style={ui.body}>
-            Personnalisez votre avance de rappel avec Plus. Vos 5 abonnements et
-            leurs rappels standards restent gratuits.
+            Suivez autant d’abonnements et d’essais que nécessaire avec Plus.
+            Vos 5 abonnements gratuits incluent déjà leurs dates de sûreté
+            personnalisées et leurs rappels.
           </Text>
           <Button
             title="Découvrir PigeonSub Plus"
             variant="secondary"
-            onPress={() => router.push('/(tabs)/premium?reason=safety')}
+            onPress={() => router.push('/(tabs)/premium?reason=limit')}
           />
         </View>
       )}
