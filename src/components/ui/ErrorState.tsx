@@ -1,7 +1,8 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Button } from './Button';
 
 interface ErrorStateProps {
@@ -15,6 +16,9 @@ export function ErrorState({
   message,
   onRetry,
 }: ErrorStateProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Ionicons name="alert-circle-outline" size={56} color={Colors.danger} />
@@ -27,7 +31,7 @@ export function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

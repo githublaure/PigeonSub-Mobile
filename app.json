@@ -6,27 +6,15 @@
     "orientation": "portrait",
     "scheme": "pigeonsub",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pigeonsub.app"
     },
     "android": {
       "package": "com.pigeonsub.app",
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#7C3AED"
       }
-    },
-    "androidStatusBar": {
-      "barStyle": "light-content",
-      "backgroundColor": "#6226FB",
-      "translucent": true
-    },
-    "androidNavigationBar": {
-      "barStyle": "light-content",
-      "backgroundColor": "#6226FB",
-      "enforceContrast": false
     },
     "web": {
       "bundler": "metro",
@@ -56,7 +44,23 @@
           "cameraPermission": "Allow PigeonSub to use the camera to capture receipts."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

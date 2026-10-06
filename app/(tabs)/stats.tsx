@@ -1,7 +1,8 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
-import { Page, ui } from '../../src/components/ui/Page';
+import { Page, useUI } from '../../src/components/ui/Page';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
 import {
@@ -11,8 +12,10 @@ import {
   overview,
 } from '../../src/lib/subscription-math';
 import { categoryLabels, usageLabels } from '../../src/lib/labels';
-import { Colors } from '../../src/theme/colors';
 export default function StatsScreen() {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const { data, follow, loading, error, reload } = useSubscriptionData();
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;

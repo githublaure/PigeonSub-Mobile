@@ -1,7 +1,8 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, ImageSourcePropType, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Button } from './Button';
 
 interface EmptyStateProps {
@@ -21,6 +22,9 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       {imageSource ? (
@@ -37,7 +41,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

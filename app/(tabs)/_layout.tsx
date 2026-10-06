@@ -1,7 +1,8 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Image, ImageSourcePropType } from 'react-native';
-import { Colors } from '../../src/theme/colors';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type PigeonTabIconPair = {
@@ -20,6 +21,7 @@ const CALENDAR_ICONS: PigeonTabIconPair = {
 };
 
 function tabIcon(
+  Colors: Palette,
   focused: boolean,
   name: IoniconName,
   outlineName: IoniconName,
@@ -45,6 +47,8 @@ function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
 }
 
 export default function TabsLayout() {
+  const { colors: Colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -73,7 +77,7 @@ export default function TabsLayout() {
         name="subscriptions"
         options={{
           title: 'Abonnements',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'list', 'list-outline'),
+          tabBarIcon: ({ focused }) => tabIcon(Colors, focused, 'list', 'list-outline'),
         }}
       />
       <Tabs.Screen
@@ -88,7 +92,7 @@ export default function TabsLayout() {
         options={{
           title: 'Bilan',
           tabBarIcon: ({ focused }) =>
-            tabIcon(focused, 'bar-chart', 'bar-chart-outline'),
+            tabIcon(Colors, focused, 'bar-chart', 'bar-chart-outline'),
         }}
       />
       <Tabs.Screen
@@ -96,7 +100,7 @@ export default function TabsLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ focused }) =>
-            tabIcon(focused, 'person-circle', 'person-circle-outline'),
+            tabIcon(Colors, focused, 'person-circle', 'person-circle-outline'),
         }}
       />
       {/* Hidden screens — accessible via navigation but not shown in tab bar */}

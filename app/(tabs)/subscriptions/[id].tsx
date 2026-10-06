@@ -14,12 +14,14 @@ import {
   CancellationPanel,
   SafetyPanel,
 } from '../../../src/components/SubscriptionFollowUp';
-import { Page, ui } from '../../../src/components/ui/Page';
+import { Page, useUI } from '../../../src/components/ui/Page';
 import { Button } from '../../../src/components/ui/Button';
 import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../../src/components/ui/ErrorState';
 import { useBilling } from '../../../src/contexts/BillingContext';
 export default function SubscriptionScreen() {
+  const ui = useUI();
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { canUsePlus } = useBilling();

@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -15,7 +17,6 @@ import { EmptyState } from '../../src/components/ui/EmptyState';
 import { ErrorState } from '../../src/components/ui/ErrorState';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { Subscription, subscriptions as subsApi } from '../../src/lib/api';
-import { Colors } from '../../src/theme/colors';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,6 +44,9 @@ function fmtPrice(price: string): string {
 // CountdownBadge
 // ---------------------------------------------------------------------------
 function CountdownBadge({ days }: { days: number | null }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   if (days === null) return null;
   const urgent = days <= 7;
   const expired = days < 0;
@@ -76,6 +80,9 @@ function SubscriptionRow({
   countdownDate: string | null;
   onPress: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const days = daysUntil(countdownDate);
   const accent = sub.categoryColor || Colors.primary;
 
@@ -110,6 +117,9 @@ function SubscriptionRow({
 // Section header
 // ---------------------------------------------------------------------------
 function SectionHeader({ title, count, color }: { title: string; count: number; color?: string }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -131,6 +141,9 @@ type RowItem = {
 };
 
 export default function CouponsScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const router = useRouter();
   const [data, setData] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,7 +303,7 @@ export default function CouponsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',

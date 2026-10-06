@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -7,7 +9,6 @@ import {
   Text,
   ViewStyle,
 } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -31,6 +32,9 @@ export function Button({
   disabled,
   ...rest
 }: ButtonProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const isDisabled = disabled || loading;
 
   return (
@@ -63,7 +67,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',

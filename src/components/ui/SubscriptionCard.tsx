@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import { categoryLabels } from '../../lib/labels';
 import {
   euro,
@@ -9,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Subscription } from '../../lib/api';
-import { Colors } from '../../theme/colors';
 
 interface SubscriptionCardProps {
   subscription: Subscription;
@@ -34,6 +35,9 @@ export function SubscriptionCard({
   subscription,
   onPress,
 }: SubscriptionCardProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const days = daysUntil(nextRenewal(subscription)?.toISOString() ?? null);
   const isUrgent = days !== null && days <= 7;
   const accentColor = subscription.categoryColor || Colors.primary;
@@ -90,7 +94,7 @@ export function SubscriptionCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 14,

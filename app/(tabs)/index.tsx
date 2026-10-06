@@ -1,3 +1,4 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
@@ -8,7 +9,7 @@ import { DecisionActions } from '../../src/components/DecisionActions';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
-import { Page, ui } from '../../src/components/ui/Page';
+import { Page, useUI } from '../../src/components/ui/Page';
 import {
   canAddSubscription,
   dayKey,
@@ -19,8 +20,10 @@ import {
   overview,
   shortDate,
 } from '../../src/lib/subscription-math';
-import { Colors } from '../../src/theme/colors';
 export default function HomeScreen() {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
   const { mode, user, startGuest } = useAuth();
   const { canUsePlus } = useBilling();
@@ -82,7 +85,7 @@ export default function HomeScreen() {
         </View>
       )}
       <View
-        style={[ui.card, { backgroundColor: '#261544', gap: 8, padding: 16 }]}
+        style={[ui.card, { backgroundColor: Colors.surfaceRaised, gap: 8, padding: 16 }]}
       >
         <View style={[ui.row, { justifyContent: 'space-between' }]}>
           <Text style={ui.label}>VOTRE COÛT MENSUEL</Text>

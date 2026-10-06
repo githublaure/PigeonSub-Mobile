@@ -1,3 +1,5 @@
+import { useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -17,7 +19,6 @@ import { z } from 'zod';
 import { Button } from '../../src/components/ui/Button';
 import { StyledTextInput } from '../../src/components/ui/StyledTextInput';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { Colors } from '../../src/theme/colors';
 
 const schema = z.object({
   email: z.string().email('Saisissez une adresse e-mail valide'),
@@ -26,6 +27,8 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function LoginScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const router = useRouter();
   const { login, demoLogin } = useAuth();
   const [apiError, setApiError] = useState('');
@@ -175,7 +178,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 14,
     textAlign: 'center',
-    backgroundColor: '#2D1515',
+    backgroundColor: Colors.danger + '14',
     borderRadius: 8,
     padding: 12,
   },

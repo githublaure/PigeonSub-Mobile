@@ -1,3 +1,5 @@
+import { useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -16,12 +18,13 @@ import { z } from 'zod';
 import { Button } from '../../src/components/ui/Button';
 import { StyledTextInput } from '../../src/components/ui/StyledTextInput';
 import { auth } from '../../src/lib/api';
-import { Colors } from '../../src/theme/colors';
 
 const schema = z.object({ email: z.string().email('Enter a valid email') });
 type FormValues = z.infer<typeof schema>;
 
 export default function ForgotPasswordScreen() {
+  const styles = useThemedStyles(createStyles);
+
   const router = useRouter();
   const [sent, setSent] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -112,7 +115,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
@@ -124,7 +127,7 @@ const styles = StyleSheet.create({
   apiError: {
     color: Colors.danger,
     fontSize: 14,
-    backgroundColor: '#2D1515',
+    backgroundColor: Colors.danger + '14',
     borderRadius: 8,
     padding: 12,
   },

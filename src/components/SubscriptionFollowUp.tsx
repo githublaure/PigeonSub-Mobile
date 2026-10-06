@@ -1,3 +1,4 @@
+import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Linking, Switch, Text, TextInput, View } from 'react-native';
@@ -18,8 +19,7 @@ import {
   type FollowUp,
 } from '../lib/subscription-math';
 import { Button } from './ui/Button';
-import { ui } from './ui/Page';
-import { Colors } from '../theme/colors';
+import { useUI } from './ui/Page';
 
 export function SafetyPanel({
   sub,
@@ -28,6 +28,9 @@ export function SafetyPanel({
   sub: Subscription;
   follow?: FollowUp;
 }) {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
   const { canUsePlus } = useBilling();
   const { mode } = useAuth();
@@ -188,6 +191,9 @@ export function CancellationPanel({
   sub: Subscription;
   follow?: FollowUp;
 }) {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
   const { canUsePlus } = useBilling();
   const [effective, setEffective] = useState(

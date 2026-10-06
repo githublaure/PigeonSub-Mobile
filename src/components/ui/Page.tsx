@@ -1,6 +1,7 @@
+import { useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 export function Page({
   title,
   subtitle,
@@ -10,6 +11,8 @@ export function Page({
   subtitle?: string;
   children: React.ReactNode;
 }) {
+  const ui = useUI();
+
   return (
     <SafeAreaView style={ui.safe}>
       <ScrollView
@@ -25,7 +28,7 @@ export function Page({
     </SafeAreaView>
   );
 }
-export const ui = StyleSheet.create({
+export const createUi = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   page: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 48, gap: 20 },
   title: {
@@ -86,3 +89,5 @@ export const ui = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+export function useUI() { return useThemedStyles(createUi); }

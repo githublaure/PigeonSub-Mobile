@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../../../src/contexts/ThemeContext';
+import type { Palette } from '../../../../src/theme/colors';
 import { useBilling } from '../../../../src/contexts/BillingContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,7 +27,6 @@ import {
   Subscription,
   subscriptions as subsApi,
 } from '../../../../src/lib/api';
-import { Colors } from '../../../../src/theme/colors';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +47,9 @@ const SLOT_ICONS: Record<ImageSlot, keyof typeof Ionicons.glyphMap> = {
 // PermissionDenied helper
 // ---------------------------------------------------------------------------
 function PermissionDenied({ source }: { source: 'camera' | 'library' }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.permissionBox}>
       <Ionicons
@@ -91,6 +95,9 @@ function ImageSlotCard({
   onPickCamera: () => void;
   onRemove: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card style={styles.slotCard}>
       {/* Slot label */}
@@ -163,6 +170,9 @@ function ImageSlotCard({
 // Main screen
 // ---------------------------------------------------------------------------
 export default function ReceiptsScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { canUsePlus } = useBilling();
@@ -441,7 +451,7 @@ export default function ReceiptsScreen() {
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   header: {
@@ -516,7 +526,7 @@ const styles = StyleSheet.create({
   imageWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden' },
   image: { width: '100%', height: 200, borderRadius: 12 },
   uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',

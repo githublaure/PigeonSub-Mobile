@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../../src/contexts/ThemeContext';
+import type { Palette } from '../../../src/theme/colors';
 import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
 import { useBilling } from '../../../src/contexts/BillingContext';
 import {
@@ -22,11 +24,13 @@ import { ErrorState } from '../../../src/components/ui/ErrorState';
 import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
 import { SubscriptionCard } from '../../../src/components/ui/SubscriptionCard';
 import { Subscription, subscriptions } from '../../../src/lib/api';
-import { Colors } from '../../../src/theme/colors';
 
 type SortKey = 'name' | 'price' | 'renewal';
 
 export default function SubscriptionsScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const router = useRouter();
   const { data, follow, loading, error, reload: load } = useSubscriptionData();
   const { canUsePlus } = useBilling();
@@ -161,7 +165,7 @@ export default function SubscriptionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',

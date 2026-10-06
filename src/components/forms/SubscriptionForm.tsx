@@ -1,3 +1,5 @@
+import { useThemedStyles, useTheme } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import { useRouter } from 'expo-router';
 import { parseDay } from '../../lib/subscription-math';
 import { categoryLabels } from '../../lib/labels';
@@ -24,7 +26,6 @@ import { z } from 'zod';
 import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
-import { Colors } from '../../theme/colors';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
@@ -135,10 +136,14 @@ export function isoToDateField(iso: string | null | undefined): string {
 // Sub-components
 // ---------------------------------------------------------------------------
 function SectionTitle({ children }: { children: string }) {
+  const styles = useThemedStyles(createStyles);
+
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
 function FieldError({ message }: { message?: string }) {
+  const styles = useThemedStyles(createStyles);
+
   if (!message) return null;
   return <Text style={styles.fieldError}>{message}</Text>;
 }
@@ -156,6 +161,8 @@ function ChipGroup<T extends string>({
   label: string;
   error?: string;
 }) {
+  const chipStyles = useThemedStyles(createChipStyles);
+
   const normalised: { value: T; label: string }[] = (
     options as readonly (T | { value: T; label: string })[]
   ).map((o) =>
@@ -195,7 +202,7 @@ function ChipGroup<T extends string>({
   );
 }
 
-const chipStyles = StyleSheet.create({
+const createChipStyles = (Colors: Palette) => StyleSheet.create({
   container: { gap: 8 },
   label: {
     color: Colors.textSecondary,
@@ -230,6 +237,9 @@ function ToggleRow({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.toggleRow}>
       <View style={styles.toggleText}>
@@ -266,6 +276,10 @@ export function SubscriptionForm({
   onCancel,
   submitLabel = 'Enregistrer',
 }: SubscriptionFormProps) {
+  const { colors: Colors } = useTheme();
+  const chipStyles = useThemedStyles(createChipStyles);
+  const styles = useThemedStyles(createStyles);
+
   const router = useRouter();
   const [apiError, setApiError] = useState('');
 
@@ -610,7 +624,7 @@ export function SubscriptionForm({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, paddingBottom: 48 },
@@ -654,7 +668,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#2D1515',
+    backgroundColor: Colors.danger + '14',
     borderRadius: 10,
     padding: 12,
   },

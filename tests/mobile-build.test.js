@@ -15,15 +15,15 @@ function fixture(t) {
   }
   return dir;
 }
-function installExpo(dir, version = '54.0.37') {
+function installExpo(dir, version = '57.0.26') {
   const expo = path.join(dir, 'node_modules/expo');
   fs.mkdirSync(path.join(expo, 'bin'), { recursive: true });
   fs.writeFileSync(path.join(expo, 'package.json'), JSON.stringify({ version }));
   fs.writeFileSync(path.join(expo, 'bin/cli'), '');
 }
 
-test('mobile lockfile pins SDK 54 and only public npm tarballs with integrity', () => {
-  assert.equal(checkLock(root), '54.0.37');
+test('mobile lockfile pins SDK 57 and only public npm tarballs with integrity', () => {
+  assert.equal(checkLock(root), '57.0.26');
 });
 
 test('preflight rejects a clean checkout without installing or downloading Expo', (t) => {
@@ -34,7 +34,7 @@ test('preflight rejects a clean checkout without installing or downloading Expo'
 
 test('preflight rejects wrong SDK, wrong patch version, and incomplete CLI', (t) => {
   const dir = fixture(t);
-  for (const version of ['57.0.26', '54.0.36']) {
+  for (const version of ['54.0.37', '57.0.25']) {
     installExpo(dir, version);
     assert.throws(() => preflight(dir), /does not match locked Expo/);
   }

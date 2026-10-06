@@ -1,6 +1,7 @@
+import { useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 interface CardProps extends ViewProps {
   children: React.ReactNode;
@@ -10,6 +11,8 @@ interface CardProps extends ViewProps {
 }
 
 export function Card({ children, style, onPress, elevated = false, ...rest }: CardProps) {
+  const styles = useThemedStyles(createStyles);
+
   if (onPress) {
     return (
       <Pressable
@@ -35,7 +38,7 @@ export function Card({ children, style, onPress, elevated = false, ...rest }: Ca
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 16,

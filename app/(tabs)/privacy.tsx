@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
 import { Text } from 'react-native';
-import { Page, ui } from '../../src/components/ui/Page';
+import { Page, useUI } from '../../src/components/ui/Page';
 import { Button } from '../../src/components/ui/Button';
 export default function PrivacyScreen() {
+  const ui = useUI();
+
   const router = useRouter();
   return (
     <Page title="Vos données dans PigeonSub">

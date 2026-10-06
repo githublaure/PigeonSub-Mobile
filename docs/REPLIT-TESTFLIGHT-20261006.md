@@ -6,7 +6,7 @@
 - Sauvegarde GitHub du même commit : `backup/testflight-main-20261006-e94acca`.
 - Nouveautés : `feat/onboarding-safety-paywall`.
 - Le main n’est pas modifié par cette livraison. La branche permet une revue et un essai avant fusion. Ne pas réappliquer les anciennes commandes de migration Expo ou de remplacement du lockfile.
-- Expo reste en **SDK 54.0.37** ; les URL npm du lockfile restent publiques. Ni les workflows Replit, ni le backend, ni les identifiants d’application ne sont modifiés. `app.json` ajoute le plugin de notifications locales.
+- Mise à jour : cette branche est désormais en **SDK 57.0.26**. Lire le [guide de migration et de récupération Replit](SDK57-REPLIT-20261006.md). La livraison initiale SDK 54 est conservée dans `backup/features-sdk54-20261006-7368b6d`. Les URL npm restent publiques ; le backend, les workflows Replit et les identifiants restent inchangés.
 
 ## Parcours livrés
 

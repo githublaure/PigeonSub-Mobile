@@ -10,7 +10,7 @@ import {
   isEnded,
 } from '../lib/subscription-math';
 import { Button } from './ui/Button';
-import { ui } from './ui/Page';
+import { useUI } from './ui/Page';
 export function DecisionActions({
   sub,
   follow = {},
@@ -20,6 +20,8 @@ export function DecisionActions({
   follow?: FollowUp;
   inDetail?: boolean;
 }) {
+  const ui = useUI();
+
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

@@ -1,4 +1,7 @@
-import { Page, ui } from '../../src/components/ui/Page';
+import { ThemeControls } from '../../src/components/ThemeControls';
+import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
+import { Page, useUI } from '../../src/components/ui/Page';
 import { useBilling } from '../../src/contexts/BillingContext';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +25,6 @@ import { Card } from '../../src/components/ui/Card';
 import { StyledTextInput } from '../../src/components/ui/StyledTextInput';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { auth } from '../../src/lib/api';
-import { Colors } from '../../src/theme/colors';
 
 const pwSchema = z
   .object({
@@ -49,6 +51,9 @@ function SettingsRow({
   onPress: () => void;
   destructive?: boolean;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Pressable
       onPress={onPress}
@@ -84,6 +89,9 @@ function SettingsRow({
 }
 
 export default function ProfileScreen() {
+  const styles = useThemedStyles(createStyles);
+  const ui = useUI();
+
   const { user, mode, logout, deleteAccount, startGuest, demoLogin } =
     useAuth();
   const router = useRouter();
@@ -178,6 +186,7 @@ export default function ProfileScreen() {
             : 'Mode sans compte · vos données restent sur cet appareil'
         }
       >
+        <View style={ui.card}><ThemeControls /></View>
         <View style={ui.card}>
           <Text style={ui.heading}>
             {isPlus ? 'PigeonSub Plus' : 'PigeonSub Gratuit'}
@@ -334,6 +343,7 @@ export default function ProfileScreen() {
             </Card>
           )}
 
+          <Card style={{ marginHorizontal: 24, marginTop: 24 }}><ThemeControls /></Card>
           {/* App settings */}
           <Text style={styles.sectionLabel}>Application</Text>
           <Card style={styles.card}>
@@ -377,7 +387,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   content: { paddingBottom: 40 },
@@ -422,7 +432,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsIconDestructive: { backgroundColor: '#2D1515' },
+  settingsIconDestructive: { backgroundColor: Colors.danger + '14' },
   settingsText: { flex: 1 },
   settingsLabel: { color: Colors.text, fontSize: 15 },
   settingsValue: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
@@ -438,7 +448,7 @@ const styles = StyleSheet.create({
   pwError: {
     color: Colors.danger,
     fontSize: 13,
-    backgroundColor: '#2D1515',
+    backgroundColor: Colors.danger + '14',
     borderRadius: 8,
     padding: 10,
   },

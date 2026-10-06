@@ -1,3 +1,4 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
 import { hasSevenDayTrial } from '../../src/lib/billing-policy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -5,8 +6,7 @@ import { Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useBilling } from '../../src/contexts/BillingContext';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Button } from '../../src/components/ui/Button';
-import { Page, ui } from '../../src/components/ui/Page';
-import { Colors } from '../../src/theme/colors';
+import { Page, useUI } from '../../src/components/ui/Page';
 const PLANS = [
   {
     type: 'ANNUAL',
@@ -31,6 +31,9 @@ const PLANS = [
   },
 ];
 export default function PremiumScreen() {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
   const { reason } = useLocalSearchParams<{ reason?: string }>();
   const { mode } = useAuth();
@@ -130,7 +133,7 @@ export default function PremiumScreen() {
               selected === plan.type && {
                 borderColor: Colors.primary,
                 borderWidth: 2,
-                backgroundColor: '#261544',
+                backgroundColor: Colors.surfaceRaised,
               },
             ]}
           >

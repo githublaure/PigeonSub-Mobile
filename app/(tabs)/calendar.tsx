@@ -1,8 +1,9 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
-import { Page, ui } from '../../src/components/ui/Page';
+import { Page, useUI } from '../../src/components/ui/Page';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
@@ -13,8 +14,10 @@ import {
   euro,
   isEnded,
 } from '../../src/lib/subscription-math';
-import { Colors } from '../../src/theme/colors';
 export default function CalendarScreen() {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
   const { data, follow, loading, error, reload } = useSubscriptionData();
   const [month, setMonth] = useState(new Date());
@@ -136,7 +139,7 @@ export default function CalendarScreen() {
                     selected === key ? Colors.primary : 'transparent',
                 }}
               >
-                <Text style={{ color: Colors.text }}>{i + 1}</Text>
+                <Text style={{ color: selected === key ? Colors.white : Colors.text }}>{i + 1}</Text>
                 <View
                   style={{
                     flexDirection: 'row',

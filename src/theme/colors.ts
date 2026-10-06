@@ -1,23 +1,24 @@
-export const Colors = {
-  primary: '#7C3AED',        // violet-600
-  primaryLight: '#EDE9FE',   // violet-100
-  primaryDark: '#5B21B6',    // violet-800
+export const DarkColors = {
+  primary: '#7C3AED', // violet-600
+  primaryLight: '#EDE9FE', // violet-100
+  primaryDark: '#5B21B6', // violet-800
 
-  background: '#0F0A1E',     // dark purple-black
-  surface: '#1C1433',        // card background
-  surfaceRaised: '#261D42',  // elevated surface
+  background: '#0F0A1E', // dark purple-black
+  surface: '#1C1433', // card background
+  surfaceRaised: '#261D42', // elevated surface
 
-  text: '#F5F3FF',           // primary text (violet-50)
-  textSecondary: '#A78BFA',  // muted text (violet-400)
-  textMuted: '#6D5FA6',      // very muted
+  text: '#F5F3FF', // primary text (violet-50)
+  textSecondary: '#A78BFA', // muted text (violet-400)
+  textMuted: '#AAA0C8', // very muted
 
-  border: '#3B2D6E',         // border colour
-  divider: '#2D2152',        // divider
+  border: '#3B2D6E', // border colour
+  divider: '#2D2152', // divider
 
-  success: '#10B981',        // emerald-500
-  warning: '#F59E0B',        // amber-500
-  danger: '#EF4444',         // red-500
-  info: '#3B82F6',           // blue-500
+  warningSurface: '#2D2000',
+  success: '#10B981', // emerald-500
+  warning: '#F59E0B', // amber-500
+  danger: '#EF4444', // red-500
+  info: '#3B82F6', // blue-500
 
   // Category accent colours
   categories: {
@@ -37,4 +38,25 @@ export const Colors = {
   transparent: 'transparent',
 } as const;
 
-export type ColorKey = keyof typeof Colors;
+export type Palette = {
+  [K in keyof typeof DarkColors]: K extends 'categories'
+    ? typeof DarkColors.categories
+    : string;
+};
+export const LightColors: Palette = {
+  ...DarkColors,
+  background: '#FAF8FF',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F0EBFA',
+  text: '#211535',
+  textSecondary: '#635174',
+  textMuted: '#746281',
+  border: '#D6CCE5',
+  divider: '#E7DFEF',
+  success: '#047857',
+  warning: '#92400E',
+  warningSurface: '#FFF4D6',
+  danger: '#B91C1C',
+  info: '#1D4ED8',
+};
+export type ColorKey = keyof Palette;
