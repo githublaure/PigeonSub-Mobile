@@ -11,7 +11,7 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
+  title = 'Chargement impossible',
   message,
   onRetry,
 }: ErrorStateProps) {
@@ -21,7 +21,7 @@ export function ErrorState({
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {onRetry ? (
-        <Button title="Try again" onPress={onRetry} style={styles.retry} />
+        <Button title="Réessayer" onPress={onRetry} style={styles.retry} />
       ) : null}
     </View>
   );

@@ -22,7 +22,9 @@ export default function NewSubscriptionScreen() {
       isTrial: values.isTrial,
       trialEndsAt: values.isTrial ? dateFieldToIso(values.trialEndsAt) : null,
       useSafetyDate: values.useSafetyDate,
-      safetyDate: values.useSafetyDate ? dateFieldToIso(values.safetyDate) : null,
+      safetyDate: values.useSafetyDate
+        ? dateFieldToIso(values.safetyDate)
+        : null,
       purchaseDate: dateFieldToIso(values.purchaseDate),
       rating: values.rating ?? null,
       note: values.note || null,
@@ -34,8 +36,8 @@ export default function NewSubscriptionScreen() {
 
   return (
     <SubscriptionForm
-      title="New subscription"
-      submitLabel="Create subscription"
+      title="Nouvel abonnement"
+      submitLabel="Ajouter cet abonnement"
       onSubmit={handleSubmit}
       onCancel={() => router.back()}
     />

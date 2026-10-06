@@ -1,3 +1,5 @@
+import { Page, ui } from '../../src/components/ui/Page';
+import { useBilling } from '../../src/contexts/BillingContext';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,14 +24,16 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { auth } from '../../src/lib/api';
 import { Colors } from '../../src/theme/colors';
 
-const pwSchema = z.object({
-  currentPassword: z.string().min(1, 'Enter current password'),
-  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
-  confirmPassword: z.string(),
-}).refine((d) => d.newPassword === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const pwSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Saisissez le mot de passe actuel'),
+    newPassword: z.string().min(6, '6 caractères minimum'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: 'Les mots de passe ne correspondent pas',
+    path: ['confirmPassword'],
+  });
 type PwFormValues = z.infer<typeof pwSchema>;
 
 function SettingsRow({
@@ -51,11 +55,27 @@ function SettingsRow({
       style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
       accessibilityRole="button"
     >
-      <View style={[styles.settingsIcon, destructive && styles.settingsIconDestructive]}>
-        <Ionicons name={icon} size={18} color={destructive ? Colors.danger : Colors.primary} />
+      <View
+        style={[
+          styles.settingsIcon,
+          destructive && styles.settingsIconDestructive,
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={destructive ? Colors.danger : Colors.primary}
+        />
       </View>
       <View style={styles.settingsText}>
-        <Text style={[styles.settingsLabel, destructive && { color: Colors.danger }]}>{label}</Text>
+        <Text
+          style={[
+            styles.settingsLabel,
+            destructive && { color: Colors.danger },
+          ]}
+        >
+          {label}
+        </Text>
         {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
@@ -64,14 +84,18 @@ function SettingsRow({
 }
 
 export default function ProfileScreen() {
-  const { user, logout, deleteAccount } = useAuth();
+  const { user, mode, logout, deleteAccount, startGuest, demoLogin } =
+    useAuth();
   const router = useRouter();
+  const { isPlus } = useBilling();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwError, setPwError] = useState('');
 
   const {
-    control, handleSubmit, reset,
+    control,
+    handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<PwFormValues>({ resolver: zodResolver(pwSchema) });
 
@@ -83,58 +107,142 @@ export default function ProfileScreen() {
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       });
-      setPwSuccess('Password changed successfully!');
+      setPwSuccess('Mot de passe modifié.');
       reset();
-      setTimeout(() => { setPwSuccess(''); setShowPasswordForm(false); }, 2000);
+      setTimeout(() => {
+        setPwSuccess('');
+        setShowPasswordForm(false);
+      }, 2000);
     } catch (e: unknown) {
-      setPwError(e instanceof Error ? e.message : 'Failed to change password');
+      setPwError(e instanceof Error ? e.message : 'Modification impossible');
     }
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete account',
-      'This will permanently delete your account and all your data (subscriptions, settings, reminders). This cannot be undone.',
+      'Supprimer le compte',
+      'Votre compte et ses données seront supprimés définitivement. Les données sans compte sur cet appareil sont conservées. Un abonnement Plus se gère séparément dans votre compte Store.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Annuler', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Supprimer',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Are you absolutely sure?', 'All your data will be erased permanently.', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Yes, delete everything',
-                style: 'destructive',
-                onPress: async () => {
-                  try {
-                    await deleteAccount();
-                  } catch (e: unknown) {
-                    Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete account');
-                  }
+            Alert.alert(
+              'Confirmer la suppression ?',
+              'Les données de ce compte seront définitivement effacées.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Supprimer ce compte',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                    } catch (e: unknown) {
+                      Alert.alert(
+                        'Erreur',
+                        e instanceof Error
+                          ? e.message
+                          : 'Suppression impossible',
+                      );
+                    }
+                  },
                 },
-              },
-            ]);
+              ],
+            );
           },
         },
-      ]
+      ],
     );
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: logout },
-    ]);
+    Alert.alert(
+      'Se déconnecter',
+      'Revenir au mode sans compte sur cet appareil ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Se déconnecter', style: 'destructive', onPress: logout },
+      ],
+    );
   };
+
+  if (mode !== 'account')
+    return (
+      <Page
+        title="Votre espace"
+        subtitle={
+          mode === 'demo'
+            ? 'Camille · compte fictif de démonstration'
+            : 'Mode sans compte · vos données restent sur cet appareil'
+        }
+      >
+        <View style={ui.card}>
+          <Text style={ui.heading}>
+            {isPlus ? 'PigeonSub Plus' : 'PigeonSub Gratuit'}
+          </Text>
+          <Text style={ui.body}>
+            Retrouvez vos offres, restaurez un achat ou gérez votre abonnement.
+          </Text>
+          <Button
+            title="Mon offre PigeonSub"
+            onPress={() => router.push('/(tabs)/premium')}
+          />
+        </View>
+        {mode === 'demo' ? (
+          <Button
+            title="Quitter la démo et retrouver mes données"
+            onPress={() => void startGuest()}
+          />
+        ) : (
+          <Button
+            title="Explorer la démo"
+            variant="secondary"
+            onPress={() => void demoLogin()}
+          />
+        )}
+        <View style={ui.card}>
+          <Text style={ui.heading}>
+            Un compte, seulement si vous le souhaitez
+          </Text>
+          <Text style={ui.body}>
+            Retrouvez un compte existant ou créez-en un. Vos abonnements sans
+            compte restent séparés et conservés sur cet appareil ; ils ne sont
+            pas importés automatiquement.
+          </Text>
+          <Button
+            title="Me connecter"
+            variant="secondary"
+            onPress={() => router.push('/(auth)/login')}
+          />
+          <Button
+            title="Créer un compte"
+            variant="ghost"
+            onPress={() => router.push('/(auth)/register')}
+          />
+        </View>
+        <Button
+          title="Mes données et confidentialité"
+          variant="secondary"
+          onPress={() => router.push('/(tabs)/privacy')}
+        />
+      </Page>
+    );
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.kav}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Profile</Text>
+            <Text style={styles.title}>Profil</Text>
           </View>
 
           {/* Avatar */}
@@ -149,11 +257,11 @@ export default function ProfileScreen() {
           </View>
 
           {/* Account settings */}
-          <Text style={styles.sectionLabel}>Account</Text>
+          <Text style={styles.sectionLabel}>Compte</Text>
           <Card style={styles.card}>
             <SettingsRow
               icon="lock-closed-outline"
-              label="Change password"
+              label="Modifier le mot de passe"
               onPress={() => setShowPasswordForm((v) => !v)}
             />
           </Card>
@@ -161,42 +269,85 @@ export default function ProfileScreen() {
           {/* Change password form */}
           {showPasswordForm && (
             <Card style={styles.pwCard}>
-              <Text style={styles.pwTitle}>Change password</Text>
+              <Text style={styles.pwTitle}>Modifier le mot de passe</Text>
               <View style={styles.pwForm}>
-                <Controller control={control} name="currentPassword" render={({ field }) => (
-                  <StyledTextInput label="Current password" placeholder="••••••••" secureTextEntry returnKeyType="next"
-                    error={errors.currentPassword?.message} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} />
-                )} />
-                <Controller control={control} name="newPassword" render={({ field }) => (
-                  <StyledTextInput label="New password" placeholder="At least 6 characters" secureTextEntry returnKeyType="next"
-                    error={errors.newPassword?.message} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} />
-                )} />
-                <Controller control={control} name="confirmPassword" render={({ field }) => (
-                  <StyledTextInput label="Confirm new password" placeholder="Repeat password" secureTextEntry returnKeyType="done"
-                    onSubmitEditing={handleSubmit(onChangePassword)}
-                    error={errors.confirmPassword?.message} value={field.value} onChangeText={field.onChange} onBlur={field.onBlur} />
-                )} />
+                <Controller
+                  control={control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <StyledTextInput
+                      label="Mot de passe actuel"
+                      placeholder="••••••••"
+                      secureTextEntry
+                      returnKeyType="next"
+                      error={errors.currentPassword?.message}
+                      value={field.value}
+                      onChangeText={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <StyledTextInput
+                      label="Nouveau mot de passe"
+                      placeholder="6 caractères minimum"
+                      secureTextEntry
+                      returnKeyType="next"
+                      error={errors.newPassword?.message}
+                      value={field.value}
+                      onChangeText={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <StyledTextInput
+                      label="Confirmer le mot de passe"
+                      placeholder="Répéter le mot de passe"
+                      secureTextEntry
+                      returnKeyType="done"
+                      onSubmitEditing={handleSubmit(onChangePassword)}
+                      error={errors.confirmPassword?.message}
+                      value={field.value}
+                      onChangeText={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
                 {pwError ? <Text style={styles.pwError}>{pwError}</Text> : null}
-                {pwSuccess ? <Text style={styles.pwSuccess}>{pwSuccess}</Text> : null}
-                <Button title="Update password" onPress={handleSubmit(onChangePassword)} loading={isSubmitting} fullWidth />
+                {pwSuccess ? (
+                  <Text style={styles.pwSuccess}>{pwSuccess}</Text>
+                ) : null}
+                <Button
+                  title="Enregistrer"
+                  onPress={handleSubmit(onChangePassword)}
+                  loading={isSubmitting}
+                  fullWidth
+                />
               </View>
             </Card>
           )}
 
           {/* App settings */}
-          <Text style={styles.sectionLabel}>App</Text>
+          <Text style={styles.sectionLabel}>Application</Text>
           <Card style={styles.card}>
             <SettingsRow
               icon="star-outline"
-              label="Upgrade to Premium"
-              value="Unlock all features"
+              label="Mon offre PigeonSub Plus"
+              value="Offres, achats et restauration"
               onPress={() => router.push('/(tabs)/premium')}
             />
             <View style={styles.rowDivider} />
             <SettingsRow
-              icon="mic-outline"
-              label="Voice reminders"
-              onPress={() => router.push('/(tabs)/voice')}
+              icon="shield-checkmark-outline"
+              label="Mes données et confidentialité"
+              onPress={() => router.push('/(tabs)/privacy')}
             />
           </Card>
 
@@ -205,15 +356,15 @@ export default function ProfileScreen() {
           <Card style={styles.card}>
             <SettingsRow
               icon="log-out-outline"
-              label="Sign out"
+              label="Se déconnecter"
               onPress={handleLogout}
               destructive
             />
             <View style={styles.rowDivider} />
             <SettingsRow
               icon="trash-outline"
-              label="Delete account"
-              value="Permanently erase account and data"
+              label="Supprimer le compte"
+              value="Supprimer définitivement ce compte et ses données"
               onPress={handleDeleteAccount}
               destructive
             />
@@ -234,24 +385,42 @@ const styles = StyleSheet.create({
   title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
   avatar: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarInitial: { color: Colors.white, fontSize: 36, fontWeight: '800' },
   avatarName: { color: Colors.text, fontSize: 20, fontWeight: '700' },
   avatarEmail: { color: Colors.textSecondary, fontSize: 14 },
   sectionLabel: {
-    color: Colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase',
-    letterSpacing: 1, marginHorizontal: 24, marginBottom: 8, marginTop: 16,
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginHorizontal: 24,
+    marginBottom: 8,
+    marginTop: 16,
   },
   card: { marginHorizontal: 24 },
   settingsRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    minHeight: 52,
   },
   pressed: { opacity: 0.7 },
   settingsIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   settingsIconDestructive: { backgroundColor: '#2D1515' },
   settingsText: { flex: 1 },
@@ -259,9 +428,25 @@ const styles = StyleSheet.create({
   settingsValue: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   rowDivider: { height: 1, backgroundColor: Colors.divider, marginLeft: 50 },
   pwCard: { marginHorizontal: 24, marginTop: 8 },
-  pwTitle: { color: Colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  pwTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
   pwForm: { gap: 14 },
-  pwError: { color: Colors.danger, fontSize: 13, backgroundColor: '#2D1515', borderRadius: 8, padding: 10 },
+  pwError: {
+    color: Colors.danger,
+    fontSize: 13,
+    backgroundColor: '#2D1515',
+    borderRadius: 8,
+    padding: 10,
+  },
   pwSuccess: { color: Colors.success, fontSize: 13 },
-  version: { color: Colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 32 },
+  version: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 32,
+  },
 });

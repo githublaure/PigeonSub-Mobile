@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
@@ -22,26 +22,28 @@ const SLIDES = [
   {
     key: '1',
     imageSource: require('../../assets/mascots/pigeon-money-bag.png'),
-    title: 'Stop being a pigeon',
-    subtitle: 'Track every subscription you pay for — and stop paying for ones you forgot about.',
+    title: 'Vos abonnements, enfin sous contrôle',
+    subtitle:
+      'Découvrez ce que vous payez chaque mois et chaque année. Gardez ce qui compte vraiment.',
   },
   {
     key: '2',
     imageSource: require('../../assets/mascots/pigeon-spray-paint.png'),
-    title: 'Renewals before they hit',
-    subtitle: 'Get ahead of charges with a calendar view and upcoming-renewal alerts.',
+    title: 'La bonne alerte, avant le jour J',
+    subtitle:
+      'Repérez le prochain prélèvement et la date limite pour agir, selon le préavis de votre abonnement.',
   },
   {
     key: '3',
     imageSource: require('../../assets/mascots/pigeon-microphone.png'),
-    title: 'AI voice reminders',
-    subtitle: 'Generate personalised voice nudges powered by ElevenLabs — in your style.',
+    title: 'Conserver ou résilier ? À vous de choisir.',
+    subtitle:
+      'Visualisez vos économies potentielles, puis confirmez vos résiliations. Commencez gratuitement avec 5 abonnements, sans compte.',
   },
 ];
 
 export default function OnboardingScreen() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, startGuest, demoLogin } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [contentReady, setContentReady] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -49,16 +51,31 @@ export default function OnboardingScreen() {
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems[0]) setCurrentIndex(viewableItems[0].index ?? 0);
-    }
+    },
   ).current;
 
   const isLast = currentIndex === SLIDES.length - 1;
 
+  const [busy, setBusy] = useState(false);
+  const start = async (demo = false) => {
+    setBusy(true);
+    try {
+      await (demo ? demoLogin() : startGuest());
+    } catch {
+      Alert.alert('Impossible de démarrer', 'Réessayez dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const goTo = (index: number) => {
+    setCurrentIndex(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+  };
   const next = () => {
     if (isLast) {
-      router.push('/(auth)/register');
+      void start();
     } else {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
+      goTo(currentIndex + 1);
     }
   };
 
@@ -68,8 +85,8 @@ export default function OnboardingScreen() {
         {/* Skip */}
         <View style={styles.header}>
           <Text style={styles.logo}>🐦 PigeonSub</Text>
-          <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={12}>
-            <Text style={styles.skip}>Skip</Text>
+          <Pressable onPress={() => goTo(SLIDES.length - 1)} hitSlop={12}>
+            <Text style={styles.skip}>Passer</Text>
           </Pressable>
         </View>
 
@@ -77,6 +94,11 @@ export default function OnboardingScreen() {
         <FlatList
           ref={flatListRef}
           data={SLIDES}
+          getItemLayout={(_, index) => ({
+            length: width,
+            offset: width * index,
+            index,
+          })}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -86,7 +108,11 @@ export default function OnboardingScreen() {
           renderItem={({ item }) => (
             <View style={styles.slide}>
               <View style={styles.iconCircle}>
-                <Image source={item.imageSource} style={styles.slideImage} resizeMode="contain" />
+                <Image
+                  source={item.imageSource}
+                  style={styles.slideImage}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.slideTitle}>{item.title}</Text>
               <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
@@ -107,18 +133,26 @@ export default function OnboardingScreen() {
         {/* CTA */}
         <View style={styles.actions}>
           <Button
-            title={isLast ? 'Get started' : 'Next'}
+            title={isLast ? 'Commencer sans compte' : 'Suivant'}
+            loading={busy}
             onPress={next}
             fullWidth
             size="lg"
           />
           {isLast && (
-            <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
-              <Text style={styles.loginLink}>
-                Already have an account?{' '}
-                <Text style={styles.loginLinkBold}>Sign in</Text>
-              </Text>
-            </Pressable>
+            <Button
+              title="Explorer la démo"
+              variant="secondary"
+              fullWidth
+              disabled={busy}
+              onPress={() => void start(true)}
+            />
+          )}
+          {isLast && (
+            <Text style={styles.loginLink}>
+              Vos données restent sur cet appareil tant que vous utilisez le
+              mode sans compte.
+            </Text>
           )}
         </View>
       </SafeAreaView>

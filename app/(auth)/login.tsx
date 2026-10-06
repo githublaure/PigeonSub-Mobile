@@ -20,8 +20,8 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { Colors } from '../../src/theme/colors';
 
 const schema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Saisissez une adresse e-mail valide'),
+  password: z.string().min(1, 'Le mot de passe est obligatoire'),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -42,7 +42,7 @@ export default function LoginScreen() {
       await login(values.email, values.password);
       // Navigation is handled by the root layout auth guard
     } catch (e: unknown) {
-      setApiError(e instanceof Error ? e.message : 'Login failed');
+      setApiError(e instanceof Error ? e.message : 'Connexion impossible');
     }
   };
 
@@ -50,8 +50,9 @@ export default function LoginScreen() {
     setApiError('');
     try {
       await demoLogin();
+      router.replace('/(tabs)');
     } catch (e: unknown) {
-      setApiError(e instanceof Error ? e.message : 'Demo login failed');
+      setApiError(e instanceof Error ? e.message : 'Démo indisponible');
     }
   };
 
@@ -68,8 +69,12 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
-            <Text style={styles.backText}>← Back</Text>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={styles.back}
+          >
+            <Text style={styles.backText}>← Retour</Text>
           </Pressable>
 
           <Image
@@ -77,8 +82,10 @@ export default function LoginScreen() {
             style={styles.brandImage}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your PigeonSub account</Text>
+          <Text style={styles.title}>Heureux de vous retrouver</Text>
+          <Text style={styles.subtitle}>
+            Connectez-vous à votre compte PigeonSub
+          </Text>
 
           {/* Form */}
           <View style={styles.form}>
@@ -87,7 +94,7 @@ export default function LoginScreen() {
               name="email"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Email"
+                  label="E-mail"
                   placeholder="you@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -106,7 +113,7 @@ export default function LoginScreen() {
               name="password"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Password"
+                  label="Mot de passe"
                   placeholder="••••••••"
                   secureTextEntry
                   returnKeyType="done"
@@ -124,13 +131,13 @@ export default function LoginScreen() {
               hitSlop={8}
               style={styles.forgotRow}
             >
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
             </Pressable>
 
             {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
 
             <Button
-              title="Sign in"
+              title="Se connecter"
               onPress={handleSubmit(onSubmit)}
               loading={isSubmitting}
               fullWidth
@@ -139,12 +146,12 @@ export default function LoginScreen() {
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>ou</Text>
               <View style={styles.dividerLine} />
             </View>
 
             <Button
-              title="Try demo account"
+              title="Explorer la démo"
               variant="secondary"
               onPress={handleDemo}
               fullWidth
@@ -154,9 +161,12 @@ export default function LoginScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <Pressable onPress={() => router.push('/(auth)/register')} hitSlop={8}>
-              <Text style={styles.footerLink}>Sign up</Text>
+            <Text style={styles.footerText}>Pas encore de compte ? </Text>
+            <Pressable
+              onPress={() => router.push('/(auth)/register')}
+              hitSlop={8}
+            >
+              <Text style={styles.footerLink}>Créer un compte</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -173,7 +183,12 @@ const styles = StyleSheet.create({
   backText: { color: Colors.textSecondary, fontSize: 15 },
   brandImage: { width: 92, height: 92, alignSelf: 'center', marginTop: 8 },
   title: { color: Colors.text, fontSize: 32, fontWeight: '800', marginTop: 8 },
-  subtitle: { color: Colors.textSecondary, fontSize: 16, marginTop: 6, marginBottom: 32 },
+  subtitle: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    marginTop: 6,
+    marginBottom: 32,
+  },
   form: { gap: 16 },
   forgotRow: { alignSelf: 'flex-end' },
   forgotText: { color: Colors.primary, fontSize: 14 },

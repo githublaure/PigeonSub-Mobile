@@ -1,166 +1,257 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { hasSevenDayTrial } from '../../src/lib/billing-policy';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Linking, Platform, Pressable, Text, View } from 'react-native';
+import { useBilling } from '../../src/contexts/BillingContext';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { Button } from '../../src/components/ui/Button';
-import { Card } from '../../src/components/ui/Card';
+import { Page, ui } from '../../src/components/ui/Page';
 import { Colors } from '../../src/theme/colors';
-
-const FREE_FEATURES = [
-  'Track up to 5 subscriptions',
-  'Renewals calendar',
-  'Basic statistics',
-  'Email password reset',
+const PLANS = [
+  {
+    type: 'ANNUAL',
+    title: 'Plus annuel',
+    price: '19,99 € / an',
+    detail: 'Soit environ 1,67 € / mois',
+    badge: 'L’offre recommandée',
+  },
+  {
+    type: 'MONTHLY',
+    title: 'Plus mensuel',
+    price: '2,99 € / mois',
+    detail: 'Facturation mensuelle',
+    badge: '',
+  },
+  {
+    type: 'LIFETIME',
+    title: 'Fondateur à vie',
+    price: '34,99 € une fois',
+    detail: 'Un achat unique pour les fonctions Plus',
+    badge: 'Offre de lancement',
+  },
 ];
-
-const PREMIUM_FEATURES = [
-  'Unlimited subscriptions',
-  'AI voice reminders (ElevenLabs)',
-  'Advanced statistics & lifetime view',
-  'Receipt photo attachments',
-  'Budget caps & monthly overrides',
-  'Suspect subscription detection',
-  'Priority support',
-];
-
-function FeatureRow({ label, included }: { label: string; included: boolean }) {
-  return (
-    <View style={styles.featureRow}>
-      <Ionicons
-        name={included ? 'checkmark-circle' : 'close-circle-outline'}
-        size={18}
-        color={included ? Colors.success : Colors.textMuted}
-      />
-      <Text style={[styles.featureLabel, !included && styles.featureLabelMuted]}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 export default function PremiumScreen() {
   const router = useRouter();
-
+  const { reason } = useLocalSearchParams<{ reason?: string }>();
+  const { mode } = useAuth();
+  const billing = useBilling();
+  const [selected, setSelected] = useState('ANNUAL');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const item = billing.packages.find((p) => p.packageType === selected);
+  const trial = hasSevenDayTrial(item, billing.trialEligible);
+  const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
+  const validPrivacyUrl = !!privacyUrl && /^https:\/\//.test(privacyUrl);
+  const action = async (restore = false) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const success = restore
+        ? await billing.restore()
+        : item
+          ? await billing.purchase(item)
+          : false;
+      setMessage(
+        success
+          ? 'PigeonSub Plus est actif. Vos fonctionnalités sont débloquées.'
+          : restore
+            ? 'Aucun achat Plus actif à restaurer avec ce compte Store.'
+            : 'Achat en attente de validation. Plus sera activé après confirmation de la boutique.',
+      );
+    } catch (e) {
+      if (
+        !(e && typeof e === 'object' && 'userCancelled' in e && e.userCancelled)
+      )
+        setMessage(
+          e instanceof Error ? e.message : 'L’achat n’a pas abouti. Réessayez.',
+        );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const exit = () => router.back();
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="close" size={26} color={Colors.text} />
+    <Page
+      title="Gardez la main avant le jour J."
+      subtitle={
+        reason === 'limit'
+          ? 'Vos 5 abonnements gratuits restent accessibles. Passez à Plus pour en suivre davantage.'
+          : 'Une date de sûreté à votre rythme. Moins d’oublis, des économies suivies.'
+      }
+    >
+      <Button
+        title="Continuer gratuitement"
+        variant="ghost"
+        onPress={exit}
+        disabled={busy}
+      />
+      {mode === 'demo' && (
+        <Text style={[ui.body, ui.warning]}>
+          Aperçu des offres. Aucun achat n’est possible en démo.
+        </Text>
+      )}
+      <View style={ui.card}>
+        <Text style={ui.heading}>Gratuit · 0 €</Text>
+        <Text style={ui.body}>
+          5 abonnements actifs · totaux mensuel et annuel · calendrier · un
+          rappel standard par abonnement · premier bilan d’économies.
+        </Text>
+      </View>
+      <View style={ui.card}>
+        <Text style={ui.heading}>Avec PigeonSub Plus</Text>
+        <Text style={ui.body}>
+          ✓ Abonnements illimités{'\n'}✓ Avance de rappel personnalisée{'\n'}✓
+          Preuves et historique de vos résiliations{'\n'}✓ Suivi des économies
+          potentielles et confirmées
+        </Text>
+      </View>
+      {PLANS.filter(
+        (plan) =>
+          !billing.ready ||
+          plan.type !== 'LIFETIME' ||
+          billing.packages.some((p) => p.packageType === 'LIFETIME'),
+      ).map((plan) => {
+        const pkg = billing.packages.find((p) => p.packageType === plan.type);
+        const price = pkg
+          ? `${pkg.product.priceString}${plan.type === 'ANNUAL' ? ' / an' : plan.type === 'MONTHLY' ? ' / mois' : ' une fois'}`
+          : plan.price;
+        const detail =
+          plan.type === 'ANNUAL' && pkg
+            ? `Soit environ ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: pkg.product.currencyCode }).format(pkg.product.price / 12)} / mois, facturé à l’année`
+            : plan.detail;
+        return (
+          <Pressable
+            key={plan.type}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: selected === plan.type }}
+            onPress={() => setSelected(plan.type)}
+            style={[
+              ui.card,
+              selected === plan.type && {
+                borderColor: Colors.primary,
+                borderWidth: 2,
+                backgroundColor: '#261544',
+              },
+            ]}
+          >
+            {!!plan.badge && (
+              <Text style={[ui.label, { color: Colors.textSecondary }]}>
+                {plan.badge}
+              </Text>
+            )}
+            <Text style={ui.heading}>{plan.title}</Text>
+            <Text style={ui.heading}>{price}</Text>
+            <Text style={ui.small}>{detail}</Text>
+            {!pkg && (
+              <Text style={ui.small}>
+                Tarif prévu · offre indisponible dans cette version
+              </Text>
+            )}
           </Pressable>
-        </View>
-
-        {/* Hero */}
-        <View style={styles.hero}>
-          <View style={styles.badgeRow}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>🎩 PREMIUM</Text>
-            </View>
-          </View>
-          <Text style={styles.heroTitle}>Stop being a pigeon.{'\n'}For real this time.</Text>
-          <Text style={styles.heroSubtitle}>
-            Unlock the full PigeonSub experience with unlimited subscriptions, AI voice reminders, and deep analytics.
-          </Text>
-        </View>
-
-        {/* Plan cards */}
-        <View style={styles.plansRow}>
-          {/* Free */}
-          <Card style={[styles.planCard, styles.planCardFree]}>
-            <Text style={styles.planTitle}>Free</Text>
-            <Text style={styles.planPrice}>€0</Text>
-            <Text style={styles.planPeriod}>forever</Text>
-            <View style={styles.featureList}>
-              {FREE_FEATURES.map((f) => <FeatureRow key={f} label={f} included={true} />)}
-            </View>
-          </Card>
-
-          {/* Premium */}
-          <Card style={[styles.planCard, styles.planCardPremium]} elevated>
-            <View style={styles.popularBadge}>
-              <Text style={styles.popularText}>BEST VALUE</Text>
-            </View>
-            <Text style={[styles.planTitle, { color: Colors.white }]}>Premium</Text>
-            <Text style={[styles.planPrice, { color: Colors.white }]}>€4.99</Text>
-            <Text style={[styles.planPeriod, { color: '#C4B5FD' }]}>per month</Text>
-            <View style={styles.featureList}>
-              {PREMIUM_FEATURES.map((f) => (
-                <View key={f} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={18} color="#A78BFA" />
-                  <Text style={[styles.featureLabel, { color: Colors.white }]}>{f}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        </View>
-
-        {/* CTA */}
-        <View style={styles.cta}>
+        );
+      })}
+      {billing.isPlus ? (
+        <Text style={[ui.heading, ui.success]}>
+          Votre accès Plus est actif.
+        </Text>
+      ) : (
+        <>
+          {trial && (
+            <Text style={ui.body}>
+              7 jours gratuits, puis {item?.product.priceString}
+              {selected === 'ANNUAL' ? ' par an' : ' par mois'}. Offre réservée
+              aux comptes éligibles.
+            </Text>
+          )}
           <Button
-            title="Upgrade to Premium"
-            onPress={() => {
-              // Premium purchase integration coming soon (RevenueCat)
-            }}
-            fullWidth
-            size="lg"
-            style={styles.ctaButton}
+            title={
+              trial
+                ? 'Essayer 7 jours gratuitement'
+                : selected === 'LIFETIME'
+                  ? 'Choisir Fondateur à vie'
+                  : 'Passer à Plus'
+            }
+            loading={busy || billing.loading}
+            disabled={
+              !item || !billing.ready || !validPrivacyUrl || mode === 'demo'
+            }
+            onPress={() => void action()}
           />
-          <Text style={styles.ctaNote}>
-            🚧 In-app purchase coming soon. Powered by RevenueCat.
-          </Text>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.maybeLater}>Maybe later</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </>
+      )}
+      {!!billing.error && <Text style={ui.small}>{billing.error}</Text>}
+      {!!billing.error &&
+        (billing.ready || billing.error.includes('connexion')) && (
+          <Button
+            title="Réessayer la boutique"
+            variant="secondary"
+            disabled={busy || billing.loading}
+            onPress={billing.retry}
+          />
+        )}
+      {!validPrivacyUrl && (
+        <Text style={ui.small}>
+          Les achats seront ouverts lorsque les informations de l’offre seront
+          finalisées. Le mode gratuit est disponible.
+        </Text>
+      )}
+      <Text style={ui.small}>
+        {selected === 'LIFETIME'
+          ? 'Achat unique, sans renouvellement. Offre proposée tant qu’elle est disponible dans la boutique.'
+          : 'Paiement via votre compte Store. Renouvellement automatique sauf annulation au moins 24 h avant la fin de la période en cours ou de l’essai. Gérez ou annulez dans les abonnements de votre compte Store.'}
+      </Text>
+      <Text style={ui.small}>
+        Les tarifs affichés par la boutique et son écran de confirmation font
+        foi. Aucun essai ne démarre sans validation de l’achat.
+      </Text>
+      <Button
+        title="Restaurer mes achats"
+        variant="secondary"
+        disabled={!billing.ready || busy || mode === 'demo'}
+        onPress={() => void action(true)}
+      />
+      <Button
+        title="Gérer mon abonnement"
+        variant="ghost"
+        onPress={() =>
+          void Linking.openURL(
+            Platform.OS === 'ios'
+              ? 'https://apps.apple.com/account/subscriptions'
+              : 'https://play.google.com/store/account/subscriptions',
+          )
+        }
+      />
+      {message ? (
+        <Text accessibilityRole="alert" style={ui.body}>
+          {message}
+        </Text>
+      ) : null}
+      <View style={ui.row}>
+        <Button
+          title="Confidentialité"
+          variant="ghost"
+          onPress={() =>
+            validPrivacyUrl
+              ? void Linking.openURL(privacyUrl!)
+              : router.push('/(tabs)/privacy')
+          }
+        />
+        <Button
+          title="Conditions d’utilisation"
+          variant="ghost"
+          onPress={() =>
+            void Linking.openURL(
+              'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+            )
+          }
+        />
+      </View>
+      <Button
+        title="Revenir à mes abonnements"
+        variant="secondary"
+        onPress={exit}
+        disabled={busy}
+      />
+    </Page>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingBottom: 48 },
-  header: { paddingHorizontal: 20, paddingTop: 12, alignItems: 'flex-end' },
-  hero: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 28, gap: 12 },
-  badgeRow: { flexDirection: 'row' },
-  badge: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeText: { color: Colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  heroTitle: { color: Colors.text, fontSize: 30, fontWeight: '900', lineHeight: 36 },
-  heroSubtitle: { color: Colors.textSecondary, fontSize: 15, lineHeight: 22 },
-  plansRow: { paddingHorizontal: 24, gap: 16 },
-  planCard: { gap: 12 },
-  planCardFree: {},
-  planCardPremium: { backgroundColor: Colors.primary, borderColor: Colors.primaryDark },
-  popularBadge: {
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    alignSelf: 'flex-start',
-  },
-  popularText: { color: Colors.primary, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  planTitle: { color: Colors.text, fontSize: 22, fontWeight: '800' },
-  planPrice: { color: Colors.text, fontSize: 40, fontWeight: '900' },
-  planPeriod: { color: Colors.textSecondary, fontSize: 13, marginTop: -8 },
-  featureList: { gap: 10 },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 24 },
-  featureLabel: { color: Colors.text, fontSize: 14, flex: 1 },
-  featureLabelMuted: { color: Colors.textMuted },
-  cta: { paddingHorizontal: 24, paddingTop: 28, gap: 12, alignItems: 'center' },
-  ctaButton: {},
-  ctaNote: { color: Colors.textMuted, fontSize: 12, textAlign: 'center' },
-  maybeLater: { color: Colors.textSecondary, fontSize: 14, paddingVertical: 8 },
-});

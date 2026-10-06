@@ -19,8 +19,18 @@ const CALENDAR_ICONS: PigeonTabIconPair = {
   outline: require('../../assets/icons/navigation/security-calendar-outline.png'),
 };
 
-function tabIcon(focused: boolean, name: IoniconName, outlineName: IoniconName) {
-  return <Ionicons name={focused ? name : outlineName} size={24} color={focused ? Colors.primary : Colors.textMuted} />;
+function tabIcon(
+  focused: boolean,
+  name: IoniconName,
+  outlineName: IoniconName,
+) {
+  return (
+    <Ionicons
+      name={focused ? name : outlineName}
+      size={24}
+      color={focused ? Colors.primary : Colors.textMuted}
+    />
+  );
 }
 
 function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
@@ -55,42 +65,54 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Accueil',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, DASHBOARD_ICONS),
         }}
       />
       <Tabs.Screen
         name="subscriptions"
         options={{
-          title: 'Subs',
+          title: 'Abonnements',
           tabBarIcon: ({ focused }) => tabIcon(focused, 'list', 'list-outline'),
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: 'Calendrier',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'bar-chart', 'bar-chart-outline'),
+          title: 'Bilan',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(focused, 'bar-chart', 'bar-chart-outline'),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'person-circle', 'person-circle-outline'),
+          title: 'Profil',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(focused, 'person-circle', 'person-circle-outline'),
         }}
       />
       {/* Hidden screens — accessible via navigation but not shown in tab bar */}
-      <Tabs.Screen name="voice" options={{ href: null, title: 'Voice Reminders' }} />
+      <Tabs.Screen
+        name="voice"
+        options={{ href: null, title: 'Voice Reminders' }}
+      />
       <Tabs.Screen name="premium" options={{ href: null, title: 'Premium' }} />
-      <Tabs.Screen name="coupons" options={{ href: null, title: 'Trials & Suspects' }} />
+      <Tabs.Screen
+        name="privacy"
+        options={{ href: null, title: 'Confidentialité' }}
+      />
+      <Tabs.Screen
+        name="coupons"
+        options={{ href: null, title: 'Trials & Suspects' }}
+      />
     </Tabs>
   );
 }

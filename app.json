@@ -55,7 +55,8 @@
           "photosPermission": "Allow PigeonSub to access your photos to attach receipts.",
           "cameraPermission": "Allow PigeonSub to use the camera to capture receipts."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

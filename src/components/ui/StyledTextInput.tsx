@@ -27,12 +27,13 @@ export const StyledTextInput = forwardRef<TextInput, StyledTextInputProps>(
           placeholderTextColor={Colors.textMuted}
           selectionColor={Colors.primary}
           {...rest}
+          accessibilityLabel={rest.accessibilityLabel ?? label}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!error && hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
     );
-  }
+  },
 );
 
 StyledTextInput.displayName = 'StyledTextInput';

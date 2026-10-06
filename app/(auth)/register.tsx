@@ -20,13 +20,13 @@ import { Colors } from '../../src/theme/colors';
 
 const schema = z
   .object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Enter a valid email'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    name: z.string().min(2, '2 caractères minimum pour le nom'),
+    email: z.string().email('Saisissez une adresse e-mail valide'),
+    password: z.string().min(6, '6 caractères minimum'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
-    message: 'Passwords do not match',
+    message: 'Les mots de passe ne correspondent pas',
     path: ['confirmPassword'],
   });
 type FormValues = z.infer<typeof schema>;
@@ -47,7 +47,7 @@ export default function RegisterScreen() {
     try {
       await register(values.name, values.email, values.password);
     } catch (e: unknown) {
-      setApiError(e instanceof Error ? e.message : 'Registration failed');
+      setApiError(e instanceof Error ? e.message : 'Inscription impossible');
     }
   };
 
@@ -63,12 +63,19 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
-            <Text style={styles.backText}>← Back</Text>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={styles.back}
+          >
+            <Text style={styles.backText}>← Retour</Text>
           </Pressable>
 
-          <Text style={styles.title}>Join PigeonSub 🎩</Text>
-          <Text style={styles.subtitle}>Create your account and stop being a pigeon</Text>
+          <Text style={styles.title}>Votre compte PigeonSub</Text>
+          <Text style={styles.subtitle}>
+            Facultatif : un espace pour vos abonnements. Vos données sans compte
+            restent séparées sur cet appareil.
+          </Text>
 
           <View style={styles.form}>
             <Controller
@@ -76,8 +83,8 @@ export default function RegisterScreen() {
               name="name"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Name"
-                  placeholder="Your name"
+                  label="Nom"
+                  placeholder="Votre nom"
                   autoCapitalize="words"
                   returnKeyType="next"
                   error={errors.name?.message}
@@ -93,7 +100,7 @@ export default function RegisterScreen() {
               name="email"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Email"
+                  label="E-mail"
                   placeholder="you@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -112,8 +119,8 @@ export default function RegisterScreen() {
               name="password"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Password"
-                  placeholder="At least 6 characters"
+                  label="Mot de passe"
+                  placeholder="6 caractères minimum"
                   secureTextEntry
                   returnKeyType="next"
                   error={errors.password?.message}
@@ -129,8 +136,8 @@ export default function RegisterScreen() {
               name="confirmPassword"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Confirm password"
-                  placeholder="Repeat password"
+                  label="Confirmer le mot de passe"
+                  placeholder="Répéter le mot de passe"
                   secureTextEntry
                   returnKeyType="done"
                   onSubmitEditing={handleSubmit(onSubmit)}
@@ -145,7 +152,7 @@ export default function RegisterScreen() {
             {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
 
             <Button
-              title="Create account"
+              title="Créer mon compte"
               onPress={handleSubmit(onSubmit)}
               loading={isSubmitting}
               fullWidth
@@ -154,9 +161,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>Déjà un compte ? </Text>
             <Pressable onPress={() => router.push('/(auth)/login')} hitSlop={8}>
-              <Text style={styles.footerLink}>Sign in</Text>
+              <Text style={styles.footerLink}>Se connecter</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -172,7 +179,12 @@ const styles = StyleSheet.create({
   back: { paddingTop: 16, paddingBottom: 8 },
   backText: { color: Colors.textSecondary, fontSize: 15 },
   title: { color: Colors.text, fontSize: 32, fontWeight: '800', marginTop: 16 },
-  subtitle: { color: Colors.textSecondary, fontSize: 16, marginTop: 6, marginBottom: 32 },
+  subtitle: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    marginTop: 6,
+    marginBottom: 32,
+  },
   form: { gap: 16 },
   apiError: {
     color: Colors.danger,

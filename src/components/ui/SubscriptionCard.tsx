@@ -1,3 +1,10 @@
+import { categoryLabels } from '../../lib/labels';
+import {
+  euro,
+  frequencyLabels,
+  nextRenewal,
+  dayKey,
+} from '../../lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,8 +19,8 @@ interface SubscriptionCardProps {
 function formatPrice(price: string, frequency: string): string {
   const num = parseFloat(price);
   if (isNaN(num)) return price;
-  const formatted = num.toLocaleString('en-US', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
-  const freq = frequency === 'monthly' ? '/mo' : frequency === 'yearly' ? '/yr' : `/${frequency}`;
+  const formatted = euro(num);
+  const freq = ` / ${frequencyLabels[frequency] ?? frequency}`;
   return `${formatted}${freq}`;
 }
 
@@ -23,8 +30,11 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-export function SubscriptionCard({ subscription, onPress }: SubscriptionCardProps) {
-  const days = daysUntil(subscription.nextRenewal);
+export function SubscriptionCard({
+  subscription,
+  onPress,
+}: SubscriptionCardProps) {
+  const days = daysUntil(nextRenewal(subscription)?.toISOString() ?? null);
   const isUrgent = days !== null && days <= 7;
   const accentColor = subscription.categoryColor || Colors.primary;
 
@@ -41,10 +51,12 @@ export function SubscriptionCard({ subscription, onPress }: SubscriptionCardProp
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>{subscription.name}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {subscription.name}
+            </Text>
             {subscription.isTrial && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>TRIAL</Text>
+                <Text style={styles.badgeText}>ESSAI</Text>
               </View>
             )}
             {subscription.isSuspect && (
@@ -53,16 +65,23 @@ export function SubscriptionCard({ subscription, onPress }: SubscriptionCardProp
               </View>
             )}
           </View>
-          <Text style={styles.price}>{formatPrice(subscription.price, subscription.frequency)}</Text>
+          <Text style={styles.price}>
+            {formatPrice(subscription.price, subscription.frequency)}
+          </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.category}>{subscription.category}</Text>
+          <Text style={styles.category}>
+            {categoryLabels[subscription.category] ?? subscription.category}
+          </Text>
           {days !== null && (
             <Text style={[styles.renewal, isUrgent && styles.renewalUrgent]}>
-              <Ionicons name="calendar-outline" size={12} />
-              {' '}
-              {days === 0 ? 'Today' : days < 0 ? `${Math.abs(days)}d ago` : `in ${days}d`}
+              <Ionicons name="calendar-outline" size={12} />{' '}
+              {days === 0
+                ? 'Aujourd’hui'
+                : days < 0
+                  ? 'À vérifier'
+                  : `dans ${days} j`}
             </Text>
           )}
         </View>

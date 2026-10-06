@@ -1,3 +1,10 @@
+import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
+import { useBilling } from '../../../src/contexts/BillingContext';
+import {
+  canAddSubscription,
+  isEnded,
+  nextRenewal,
+} from '../../../src/lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -21,55 +28,48 @@ type SortKey = 'name' | 'price' | 'renewal';
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
-  const [data, setData] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const { data, follow, loading, error, reload: load } = useSubscriptionData();
+  const { canUsePlus } = useBilling();
+  const refreshing = false;
   const [search, setSearch] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>('renewal');
 
-  const load = useCallback(async () => {
-    try {
-      setError('');
-      const list = await subscriptions.list(includeArchived);
-      setData(list);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load subscriptions');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [includeArchived]);
-
-  useEffect(() => { load(); }, [load]);
+  const add = () =>
+    router.push(
+      canAddSubscription(data, canUsePlus, follow)
+        ? '/(tabs)/subscriptions/new'
+        : '/(tabs)/premium?reason=limit',
+    );
 
   const filtered = data
-    .filter((s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.category.toLowerCase().includes(search.toLowerCase())
+    .filter((s) => includeArchived || !isEnded(s, follow[s.id]))
+    .filter(
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.category.toLowerCase().includes(search.toLowerCase()),
     )
     .sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'price') return parseFloat(b.price) - parseFloat(a.price);
       // renewal
-      const da = a.nextRenewal ? new Date(a.nextRenewal).getTime() : Infinity;
-      const db = b.nextRenewal ? new Date(b.nextRenewal).getTime() : Infinity;
+      const da = nextRenewal(a)?.getTime() ?? Infinity;
+      const db = nextRenewal(b)?.getTime() ?? Infinity;
       return da - db;
     });
 
-  if (loading) return <LoadingScreen message="Loading subscriptions…" />;
+  if (loading) return <LoadingScreen message="Chargement…" />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Subscriptions</Text>
+        <Text style={styles.title}>Abonnements</Text>
         <Pressable
-          onPress={() => router.push('/(tabs)/subscriptions/new')}
+          onPress={add}
           style={styles.addBtn}
-          accessibilityLabel="Add subscription"
+          accessibilityLabel="Ajouter un abonnement"
         >
           <Ionicons name="add" size={22} color={Colors.white} />
         </Pressable>
@@ -77,10 +77,15 @@ export default function SubscriptionsScreen() {
 
       {/* Search */}
       <View style={styles.searchRow}>
-        <Ionicons name="search-outline" size={18} color={Colors.textMuted} style={styles.searchIcon} />
+        <Ionicons
+          name="search-outline"
+          size={18}
+          color={Colors.textMuted}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search subscriptions…"
+          placeholder="Rechercher…"
           placeholderTextColor={Colors.textMuted}
           value={search}
           onChangeText={setSearch}
@@ -97,8 +102,13 @@ export default function SubscriptionsScreen() {
             onPress={() => setSortBy(key)}
             style={[styles.sortChip, sortBy === key && styles.sortChipActive]}
           >
-            <Text style={[styles.sortChipText, sortBy === key && styles.sortChipTextActive]}>
-              {key.charAt(0).toUpperCase() + key.slice(1)}
+            <Text
+              style={[
+                styles.sortChipText,
+                sortBy === key && styles.sortChipTextActive,
+              ]}
+            >
+              {{ renewal: 'Échéance', name: 'Nom', price: 'Prix' }[key]}
             </Text>
           </Pressable>
         ))}
@@ -106,8 +116,13 @@ export default function SubscriptionsScreen() {
           onPress={() => setIncludeArchived((v) => !v)}
           style={[styles.sortChip, includeArchived && styles.sortChipActive]}
         >
-          <Text style={[styles.sortChipText, includeArchived && styles.sortChipTextActive]}>
-            Archived
+          <Text
+            style={[
+              styles.sortChipText,
+              includeArchived && styles.sortChipTextActive,
+            ]}
+          >
+            Archives
           </Text>
         </Pressable>
       </View>
@@ -121,17 +136,24 @@ export default function SubscriptionsScreen() {
             onPress={() => router.push(`/(tabs)/subscriptions/${item.id}`)}
           />
         )}
-        contentContainerStyle={[styles.list, filtered.length === 0 && styles.listEmpty]}
+        contentContainerStyle={[
+          styles.list,
+          filtered.length === 0 && styles.listEmpty,
+        ]}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         refreshing={refreshing}
-        onRefresh={() => { setRefreshing(true); load(); }}
+        onRefresh={load}
         ListEmptyComponent={
           <EmptyState
             imageSource={require('../../../assets/mascots/pigeon-money-bag.png')}
-            title="No subscriptions found"
-            description={search ? 'Try a different search term.' : 'Tap + to add your first subscription.'}
-            actionLabel={search ? undefined : 'Add subscription'}
-            onAction={search ? undefined : () => router.push('/(tabs)/subscriptions/new')}
+            title="Aucun abonnement"
+            description={
+              search
+                ? 'Essayez une autre recherche.'
+                : 'Ajoutez votre premier abonnement pour voir quand agir.'
+            }
+            actionLabel={search ? undefined : 'Ajouter un abonnement'}
+            onAction={search ? undefined : add}
           />
         }
       />
@@ -188,8 +210,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     minHeight: 34,
   },
-  sortChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  sortChipText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '500' },
+  sortChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sortChipText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
   sortChipTextActive: { color: Colors.white },
   list: { paddingHorizontal: 24, paddingBottom: 32 },
   listEmpty: { flexGrow: 1 },
