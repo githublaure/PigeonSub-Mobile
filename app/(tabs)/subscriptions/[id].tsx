@@ -8,6 +8,7 @@ import {
   euro,
   frequencyLabels,
   isEnded,
+  canCustomizeSubscription,
 } from '../../../src/lib/subscription-math';
 import { DecisionActions } from '../../../src/components/DecisionActions';
 import {
@@ -78,7 +79,12 @@ export default function SubscriptionScreen() {
         <DecisionActions inDetail sub={sub} follow={follow[sub.id]} />
       </View>
       <CancellationPanel sub={sub} follow={follow[sub.id]} />
-      <SafetyPanel key={sub.id} sub={sub} follow={follow[sub.id]} />
+      <SafetyPanel
+        key={sub.id}
+        sub={sub}
+        follow={follow[sub.id]}
+        editable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
+      />
       {!!sub.note && (
         <View style={ui.card}>
           <Text style={ui.heading}>Vos notes</Text>
@@ -91,15 +97,9 @@ export default function SubscriptionScreen() {
         onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/edit`)}
       />
       <Button
-        title="Justificatifs et notes"
+        title="Photos et justificatifs"
         variant="secondary"
-        onPress={() =>
-          router.push(
-            canUsePlus
-              ? `/(tabs)/subscriptions/${sub.id}/receipts`
-              : '/(tabs)/premium?reason=history',
-          )
-        }
+        onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)}
       />
       <Button title="Supprimer l’abonnement" variant="ghost" onPress={remove} />
     </Page>

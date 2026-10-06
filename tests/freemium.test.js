@@ -11,6 +11,7 @@ function harness() {
   const memory = new Map();
   const cache = new Map();
   const storage = {
+    getAllKeys: async () => [...memory.keys()],
     getItem: async (key) => memory.get(key) ?? null,
     setItem: async (key, value) => {
       memory.set(key, value);
@@ -161,7 +162,7 @@ test('free quota permits five, blocks sixth, preserves old records after Plus ex
   );
   assert.equal(five.length, 5);
 });
-test('reminders use one standard alert, honor premium lead, cancel effective renewals and cap iOS queue', () => {
+test('free and premium reminders honor the chosen lead, cancel effective renewals and cap iOS queue', () => {
   const now = date('2026-10-06');
   const follow = {
     1: {
@@ -173,7 +174,7 @@ test('reminders use one standard alert, honor premium lead, cancel effective ren
   };
   assert.equal(
     math.dayKey(reminderPlan([sub()], follow, false, now)[0].at),
-    '2026-10-17',
+    '2026-10-13',
   );
   assert.equal(
     math.dayKey(reminderPlan([sub()], follow, true, now)[0].at),
@@ -311,4 +312,292 @@ test('paid access is scoped to verified user identity; demo preview does not tra
   assert.equal(entitlement.hasPlusAccess(), true);
   local.setDataSession('guest', 'guest');
   assert.equal(entitlement.hasPlusAccess(), false);
+});
+
+test('color picker preserves stored colors including gray, black, white and shorthand', () => {
+  const { hexToHsv, hsvToHex } = load('color-picker');
+  for (const hex of [
+    '#7C3AED',
+    '#00FF00',
+    '#DB2777',
+    '#000000',
+    '#FFFFFF',
+    '#808080',
+    '#123ABC',
+  ]) {
+    assert.equal(hsvToHex(hexToHsv(hex)), hex);
+  }
+  assert.equal(hsvToHex(hexToHsv('#f0a')), '#FF00AA');
+  assert.equal(hsvToHex(hexToHsv('invalid stored color')), '#7C3AED');
+});
+
+test('color picker handles hue wrap and clamps gestures outside the gradient', () => {
+  const { hsvToHex, clamp } = load('color-picker');
+  assert.equal(hsvToHex({ h: 360, s: 1, v: 1 }), '#FF0000');
+  assert.equal(hsvToHex({ h: 120, s: 1, v: 1 }), '#00FF00');
+  assert.equal(hsvToHex({ h: 240, s: 1, v: 1 }), '#0000FF');
+  assert.equal(hsvToHex({ h: -120, s: 1, v: 1 }), '#0000FF');
+  assert.equal(clamp(-1), 0);
+  assert.equal(clamp(1.2), 1);
+});
+
+test('appearance keeps explicit choices and migrates the old automatic mode once', () => {
+  const { resolveThemePreference } = load('appearance');
+  assert.equal(resolveThemePreference('dark', 'light'), 'dark');
+  assert.equal(resolveThemePreference('light', 'dark'), 'light');
+  assert.equal(resolveThemePreference('system', 'dark'), 'dark');
+  assert.equal(resolveThemePreference('system', 'light'), 'light');
+  assert.equal(resolveThemePreference(null, 'dark'), 'light');
+  assert.equal(resolveThemePreference('invalid', 'dark'), 'light');
+});
+
+test('offers validate real dates and reject executable or credential-bearing links', () => {
+  const offers = load('offers');
+  const draft = {
+    ...offers.emptyOffer(),
+    provider: 'Test',
+    title: 'Essai',
+    expiresOn: '2026-10-12',
+  };
+  assert.equal(offers.validateOffer(draft).provider, 'Test');
+  for (const url of [
+    'javascript:alert(1)',
+    'http://example.com',
+    'https://user:pass@example.com',
+  ])
+    assert.throws(() => offers.validateOffer({ ...draft, url }));
+  assert.throws(() =>
+    offers.validateOffer({ ...draft, expiresOn: '2026-02-30' }),
+  );
+  assert.equal(
+    offers.validateOffer({ ...draft, url: 'https://example.com', used: true })
+      .url,
+    'https://example.com',
+  );
+  assert.equal(offers.offerDays(draft, date('2026-10-12')), 0);
+  assert.equal(offers.offerDays(draft, date('2026-10-13')), -1);
+});
+test('offer create/edit/status/delete persist and stay isolated from demo and other accounts', async () => {
+  const h = harness();
+  const store = h.load('local-data');
+  const offers = h.load('offers');
+  store.setDataSession('guest', 'guest');
+  const draft = {
+    ...offers.emptyOffer(),
+    provider: 'Test',
+    title: 'Offre',
+    expiresOn: '2026-10-12',
+  };
+  await Promise.all([
+    store.saveOffer(draft),
+    store.saveOffer({ ...draft, provider: 'Autre' }),
+  ]);
+  let rows = await store.getSavedOffers();
+  assert.equal(rows.length, 2);
+  const id = rows[0].id;
+  await store.saveOffer({ ...draft, code: 'BONPLAN' }, id);
+  await store.changeOffer(id, 'used');
+  rows = await store.getSavedOffers();
+  assert.equal(rows.find((o) => o.id === id).used, true);
+  assert.equal(rows.find((o) => o.id === id).code, 'BONPLAN');
+  store.setDataSession('demo', 'demo');
+  await store.seedDemo();
+  assert.ok((await store.getSavedOffers()).every((o) => o.demo));
+  store.setDataSession('account', 'account:1');
+  assert.deepEqual(await store.getSavedOffers(), []);
+  await store.saveOffer(draft);
+  store.setDataSession('account', 'account:2');
+  assert.deepEqual(await store.getSavedOffers(), []);
+  await store.clearAccountFollowUps('account:1');
+  assert.deepEqual(await store.getSavedOffers('account:1'), []);
+  store.setDataSession('guest', 'guest');
+  assert.equal((await store.getSavedOffers()).length, 2);
+  await store.changeOffer(id, 'delete');
+  assert.equal((await store.getSavedOffers()).length, 1);
+});
+test('cost projections apply confirmed end dates but not a cancellation intention', () => {
+  const { costProjection } = load('stats-projection');
+  const rows = [
+    sub(),
+    sub({ id: 2, price: '120', frequency: 'yearly' }),
+    sub({ id: 3, isActive: false }),
+  ];
+  const projected = costProjection(
+    rows,
+    {
+      1: { decision: 'cancel_requested' },
+      2: { decision: 'cancel_confirmed', effectiveOn: '2026-11-12' },
+    },
+    3,
+    date('2026-10-06'),
+  );
+  assert.deepEqual(
+    projected.map((p) => p.amount),
+    [22, 12, 12],
+  );
+  assert.deepEqual(
+    projected.map((p) => p.month),
+    ['2026-10', '2026-11', '2026-12'],
+  );
+  assert.equal(costProjection([], {}, 3)[0].amount, 0);
+});
+test('shell-quote rejects the reported command-injection vector without executing it', () => {
+  const { quote } = require('shell-quote');
+  assert.throws(
+    () => quote(['echo', 'ok', { comment: 'x' }, 'a\nid;#']),
+    TypeError,
+  );
+  assert.ok(quote(['hello world']).includes('hello world'));
+});
+
+test('chosen safety day drives free notifications and recurs by calendar-day offset', () => {
+  const custom = sub({ useSafetyDate: true, safetyDate: '2026-10-10' });
+  const follow = { 1: { reminderEnabled: true, noticeDays: 2, leadDays: 1 } };
+  const plan = reminderPlan([custom], follow, false, date('2026-10-06'));
+  assert.equal(math.dayKey(plan[0].at), '2026-10-10');
+  assert.equal(plan[0].at.getHours(), 9);
+  assert.equal(math.dayKey(plan[1].at), '2026-11-10');
+  // Don't replace a missed custom date with a different date this cycle.
+  assert.equal(
+    math.dayKey(math.deadlines(custom, follow[1], date('2026-10-12')).safety),
+    '2026-10-10',
+  );
+  assert.equal(
+    math.dayKey(
+      reminderPlan([custom], follow, false, date('2026-10-12'))[0].at,
+    ),
+    '2026-11-10',
+  );
+  assert.equal(
+    math.dayKey(
+      math.deadlines(custom, { noticeDays: 15 }, date('2026-10-01')).safety,
+    ),
+    '2026-10-05',
+  );
+});
+test('five stable free slots survive reversed API ordering; Plus lifts the limit', () => {
+  const all = Array.from({ length: 7 }, (_, i) =>
+    sub({ id: i + 1, createdAt: `2026-01-0${i + 1}` }),
+  );
+  assert(math.canCustomizeSubscription(all[4], [...all].reverse(), false));
+  assert.equal(math.canCustomizeSubscription(all[5], all, false), false);
+  assert(math.canCustomizeSubscription(all[6], all, true));
+  const follow = {
+    1: { decision: 'cancel_confirmed', effectiveOn: '2020-01-01' },
+  };
+  assert(math.canCustomizeSubscription(all[5], all, false, follow));
+  const alerts = Object.fromEntries(
+    all.map((s) => [s.id, { reminderEnabled: true }]),
+  );
+  const notified = new Set(
+    reminderPlan(all, alerts, false, date('2026-10-06')).map(
+      (p) => p.subscriptionId,
+    ),
+  );
+  assert.equal(notified.size, 5);
+  assert.equal(notified.has(6), false);
+});
+test('photo quotas count legacy receipts; concurrent adds cannot exceed five or ten', async () => {
+  const h = harness(),
+    photos = h.load('subscription-photos');
+  const item = sub({
+    purchaseProofImage: 'https://example.com/old.jpg',
+    unsubscribeProofImage: 'https://example.com/proof.jpg',
+  });
+  const uri = 'data:image/jpeg;base64,YWJj';
+  const results = await Promise.allSettled(
+    Array.from({ length: 5 }, () =>
+      photos.addPhoto('guest', item, [item], {}, false, uri, 'Test'),
+    ),
+  );
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 3);
+  assert.equal((await photos.getPhotos('guest', item)).length, 5);
+  for (let i = 0; i < 5; i++)
+    await photos.addPhoto('guest', item, [item], {}, true, uri, 'Plus');
+  await assert.rejects(
+    photos.addPhoto('guest', item, [item], {}, true, uri, 'Full'),
+    /Retirez-en une/,
+  );
+  // Downgrade preserves all photos, including legacy fields, and still permits removals.
+  assert.equal((await photos.getPhotos('guest', item)).length, 10);
+  await assert.rejects(
+    photos.addPhoto('guest', item, [item], {}, false, uri, 'Free'),
+  );
+  const rows = await photos.getPhotos('guest', item);
+  await photos.removePhoto('guest', item.id, rows[2].id);
+  assert.equal((await photos.getPhotos('guest', item)).length, 9);
+  assert.equal(item.purchaseProofImage, 'https://example.com/old.jpg');
+});
+test('photo limits apply per subscription, reject sixth free subscription and temporary file URIs', async () => {
+  const h = harness(),
+    photos = h.load('subscription-photos');
+  const all = Array.from({ length: 6 }, (_, i) => sub({ id: i + 1 }));
+  const uri = 'data:image/jpeg;base64,YWJj';
+  await assert.rejects(
+    photos.addPhoto('guest', all[5], all, {}, false, uri, 'Test'),
+  );
+  await photos.addPhoto('guest', all[5], all, {}, true, uri, 'Test');
+  await photos.addPhoto('guest', all[0], all, {}, false, uri, 'Other');
+  assert.equal((await photos.getPhotos('guest', all[0])).length, 1);
+  await assert.rejects(
+    photos.addPhoto(
+      'guest',
+      all[0],
+      all,
+      {},
+      false,
+      'file:///cache/photo.jpg',
+      'Test',
+    ),
+  );
+  await assert.rejects(
+    photos.addPhoto(
+      'guest',
+      all[0],
+      all,
+      {},
+      false,
+      uri + 'A'.repeat(photos.MAX_PHOTO_LENGTH),
+      'Test',
+    ),
+  );
+});
+test('photo persistence is isolated between guest/demo/accounts; deletion clears only its owner', async () => {
+  const h = harness(),
+    photos = h.load('subscription-photos'),
+    local = h.load('local-data');
+  const item = sub(),
+    uri = 'data:image/jpeg;base64,YWJj';
+  for (const scope of ['guest', 'demo', 'account:1', 'account:2'])
+    await photos.addPhoto(scope, item, [item], {}, false, uri, scope);
+  assert.equal(
+    (await photos.getPhotos('account:2', item))[0].label,
+    'account:2',
+  );
+  await local.clearAccountFollowUps('account:1');
+  assert.equal((await photos.getPhotos('account:1', item)).length, 0);
+  assert.equal((await photos.getPhotos('account:2', item)).length, 1);
+  await local.seedDemo();
+  assert.equal((await photos.getPhotos('demo', item)).length, 0);
+  assert.equal((await photos.getPhotos('guest', item)).length, 1);
+  await photos.clearPhotos('guest', item.id);
+  assert.equal((await photos.getPhotos('guest', item)).length, 0);
+});
+test('failed photo index write rolls back image and keeps previous gallery', async () => {
+  const h = harness(),
+    photos = h.load('subscription-photos'),
+    item = sub();
+  const uri = 'data:image/jpeg;base64,YWJj';
+  await photos.addPhoto('guest', item, [item], {}, false, uri, 'Original');
+  const original = h.storage.setItem;
+  h.storage.setItem = async (key, value) => {
+    if (key.endsWith('.index')) throw new Error('Storage full');
+    return original(key, value);
+  };
+  await assert.rejects(
+    photos.addPhoto('guest', item, [item], {}, false, uri, 'Failure'),
+    /Storage full/,
+  );
+  assert.equal((await photos.getPhotos('guest', item)).length, 1);
+  assert.equal(h.memory.size, 2);
 });

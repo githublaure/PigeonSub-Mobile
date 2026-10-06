@@ -1,3 +1,6 @@
+import { useSubscriptionData } from '../../../../src/hooks/useSubscriptionData';
+import { useBilling } from '../../../../src/contexts/BillingContext';
+import { canCustomizeSubscription } from '../../../../src/lib/subscription-math';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -13,6 +16,8 @@ import { Subscription, subscriptions } from '../../../../src/lib/api';
 export default function EditSubscriptionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { canUsePlus } = useBilling();
+  const { data, follow } = useSubscriptionData();
   const [sub, setSub] = useState<Subscription | null>(null);
   const [loadError, setLoadError] = useState('');
 
@@ -83,6 +88,7 @@ export default function EditSubscriptionScreen() {
       title="Modifier l’abonnement"
       submitLabel="Enregistrer"
       defaultValues={defaultValues}
+      safetyEditable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
       onSubmit={handleSubmit}
       onCancel={() => router.back()}
     />

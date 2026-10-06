@@ -24,15 +24,16 @@ import { useUI } from './ui/Page';
 export function SafetyPanel({
   sub,
   follow = {},
+  editable = true,
 }: {
   sub: Subscription;
   follow?: FollowUp;
+  editable?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const ui = useUI();
 
   const router = useRouter();
-  const { canUsePlus } = useBilling();
   const { mode } = useAuth();
   const [notice, setNotice] = useState(String(follow.noticeDays ?? 0));
   const [lead, setLead] = useState(String(follow.leadDays ?? 1));
@@ -49,6 +50,10 @@ export function SafetyPanel({
     setError('');
     setMessage('');
     try {
+      if (!editable)
+        throw new Error(
+          'Plus permet de personnaliser tous vos abonnements. Vos dates existantes sont conservées.',
+        );
       if (
         !/^\d{1,3}$/.test(notice) ||
         Number(notice) > 365 ||
@@ -69,8 +74,8 @@ export function SafetyPanel({
         );
       await updateFollowUp(sub.id, {
         noticeDays: Number(notice),
-        leadDays: canUsePlus ? Number(lead) : 1,
-        advancedReminder: canUsePlus,
+        leadDays: Number(lead),
+        advancedReminder: true,
         reminderEnabled: enabled,
       });
       if (mode !== 'demo') await syncReminders();
@@ -120,15 +125,29 @@ export function SafetyPanel({
       <TextInput
         accessibilityLabel="Préavis en jours"
         value={notice}
+        editable={editable}
         onChangeText={setNotice}
         keyboardType="number-pad"
         maxLength={3}
         style={ui.input}
       />
-      {canUsePlus ? (
+      {sub.useSafetyDate && sub.safetyDate ? (
+        <>
+          <Text style={ui.small}>
+            Votre date choisie se répète avec le même nombre de jours d’avance à
+            chaque renouvellement. Si le préavis l’exige, elle est avancée à la
+            date limite contractuelle estimée.
+          </Text>
+          <Button
+            title="Modifier ma date de sûreté"
+            variant="secondary"
+            onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/edit`)}
+          />
+        </>
+      ) : (
         <>
           <Text style={ui.body}>
-            Me rappeler combien de jours avant cette date limite ?
+            Combien de jours avant la date limite voulez-vous agir ?
           </Text>
           <TextInput
             accessibilityLabel="Avance du rappel en jours"
@@ -137,25 +156,26 @@ export function SafetyPanel({
             keyboardType="number-pad"
             maxLength={3}
             style={ui.input}
+            editable={editable}
           />
         </>
-      ) : (
-        <>
-          <Text style={ui.small}>
-            Gratuit : un rappel standard la veille de la date limite, à 9 h.
-            Plus : choisissez votre avance pour agir sereinement.
-          </Text>
-          <Button
-            title="Personnaliser mon rappel avec Plus"
-            variant="secondary"
-            onPress={() => router.push('/(tabs)/premium?reason=safety')}
-          />
-        </>
+      )}
+      <Text style={ui.small}>
+        Une date de sûreté personnalisée et un rappel à 9 h, inclus pour vos 5
+        abonnements gratuits.
+      </Text>
+      {!editable && (
+        <Button
+          title="Personnaliser tous mes abonnements avec Plus"
+          variant="secondary"
+          onPress={() => router.push('/(tabs)/premium?reason=limit')}
+        />
       )}
       <Button
         title="Enregistrer ces dates"
         variant="secondary"
         loading={busy}
+        disabled={!editable}
         onPress={() => void save()}
       />
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
@@ -163,7 +183,7 @@ export function SafetyPanel({
         <Switch
           accessibilityLabel="Recevoir un rappel pour cet abonnement"
           value={follow.reminderEnabled ?? false}
-          disabled={busy}
+          disabled={busy || !editable}
           onValueChange={(value) => void save(value)}
           trackColor={{ true: Colors.primary }}
         />
@@ -325,15 +345,13 @@ export function CancellationPanel({
         disabled={busy}
         onPress={() => void save(false)}
       />
+      <Button
+        title="Joindre une photo ou une preuve"
+        variant="secondary"
+        onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)}
+      />
       {canUsePlus ? (
         <>
-          <Button
-            title="Joindre une preuve de résiliation"
-            variant="secondary"
-            onPress={() =>
-              router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)
-            }
-          />
           {(follow.history ?? [])
             .slice()
             .reverse()
@@ -352,7 +370,7 @@ export function CancellationPanel({
         </>
       ) : (
         <Button
-          title="Preuves et historique avec Plus"
+          title="Historique des résiliations avec Plus"
           variant="secondary"
           onPress={() => router.push('/(tabs)/premium?reason=history')}
         />

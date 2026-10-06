@@ -1,3 +1,10 @@
+import { clearPhotos } from './subscription-photos';
+import {
+  demoOffers,
+  validateOffer,
+  type SavedOffer,
+  type OfferDraft,
+} from './offers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   InsertSubscription,
@@ -79,7 +86,9 @@ export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
   });
 }
 export async function clearAccountFollowUps(namespace: string) {
+  await clearPhotos(namespace);
   await AsyncStorage.removeItem(key('followups', namespace));
+  await AsyncStorage.removeItem(key('offers', namespace));
 }
 interface LocalData {
   subscriptions: Subscription[];
@@ -116,8 +125,55 @@ function subscription(data: InsertSubscription, id: number): Subscription {
     ...data,
   };
 }
+export const getSavedOffers = (namespace = scope) =>
+  readJSON<SavedOffer[]>(
+    key('offers', namespace),
+    namespace === 'demo' ? demoOffers() : [],
+  );
+export function saveOffer(draft: OfferDraft, id?: string): Promise<void> {
+  const namespace = scope;
+  const checked = validateOffer(draft);
+  return transaction(async () => {
+    const rows = await getSavedOffers(namespace);
+    const index = id ? rows.findIndex((o) => o.id === id) : -1;
+    if (id && index < 0) throw new Error('Offre introuvable.');
+    if (index >= 0) rows[index] = { ...rows[index], ...checked };
+    else
+      rows.push({
+        ...checked,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        used: false,
+      });
+    await AsyncStorage.setItem(key('offers', namespace), JSON.stringify(rows));
+    if (scope === namespace) dataChanged();
+  });
+}
+export function changeOffer(
+  id: string,
+  action: 'used' | 'saved' | 'delete',
+): Promise<void> {
+  const namespace = scope;
+  return transaction(async () => {
+    const rows = await getSavedOffers(namespace);
+    const found = rows.find((o) => o.id === id);
+    if (!found) throw new Error('Offre introuvable.');
+    found.used = action === 'used';
+    await AsyncStorage.setItem(
+      key('offers', namespace),
+      JSON.stringify(
+        action === 'delete' ? rows.filter((o) => o.id !== id) : rows,
+      ),
+    );
+    if (scope === namespace) dataChanged();
+  });
+}
 export async function seedDemo() {
+  await clearPhotos('demo');
   const now = new Date();
+  await AsyncStorage.setItem(
+    key('offers', 'demo'),
+    JSON.stringify(demoOffers(now)),
+  );
   const rows = [
     ['Netflix', '13.49', 'monthly', 'entertainment', 3, 'rarely_used'],
     ['Spotify', '11.99', 'monthly', 'entertainment', 6, 'very_used'],

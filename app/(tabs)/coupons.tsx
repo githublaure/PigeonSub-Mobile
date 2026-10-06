@@ -1,383 +1,420 @@
-import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
-import type { Palette } from '../../src/theme/colors';
+import React, { useEffect, useState } from 'react';
+import { Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  SectionList,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { Card } from '../../src/components/ui/Card';
-import { EmptyState } from '../../src/components/ui/EmptyState';
-import { ErrorState } from '../../src/components/ui/ErrorState';
+import * as Clipboard from 'expo-clipboard';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { Page, useUI } from '../../src/components/ui/Page';
+import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
-import { Subscription, subscriptions as subsApi } from '../../src/lib/api';
+import { ErrorState } from '../../src/components/ui/ErrorState';
+import { useSavedOffers } from '../../src/hooks/useSavedOffers';
+import { changeOffer, saveOffer } from '../../src/lib/local-data';
+import {
+  emptyOffer,
+  offerDays,
+  offerLabel,
+  validateOffer,
+  type OfferDraft,
+  type SavedOffer,
+} from '../../src/lib/offers';
+import { parseDay, shortDate } from '../../src/lib/subscription-math';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function fmtDate(d: string | null): string {
-  if (!d) return '';
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function fmtPrice(price: string): string {
-  return parseFloat(price).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// CountdownBadge
-// ---------------------------------------------------------------------------
-function CountdownBadge({ days }: { days: number | null }) {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  if (days === null) return null;
-  const urgent = days <= 7;
-  const expired = days < 0;
-  const bg = expired ? Colors.danger + '26' : urgent ? Colors.warning + '26' : Colors.info + '26';
-  const fg = expired ? Colors.danger : urgent ? Colors.warning : Colors.info;
-  const label = expired
-    ? `Expired ${Math.abs(days)}d ago`
-    : days === 0
-    ? 'Expires today'
-    : `${days}d left`;
-  return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color: fg }]}>{label}</Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SubscriptionRow
-// ---------------------------------------------------------------------------
-function SubscriptionRow({
-  sub,
-  dateLabel,
-  dateValue,
-  countdownDate,
-  onPress,
-}: {
-  sub: Subscription;
-  dateLabel: string;
-  dateValue: string | null;
-  countdownDate: string | null;
-  onPress: () => void;
-}) {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  const days = daysUntil(countdownDate);
-  const accent = sub.categoryColor || Colors.primary;
-
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
-      onPress={onPress}
-      accessibilityRole="button"
-    >
-      <View style={[styles.rowAccent, { backgroundColor: accent }]} />
-      <View style={styles.rowContent}>
-        <View style={styles.rowTop}>
-          <Text style={styles.rowName} numberOfLines={1}>{sub.name}</Text>
-          <Text style={styles.rowPrice}>{fmtPrice(sub.price)}</Text>
-        </View>
-        <View style={styles.rowBottom}>
-          {dateValue ? (
-            <Text style={styles.rowMeta}>
-              <Text style={styles.rowMetaLabel}>{dateLabel} </Text>
-              {fmtDate(dateValue)}
-            </Text>
-          ) : null}
-          <CountdownBadge days={days} />
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} style={styles.rowChevron} />
-    </Pressable>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Section header
-// ---------------------------------------------------------------------------
-function SectionHeader({ title, count, color }: { title: string; count: number; color?: string }) {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={[styles.countBadge, { backgroundColor: (color || Colors.primary) + '26' }]}>
-        <Text style={[styles.countText, { color: color || Colors.primary }]}>{count}</Text>
-      </View>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
-type RowItem = {
-  sub: Subscription;
-  dateLabel: string;
-  dateValue: string | null;
-  countdownDate: string | null;
-};
-
+type Filter = 'saved' | 'soon' | 'all';
 export default function CouponsScreen() {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  const router = useRouter();
-  const [data, setData] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
+  const ui = useUI();
+  const { colors: c } = useTheme();
+  const { scope, mode } = useAuth();
+  const { offers, loading, error, reload } = useSavedOffers();
+  const [filter, setFilter] = useState<Filter>('saved');
+  const [draft, setDraft] = useState<OfferDraft | null>(null);
+  const [editing, setEditing] = useState<string>();
+  const [removing, setRemoving] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [failure, setFailure] = useState('');
+  useEffect(() => {
+    setDraft(null);
+    setEditing(undefined);
+    setRemoving(undefined);
+    setNotice('');
+    setFailure('');
+  }, [scope]);
+  const run = async (task: () => Promise<void>, message = '') => {
+    setBusy(true);
+    setFailure('');
+    setNotice('');
     try {
-      setError('');
-      const list = await subsApi.list(true); // include archived to surface inactive trials
-      setData(list);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      await task();
+      setNotice(message);
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : 'Action impossible.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setBusy(false);
     }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <LoadingScreen message="Loading trials & offers…" />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
-
-  // ── Group into sections ──────────────────────────────────────────────────
-  const activeTrials = data.filter(
-    (s) => s.isTrial && (!s.trialEndsAt || daysUntil(s.trialEndsAt) === null || daysUntil(s.trialEndsAt)! >= 0)
-  );
-  const expiringSoon = data.filter(
-    (s) => s.trialEndsAt && daysUntil(s.trialEndsAt) !== null && daysUntil(s.trialEndsAt)! <= 14 && daysUntil(s.trialEndsAt)! >= 0
-  );
-  const expiredTrials = data.filter(
-    (s) => s.trialEndsAt && daysUntil(s.trialEndsAt) !== null && daysUntil(s.trialEndsAt)! < 0
-  );
-  const suspects = data.filter((s) => s.isSuspect || s.isFlagged);
-
-  const toItem = (s: Subscription, dateLabel: string, dateValue: string | null, countdownDate: string | null): RowItem => ({
-    sub: s,
-    dateLabel,
-    dateValue,
-    countdownDate,
-  });
-
-  const sections = [
-    {
-      key: 'expiring',
-      title: 'Expiring Soon',
-      color: Colors.warning,
-      data: expiringSoon.map((s) => toItem(s, 'Ends', s.trialEndsAt, s.trialEndsAt)),
-    },
-    {
-      key: 'active',
-      title: 'Active Trials',
-      color: Colors.info,
-      data: activeTrials.map((s) => toItem(s, 'Ends', s.trialEndsAt, s.trialEndsAt)),
-    },
-    {
-      key: 'suspects',
-      title: 'Review Candidates',
-      color: Colors.danger,
-      data: suspects.map((s) =>
-        toItem(s, 'Renews', s.nextRenewal, s.nextRenewal)
-      ),
-    },
-    {
-      key: 'expired',
-      title: 'Expired Trials',
-      color: Colors.textMuted,
-      data: expiredTrials.map((s) => toItem(s, 'Ended', s.trialEndsAt, s.trialEndsAt)),
-    },
-  ].filter((sec) => sec.data.length > 0);
-
-  const totalCount = activeTrials.length + expiringSoon.length + suspects.length + expiredTrials.length;
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Trials & Suspects</Text>
-        {totalCount > 0 && (
-          <View style={styles.totalBadge}>
-            <Text style={styles.totalBadgeText}>{totalCount}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Summary chips */}
-      {totalCount > 0 && (
-        <View style={styles.summaryRow}>
-          {expiringSoon.length > 0 && (
-            <View style={[styles.chip, { borderColor: Colors.warning }]}>
-              <Text style={[styles.chipText, { color: Colors.warning }]}>
-                ⚠️ {expiringSoon.length} expiring
-              </Text>
-            </View>
-          )}
-          {suspects.length > 0 && (
-            <View style={[styles.chip, { borderColor: Colors.danger }]}>
-              <Text style={[styles.chipText, { color: Colors.danger }]}>
-                🚩 {suspects.length} to review
-              </Text>
-            </View>
-          )}
-          {activeTrials.length > 0 && (
-            <View style={[styles.chip, { borderColor: Colors.info }]}>
-              <Text style={[styles.chipText, { color: Colors.info }]}>
-                🧪 {activeTrials.length} active
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {totalCount === 0 ? (
-        <EmptyState
-          icon="ribbon-outline"
-          title="Nothing to review"
-          description="No active trials, expiring subscriptions, or suspects here."
-        />
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item, idx) => `${item.sub.id}-${idx}`}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
-              tintColor={Colors.primary}
-            />
+  };
+  const edit = (offer?: SavedOffer) => {
+    setEditing(offer?.id);
+    setDraft(
+      offer
+        ? {
+            provider: offer.provider,
+            title: offer.title,
+            code: offer.code,
+            url: offer.url,
+            expiresOn: offer.expiresOn,
+            notes: offer.notes,
           }
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
-          renderSectionHeader={({ section }) => (
-            <SectionHeader
-              title={section.title}
-              count={section.data.length}
-              color={section.color}
-            />
-          )}
-          renderItem={({ item }) => (
-            <Card style={styles.itemCard}>
-              <SubscriptionRow
-                sub={item.sub}
-                dateLabel={item.dateLabel}
-                dateValue={item.dateValue}
-                countdownDate={item.countdownDate}
-                onPress={() => router.push(`/(tabs)/subscriptions/${item.sub.id}`)}
+        : emptyOffer(),
+    );
+    setFailure('');
+    setNotice('');
+  };
+  if (loading) return <LoadingScreen />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  const available = offers.filter((o) => !o.used && offerDays(o) >= 0);
+  const rows = offers
+    .filter(
+      (o) =>
+        filter === 'all' ||
+        (!o.used &&
+          offerDays(o) >= 0 &&
+          (filter !== 'soon' || offerDays(o) <= 7)),
+    )
+    .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn));
+  return (
+    <Page
+      title={
+        draft
+          ? editing
+            ? 'Modifier l’offre'
+            : 'Ajouter une offre'
+          : 'Coupons & bons plans'
+      }
+      subtitle={
+        draft
+          ? 'Un code, un essai ou une offre temporaire à garder en vue.'
+          : 'Des réductions sur ce que vous gardez vraiment.'
+      }
+    >
+      {draft ? (
+        <>
+          {(
+            [
+              ['provider', 'Service', 'Ex. ElevenLabs'],
+              ['title', 'Offre', 'Ex. Deux semaines offertes'],
+              ['expiresOn', 'Date de fin (AAAA-MM-JJ)', '2026-10-12'],
+              ['code', 'Code promo (facultatif)', 'Votre code'],
+              ['url', 'Lien de l’offre (facultatif)', 'https://…'],
+              [
+                'notes',
+                'Conditions et tarif après l’offre',
+                'Formule éligible, renouvellement, préavis…',
+              ],
+            ] as const
+          ).map(([field, label, placeholder]) => (
+            <View key={field} style={{ gap: 7 }}>
+              <Text style={ui.label}>{label}</Text>
+              <TextInput
+                accessibilityLabel={label}
+                value={draft[field]}
+                onChangeText={(value) => setDraft({ ...draft, [field]: value })}
+                placeholder={placeholder}
+                placeholderTextColor={c.textMuted}
+                style={ui.input}
+                autoCapitalize={
+                  field === 'url' || field === 'expiresOn'
+                    ? 'none'
+                    : 'sentences'
+                }
+                autoCorrect={field !== 'url' && field !== 'code'}
+                keyboardType={field === 'url' ? 'url' : 'default'}
+                multiline={field === 'notes'}
+                maxLength={field === 'notes' ? 1000 : 500}
               />
-            </Card>
+            </View>
+          ))}
+          {!!failure && (
+            <Text accessibilityRole="alert" style={ui.error}>
+              {failure}
+            </Text>
           )}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          SectionSeparatorComponent={() => <View style={{ height: 16 }} />}
-          renderSectionFooter={() => <View />}
-        />
+          <Button
+            title="Enregistrer l’offre"
+            loading={busy}
+            onPress={() =>
+              void run(async () => {
+                await saveOffer(draft, editing);
+                setDraft(null);
+                setFilter('all');
+              }, 'Offre enregistrée.')
+            }
+          />
+          <Button
+            title="Annuler"
+            variant="ghost"
+            disabled={busy}
+            onPress={() => setDraft(null)}
+          />
+        </>
+      ) : (
+        <>
+          <View
+            style={[
+              ui.card,
+              {
+                backgroundColor: c.goldSurface,
+                borderColor: c.goldBorder,
+                flexDirection: 'row',
+                alignItems: 'center',
+              },
+            ]}
+          >
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={[ui.label, { color: c.gold }]}>
+                VOTRE CARNET D’OFFRES
+              </Text>
+              <Text style={[ui.value, { color: c.gold }]}>
+                {available.length}{' '}
+                <Text style={{ fontSize: 18 }}>à suivre</Text>
+              </Text>
+              <Text style={ui.small}>
+                Gardez les bonnes dates, sans multiplier les abonnements.
+              </Text>
+            </View>
+            <Image
+              source={require('../../assets/mascots/pigeon-money-bag.png')}
+              style={{ width: 80, height: 95 }}
+              resizeMode="contain"
+              accessible={false}
+            />
+          </View>
+          <Button title="+ Ajouter une offre" onPress={() => edit()} />
+          <View style={[ui.row, { gap: 5 }]}>
+            {(
+              [
+                ['saved', 'À suivre'],
+                ['soon', 'Fin sous 7 j'],
+                ['all', 'Toutes'],
+              ] as const
+            ).map(([value, label]) => (
+              <Pressable
+                key={value}
+                accessibilityRole="radio"
+                accessibilityLabel={label}
+                accessibilityState={{ checked: filter === value }}
+                aria-checked={filter === value}
+                onPress={() => setFilter(value)}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 18,
+                  backgroundColor:
+                    filter === value ? c.primary : c.surfaceRaised,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: filter === value ? c.white : c.textSecondary,
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {!!notice && (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[ui.small, ui.success]}
+            >
+              {notice}
+            </Text>
+          )}
+          {!!failure && (
+            <Text accessibilityRole="alert" style={ui.error}>
+              {failure}
+            </Text>
+          )}
+          {!rows.length && (
+            <View style={ui.card}>
+              <Ionicons name="ticket-outline" size={30} color={c.primary} />
+              <Text style={ui.heading}>Aucune offre ici pour le moment.</Text>
+              <Text style={ui.body}>
+                Enregistrez une offre repérée avec sa date limite, même si elle
+                n’a pas de code promo.
+              </Text>
+            </View>
+          )}
+          {rows.map((offer) => {
+            const expired = offerDays(offer) < 0;
+            return (
+              <View
+                key={offer.id}
+                style={[
+                  ui.card,
+                  (expired || offer.used) && {
+                    backgroundColor: c.archiveBackground,
+                    borderColor: c.archiveBorder,
+                  },
+                ]}
+              >
+                <View style={[ui.row, { justifyContent: 'space-between' }]}>
+                  <Text style={[ui.heading, { flexShrink: 1 }]}>
+                    {offer.provider}
+                  </Text>
+                  <Text
+                    style={[
+                      ui.pill,
+                      {
+                        color: expired || offer.used ? c.archiveText : c.gold,
+                        backgroundColor:
+                          expired || offer.used
+                            ? c.archiveBackground
+                            : c.goldSoft,
+                      },
+                    ]}
+                  >
+                    {offerLabel(offer)}
+                  </Text>
+                </View>
+                {offer.demo && (
+                  <Text style={[ui.small, { color: c.primary }]}>
+                    Démo · offre non vérifiée
+                  </Text>
+                )}
+                <Text style={ui.body}>{offer.title}</Text>
+                <Text style={ui.small}>
+                  Fin de l’offre : {shortDate(parseDay(offer.expiresOn))}{' '}
+                  {offer.expiresOn.slice(0, 4)}
+                </Text>
+                {!!offer.code && (
+                  <View
+                    style={[
+                      ui.row,
+                      {
+                        padding: 10,
+                        backgroundColor: c.goldSoft,
+                        borderRadius: 12,
+                      },
+                    ]}
+                  >
+                    <Text
+                      selectable
+                      style={[ui.heading, { flex: 1, fontSize: 16 }]}
+                    >
+                      {offer.code}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Copier le code ${offer.code}`}
+                      disabled={busy}
+                      onPress={() =>
+                        void run(async () => {
+                          const ok = await Clipboard.setStringAsync(offer.code);
+                          if (!ok)
+                            throw new Error(
+                              'Copie indisponible : sélectionnez le code pour le copier.',
+                            );
+                        }, 'Code copié.')
+                      }
+                      style={{ padding: 10 }}
+                    >
+                      <Ionicons
+                        name="copy-outline"
+                        size={21}
+                        color={c.primary}
+                      />
+                    </Pressable>
+                  </View>
+                )}
+                {!!offer.notes && <Text style={ui.small}>{offer.notes}</Text>}
+                {!!offer.url && (
+                  <Button
+                    title="Voir l’offre"
+                    variant="secondary"
+                    disabled={busy}
+                    onPress={() =>
+                      void run(async () => {
+                        validateOffer(offer);
+                        await Linking.openURL(offer.url);
+                      })
+                    }
+                  />
+                )}
+                <View style={ui.row}>
+                  {!expired && (
+                    <Button
+                      title={
+                        offer.used ? 'À suivre de nouveau' : 'Marquer utilisée'
+                      }
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy}
+                      onPress={() =>
+                        void run(() =>
+                          changeOffer(offer.id, offer.used ? 'saved' : 'used'),
+                        )
+                      }
+                    />
+                  )}
+                  <Button
+                    title="Modifier"
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    accessibilityLabel={`Modifier l’offre ${offer.provider}`}
+                    onPress={() => edit(offer)}
+                  />
+                  <Button
+                    title="Supprimer"
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    accessibilityLabel={`Supprimer l’offre ${offer.provider}`}
+                    onPress={() => setRemoving(offer.id)}
+                  />
+                </View>
+                {removing === offer.id && (
+                  <View style={{ gap: 8 }}>
+                    <Text style={ui.body}>
+                      Supprimer cette offre du carnet ?
+                    </Text>
+                    <Button
+                      title="Confirmer la suppression"
+                      variant="danger"
+                      disabled={busy}
+                      onPress={() =>
+                        void run(async () => {
+                          await changeOffer(offer.id, 'delete');
+                          setRemoving(undefined);
+                        })
+                      }
+                    />
+                    <Button
+                      title="Conserver cette offre"
+                      variant="ghost"
+                      onPress={() => setRemoving(undefined)}
+                    />
+                  </View>
+                )}
+              </View>
+            );
+          })}
+          <Text style={ui.small}>
+            {mode === 'demo'
+              ? 'Ces exemples sont fictifs.'
+              : 'Offres enregistrées sur cet appareil, séparément pour chaque compte.'}{' '}
+            Les conditions sont à vérifier chez le fournisseur. Marquer une
+            offre utilisée ne valide pas une économie. Les dates sont suivies
+            ici ; aucune notification automatique n’est envoyée.
+          </Text>
+        </>
       )}
-    </SafeAreaView>
+    </Page>
   );
 }
-
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
-  totalBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 24,
-    alignItems: 'center',
-  },
-  totalBadgeText: { color: Colors.white, fontSize: 13, fontWeight: '700' },
-  summaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-  },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  chipText: { fontSize: 13, fontWeight: '600' },
-  listContent: { paddingHorizontal: 24, paddingBottom: 40 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  countBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  countText: { fontSize: 11, fontWeight: '700' },
-  itemCard: { padding: 0, overflow: 'hidden' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 60,
-  },
-  rowAccent: { width: 4, alignSelf: 'stretch' },
-  rowContent: { flex: 1, paddingVertical: 12, paddingHorizontal: 14, gap: 6 },
-  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowName: { color: Colors.text, fontSize: 15, fontWeight: '600', flex: 1, marginRight: 8 },
-  rowPrice: { color: Colors.text, fontSize: 14, fontWeight: '700' },
-  rowBottom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rowMeta: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
-  rowMetaLabel: { fontWeight: '600' },
-  rowChevron: { paddingRight: 12 },
-  badge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-});

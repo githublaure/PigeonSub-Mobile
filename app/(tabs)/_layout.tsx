@@ -63,7 +63,7 @@ export default function TabsLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
@@ -76,23 +76,32 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="subscriptions"
         options={{
-          title: 'Abonnements',
-          tabBarIcon: ({ focused }) => tabIcon(Colors, focused, 'list', 'list-outline'),
+          title: 'Abos',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(Colors, focused, 'list', 'list-outline'),
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendrier',
+          title: 'Agenda',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Bilan',
+          title: 'Stats',
           tabBarIcon: ({ focused }) =>
             tabIcon(Colors, focused, 'bar-chart', 'bar-chart-outline'),
+        }}
+      />
+      <Tabs.Screen
+        name="coupons"
+        options={{
+          title: 'Coupons',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(Colors, focused, 'ticket', 'ticket-outline'),
         }}
       />
       <Tabs.Screen
@@ -112,10 +121,6 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="privacy"
         options={{ href: null, title: 'Confidentialité' }}
-      />
-      <Tabs.Screen
-        name="coupons"
-        options={{ href: null, title: 'Trials & Suspects' }}
       />
     </Tabs>
   );

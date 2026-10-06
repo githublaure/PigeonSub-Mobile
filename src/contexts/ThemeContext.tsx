@@ -7,10 +7,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Appearance } from 'react-native';
+import {
+  resolveThemePreference,
+  type ThemePreference,
+} from '../lib/appearance';
+export type { ThemePreference } from '../lib/appearance';
 import { DarkColors, LightColors, type Palette } from '../theme/colors';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
 const STORAGE_KEY = 'pigeonsub.appearance';
 interface ThemeValue {
   colors: Palette;
@@ -21,32 +25,18 @@ interface ThemeValue {
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const nativeScheme = useColorScheme();
-  const [webScheme, setWebScheme] = useState<'light' | 'dark' | null>(null);
-  // Listen directly on web: the Replit browser preview must also react when
-  // the device appearance changes while the application remains open.
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const query = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = () => setWebScheme(query.matches ? 'dark' : 'light');
-    update();
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  const systemScheme = webScheme ?? nativeScheme;
-  const [preference, setLocalPreference] = useState<ThemePreference>('system');
+  const [preference, setLocalPreference] = useState<ThemePreference>('light');
   const [ready, setReady] = useState(false);
   const writes = useRef(Promise.resolve());
   useEffect(() => {
     let alive = true;
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => {
-        if (
-          alive &&
-          (saved === 'dark' || saved === 'light' || saved === 'system')
-        ) {
-          setLocalPreference(saved);
-        }
+      .then(async (saved) => {
+        const next = resolveThemePreference(saved, Appearance.getColorScheme());
+        if (alive) setLocalPreference(next);
+        // Freeze the old automatic setting once, preserving its current look.
+        // Future OS appearance changes no longer override the explicit choice.
+        if (saved === 'system') await AsyncStorage.setItem(STORAGE_KEY, next);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -56,12 +46,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, []);
-  const scheme =
-    preference === 'system'
-      ? systemScheme === 'dark'
-        ? 'dark'
-        : 'light'
-      : preference;
+  const scheme = preference;
   const colors = scheme === 'dark' ? DarkColors : LightColors;
   const value = useMemo<ThemeValue>(
     () => ({

@@ -26,62 +26,88 @@ import { z } from 'zod';
 import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
+import { ColorPicker } from './ColorPicker';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
 // ---------------------------------------------------------------------------
-export const subscriptionFormSchema = z.object({
-  name: z
-    .string({ required_error: 'Le nom est obligatoire' })
-    .min(1, 'Le nom est obligatoire'),
-  price: z
-    .string({ required_error: 'Le prix est obligatoire' })
-    .regex(/^\d+([.,]\d{1,2})?$/, 'Saisissez un prix valide, par exemple 9,99'),
-  frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
-    errorMap: () => ({ message: 'Choisissez une fréquence' }),
-  }),
-  category: z.string().min(1, 'Choisissez une catégorie'),
-  usageFrequency: z.enum(['very_used', 'used', 'rarely_used']).default('used'),
-  categoryColor: z.string().optional(),
-  nextRenewal: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
+export const subscriptionFormSchema = z
+  .object({
+    name: z
+      .string({ required_error: 'Le nom est obligatoire' })
+      .min(1, 'Le nom est obligatoire'),
+    price: z
+      .string({ required_error: 'Le prix est obligatoire' })
+      .regex(
+        /^\d+([.,]\d{1,2})?$/,
+        'Saisissez un prix valide, par exemple 9,99',
+      ),
+    frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
+      errorMap: () => ({ message: 'Choisissez une fréquence' }),
+    }),
+    category: z.string().min(1, 'Choisissez une catégorie'),
+    usageFrequency: z
+      .enum(['very_used', 'used', 'rarely_used'])
+      .default('used'),
+    categoryColor: z.string().optional(),
+    nextRenewal: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    isTrial: z.boolean().default(false),
+    trialEndsAt: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    useSafetyDate: z.boolean().default(false),
+    safetyDate: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    purchaseDate: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    rating: z.number().min(1).max(5).nullable().optional(),
+    note: z.string().optional(),
+    isActive: z.boolean().default(true),
+    isFlagged: z.boolean().default(false),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.useSafetyDate) return;
+    const safety = parseDay(values.safetyDate);
+    const renewal = parseDay(
+      values.isTrial ? values.trialEndsAt : values.nextRenewal,
+    );
+    if (
+      !safety ||
+      !renewal ||
+      safety >= renewal ||
+      values.frequency === 'lifetime'
     )
-    .optional()
-    .or(z.literal('')),
-  isTrial: z.boolean().default(false),
-  trialEndsAt: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  useSafetyDate: z.boolean().default(false),
-  safetyDate: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  purchaseDate: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  rating: z.number().min(1).max(5).nullable().optional(),
-  note: z.string().optional(),
-  isActive: z.boolean().default(true),
-  isFlagged: z.boolean().default(false),
-});
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['safetyDate'],
+        message:
+          'Choisissez une date de sûreté avant le prochain prélèvement ou la fin de l’essai.',
+      });
+  });
 
 export type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;
 
@@ -202,29 +228,33 @@ function ChipGroup<T extends string>({
   );
 }
 
-const createChipStyles = (Colors: Palette) => StyleSheet.create({
-  container: { gap: 8 },
-  label: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minHeight: 36,
-  },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { color: Colors.textSecondary, fontSize: 13 },
-  chipTextActive: { color: Colors.white, fontWeight: '600' },
-});
+const createChipStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    container: { gap: 8 },
+    label: {
+      color: Colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: Colors.surface,
+      borderWidth: 1,
+      borderColor: Colors.border,
+      minHeight: 36,
+    },
+    chipActive: {
+      backgroundColor: Colors.primary,
+      borderColor: Colors.primary,
+    },
+    chipText: { color: Colors.textSecondary, fontSize: 13 },
+    chipTextActive: { color: Colors.white, fontWeight: '600' },
+  });
 
 function ToggleRow({
   label,
@@ -249,6 +279,7 @@ function ToggleRow({
         ) : null}
       </View>
       <Switch
+        accessibilityLabel={label}
         value={value}
         onValueChange={onChange}
         trackColor={{ false: Colors.border, true: Colors.primary }}
@@ -267,6 +298,7 @@ interface SubscriptionFormProps {
   onSubmit: (values: SubscriptionFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
+  safetyEditable?: boolean;
 }
 
 export function SubscriptionForm({
@@ -275,6 +307,7 @@ export function SubscriptionForm({
   onSubmit,
   onCancel,
   submitLabel = 'Enregistrer',
+  safetyEditable = true,
 }: SubscriptionFormProps) {
   const { colors: Colors } = useTheme();
   const chipStyles = useThemedStyles(createChipStyles);
@@ -426,16 +459,7 @@ export function SubscriptionForm({
               control={control}
               name="categoryColor"
               render={({ field }) => (
-                <StyledTextInput
-                  label="Couleur de catégorie (facultatif)"
-                  placeholder="#7C3AED"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  error={errors.categoryColor?.message}
-                  value={field.value ?? ''}
-                  onChangeText={field.onChange}
-                  onBlur={field.onBlur}
-                />
+                <ColorPicker value={field.value} onChange={field.onChange} />
               )}
             />
 
@@ -477,9 +501,54 @@ export function SubscriptionForm({
               )}
             />
 
+            <SectionTitle>Date de sûreté</SectionTitle>
+            {safetyEditable ? (
+              <>
+                <Controller
+                  control={control}
+                  name="useSafetyDate"
+                  render={({ field }) => (
+                    <ToggleRow
+                      label="Choisir ma date de sûreté"
+                      value={field.value}
+                      onChange={field.onChange}
+                      description="Le jour où agir pour éviter un renouvellement non souhaité."
+                    />
+                  )}
+                />
+                {useSafetyDate && (
+                  <Controller
+                    control={control}
+                    name="safetyDate"
+                    render={({ field }) => (
+                      <StyledTextInput
+                        label="Date de sûreté (AAAA-MM-JJ)"
+                        placeholder="2026-12-25"
+                        keyboardType="numbers-and-punctuation"
+                        autoCorrect={false}
+                        error={errors.safetyDate?.message}
+                        value={field.value ?? ''}
+                        onChangeText={field.onChange}
+                        onBlur={field.onBlur}
+                      />
+                    )}
+                  />
+                )}
+                <Text style={styles.toggleDesc}>
+                  Incluse pour vos 5 abonnements gratuits. L’avance choisie est
+                  conservée aux prochains renouvellements.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.toggleDesc}>
+                Les réglages existants sont conservés. Plus permet de
+                personnaliser tous vos abonnements.
+              </Text>
+            )}
+
             <Text style={styles.toggleDesc}>
               Le préavis et les rappels se règlent sur la fiche de l’abonnement
-              après son enregistrement.
+              après son enregistrement. Vous pourrez aussi y joindre vos photos.
             </Text>
 
             {/* ── Trial ── */}
@@ -624,53 +693,54 @@ export function SubscriptionForm({
   );
 }
 
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  kav: { flex: 1 },
-  scroll: { flexGrow: 1, paddingBottom: 48 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  cancel: { color: Colors.textSecondary, fontSize: 16 },
-  title: { color: Colors.text, fontSize: 18, fontWeight: '700' },
-  form: { paddingHorizontal: 24, gap: 20 },
-  sectionTitle: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginTop: 8,
-    marginBottom: -8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-    paddingTop: 16,
-  },
-  fieldError: { color: Colors.danger, fontSize: 12, marginTop: 2 },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-    minHeight: 52,
-    gap: 12,
-  },
-  toggleText: { flex: 1 },
-  toggleLabel: { color: Colors.text, fontSize: 15 },
-  toggleDesc: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  ratingContainer: { gap: 10 },
-  apiErrorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: Colors.danger + '14',
-    borderRadius: 10,
-    padding: 12,
-  },
-  apiError: { color: Colors.danger, fontSize: 14, flex: 1 },
-});
+const createStyles = (Colors: Palette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: Colors.background },
+    kav: { flex: 1 },
+    scroll: { flexGrow: 1, paddingBottom: 48 },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 24,
+      paddingTop: 16,
+      paddingBottom: 20,
+    },
+    cancel: { color: Colors.textSecondary, fontSize: 16 },
+    title: { color: Colors.text, fontSize: 18, fontWeight: '700' },
+    form: { paddingHorizontal: 24, gap: 20 },
+    sectionTitle: {
+      color: Colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      marginTop: 8,
+      marginBottom: -8,
+      borderTopWidth: 1,
+      borderTopColor: Colors.divider,
+      paddingTop: 16,
+    },
+    fieldError: { color: Colors.danger, fontSize: 12, marginTop: 2 },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+      minHeight: 52,
+      gap: 12,
+    },
+    toggleText: { flex: 1 },
+    toggleLabel: { color: Colors.text, fontSize: 15 },
+    toggleDesc: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+    ratingContainer: { gap: 10 },
+    apiErrorBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      backgroundColor: Colors.danger + '14',
+      borderRadius: 10,
+      padding: 12,
+    },
+    apiError: { color: Colors.danger, fontSize: 14, flex: 1 },
+  });
