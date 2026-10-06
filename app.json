@@ -40,8 +40,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow PigeonSub to access your photos to attach receipts.",
-          "cameraPermission": "Allow PigeonSub to use the camera to capture receipts."
+          "photosPermission": "Autorisez PigeonSub à joindre vos photos, reçus et confirmations à vos abonnements.",
+          "cameraPermission": "Autorisez PigeonSub à photographier vos reçus et justificatifs."
         }
       ],
       "expo-notifications",

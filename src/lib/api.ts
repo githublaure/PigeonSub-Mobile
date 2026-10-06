@@ -1,11 +1,16 @@
+import { clearPhotos } from './subscription-photos';
 import { Platform } from 'react-native';
 import {
   isLocalSession,
   localRequest,
   dataChanged,
   getFollowUps,
+  getDataSession,
 } from './local-data';
-import { canAddSubscription } from './subscription-math';
+import {
+  canAddSubscription,
+  canCustomizeSubscription,
+} from './subscription-math';
 import { hasPlusAccess } from './entitlements-state';
 import * as SecureStore from 'expo-secure-store';
 import { buildApiUrl, stripQueryForLog } from './api-url';
@@ -300,6 +305,29 @@ export const subscriptions = {
   },
 
   update: async (id: number, data: Partial<InsertSubscription>) => {
+    if ('safetyDate' in data || 'useSafetyDate' in data) {
+      const all = await subscriptions.list(true);
+      const previous = all.find((s) => s.id === id);
+      const changed =
+        previous &&
+        (('safetyDate' in data &&
+          (data.safetyDate ?? '').slice(0, 10) !==
+            (previous.safetyDate ?? '').slice(0, 10)) ||
+          ('useSafetyDate' in data &&
+            data.useSafetyDate !== previous.useSafetyDate));
+      if (
+        changed &&
+        !canCustomizeSubscription(
+          previous!,
+          all,
+          hasPlusAccess(),
+          await getFollowUps(),
+        )
+      )
+        throw new Error(
+          'PLUS_LIMIT: Les dates de sûreté sont incluses pour vos 5 abonnements gratuits.',
+        );
+    }
     if (data.isActive) {
       const all = await subscriptions.list(true);
       const previous = all.find((s) => s.id === id);
@@ -317,8 +345,11 @@ export const subscriptions = {
     });
   },
 
-  remove: (id: number) =>
-    apiFetch<void>(`/subscriptions/${id}`, { method: 'DELETE' }),
+  remove: async (id: number) => {
+    const scope = getDataSession().scope;
+    await apiFetch<void>(`/subscriptions/${id}`, { method: 'DELETE' });
+    await clearPhotos(scope, id);
+  },
 
   upcoming: (days: number) =>
     apiFetch<Subscription[]>(`/subscriptions/upcoming/${days}`),

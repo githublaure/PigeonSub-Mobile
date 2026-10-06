@@ -1,3 +1,4 @@
+import { clearPhotos } from './subscription-photos';
 import {
   demoOffers,
   validateOffer,
@@ -85,6 +86,7 @@ export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
   });
 }
 export async function clearAccountFollowUps(namespace: string) {
+  await clearPhotos(namespace);
   await AsyncStorage.removeItem(key('followups', namespace));
   await AsyncStorage.removeItem(key('offers', namespace));
 }
@@ -166,6 +168,7 @@ export function changeOffer(
   });
 }
 export async function seedDemo() {
+  await clearPhotos('demo');
   const now = new Date();
   await AsyncStorage.setItem(
     key('offers', 'demo'),

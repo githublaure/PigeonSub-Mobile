@@ -1,4 +1,3 @@
-import { useBilling } from '../contexts/BillingContext';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { AppState } from 'react-native';
@@ -8,7 +7,6 @@ import type { FollowUps } from '../lib/subscription-math';
 import { useAuth } from '../contexts/AuthContext';
 export function useSubscriptionData() {
   const { scope } = useAuth();
-  const { canUsePlus } = useBilling();
   const [data, setData] = useState<Subscription[]>([]);
   const [follow, setFollow] = useState<FollowUps>({});
   const [loading, setLoading] = useState(true);
@@ -49,17 +47,9 @@ export function useSubscriptionData() {
       };
     }, [scope, revision]),
   );
-  const visibleFollow = canUsePlus
-    ? follow
-    : Object.fromEntries(
-        Object.entries(follow).map(([id, item]) => [
-          id,
-          item.advancedReminder ? { ...item, leadDays: 1 } : item,
-        ]),
-      );
   return {
     data,
-    follow: visibleFollow,
+    follow,
     loading,
     error,
     reload: () => setRevision((v) => v + 1),

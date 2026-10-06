@@ -1,599 +1,344 @@
-import { useTheme, useThemedStyles } from '../../../../src/contexts/ThemeContext';
-import type { Palette } from '../../../../src/theme/colors';
-import { useBilling } from '../../../../src/contexts/BillingContext';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
-  Alert,
   Image,
-  KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { Card } from '../../../../src/components/ui/Card';
-import { ErrorState } from '../../../../src/components/ui/ErrorState';
-import { LoadingScreen } from '../../../../src/components/ui/LoadingScreen';
+import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../../../../src/contexts/AuthContext';
+import { useBilling } from '../../../../src/contexts/BillingContext';
+import { useTheme } from '../../../../src/contexts/ThemeContext';
+import { subscriptions, type Subscription } from '../../../../src/lib/api';
+import { getDataSession, getFollowUps } from '../../../../src/lib/local-data';
+import { hasPlusAccess } from '../../../../src/lib/entitlements-state';
+import { canCustomizeSubscription } from '../../../../src/lib/subscription-math';
 import {
-  Subscription,
-  subscriptions as subsApi,
-} from '../../../../src/lib/api';
+  addPhoto,
+  getPhotos,
+  photoLimit,
+  removePhoto,
+  type Photo,
+} from '../../../../src/lib/subscription-photos';
+import { preparePhoto } from '../../../../src/lib/prepare-photo';
+import { Page, useUI } from '../../../../src/components/ui/Page';
+import { Button } from '../../../../src/components/ui/Button';
+import { LoadingScreen } from '../../../../src/components/ui/LoadingScreen';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type ImageSlot = 'purchaseProofImage' | 'unsubscribeProofImage';
-
-const SLOT_LABELS: Record<ImageSlot, string> = {
-  purchaseProofImage: 'Justificatif d’achat',
-  unsubscribeProofImage: 'Preuve de résiliation',
-};
-
-const SLOT_ICONS: Record<ImageSlot, keyof typeof Ionicons.glyphMap> = {
-  purchaseProofImage: 'receipt-outline',
-  unsubscribeProofImage: 'shield-checkmark-outline',
-};
-
-// ---------------------------------------------------------------------------
-// PermissionDenied helper
-// ---------------------------------------------------------------------------
-function PermissionDenied({ source }: { source: 'camera' | 'library' }) {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.permissionBox}>
-      <Ionicons
-        name={source === 'camera' ? 'camera-outline' : 'images-outline'}
-        size={28}
-        color={Colors.textMuted}
-      />
-      <Text style={styles.permissionTitle}>
-        {source === 'camera'
-          ? 'Accès à la caméra refusé'
-          : 'Accès aux photos refusé'}
-      </Text>
-      <Text style={styles.permissionDesc}>
-        Autorisez PigeonSub à accéder à vos photos ou à la caméra dans les
-        réglages du téléphone pour joindre un justificatif.
-      </Text>
-      <Pressable
-        onPress={() => Linking.openSettings()}
-        style={styles.permissionBtn}
-        accessibilityRole="button"
-      >
-        <Text style={styles.permissionBtnText}>Ouvrir les réglages</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ImageSlotCard
-// ---------------------------------------------------------------------------
-function ImageSlotCard({
-  slot,
-  imageUri,
-  uploading,
-  onPickLibrary,
-  onPickCamera,
-  onRemove,
-}: {
-  slot: ImageSlot;
-  imageUri: string | null;
-  uploading: boolean;
-  onPickLibrary: () => void;
-  onPickCamera: () => void;
-  onRemove: () => void;
-}) {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <Card style={styles.slotCard}>
-      {/* Slot label */}
-      <View style={styles.slotHeader}>
-        <Ionicons
-          name={SLOT_ICONS[slot]}
-          size={16}
-          color={Colors.textSecondary}
-        />
-        <Text style={styles.slotLabel}>{SLOT_LABELS[slot]}</Text>
-      </View>
-
-      {/* Image or placeholder */}
-      {imageUri ? (
-        <View style={styles.imageWrap}>
-          <Image
-            source={{ uri: imageUri }}
-            style={styles.image}
-            resizeMode="cover"
-            accessibilityLabel={SLOT_LABELS[slot]}
-          />
-          {uploading && (
-            <View style={styles.uploadOverlay}>
-              <ActivityIndicator color={Colors.white} size="large" />
-              <Text style={styles.uploadText}>Enregistrement…</Text>
-            </View>
-          )}
-          <Pressable
-            onPress={onRemove}
-            style={styles.removeBtn}
-            hitSlop={8}
-            accessibilityLabel="Retirer l’image"
-          >
-            <Ionicons name="close-circle" size={24} color={Colors.danger} />
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.placeholder}>
-          <Ionicons name="image-outline" size={40} color={Colors.textMuted} />
-          <Text style={styles.placeholderText}>Aucun justificatif</Text>
-        </View>
-      )}
-
-      {/* Action buttons */}
-      <View style={styles.slotActions}>
-        <Pressable
-          onPress={onPickCamera}
-          style={styles.actionChip}
-          accessibilityRole="button"
-          disabled={uploading}
-        >
-          <Ionicons name="camera-outline" size={16} color={Colors.primary} />
-          <Text style={styles.actionChipText}>Prendre une photo</Text>
-        </Pressable>
-        <Pressable
-          onPress={onPickLibrary}
-          style={styles.actionChip}
-          accessibilityRole="button"
-          disabled={uploading}
-        >
-          <Ionicons name="images-outline" size={16} color={Colors.primary} />
-          <Text style={styles.actionChipText}>Choisir</Text>
-        </Pressable>
-      </View>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
 export default function ReceiptsScreen() {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
-  const { canUsePlus } = useBilling();
   const subId = Number(id);
-
+  const router = useRouter();
+  const { scope } = useAuth();
+  const { canUsePlus } = useBilling();
+  const { colors } = useTheme();
+  const ui = useUI();
   const [sub, setSub] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // Local editable state
-  const [purchaseUri, setPurchaseUri] = useState<string | null>(null);
-  const [unsubscribeUri, setUnsubscribeUri] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [allowed, setAllowed] = useState(false);
   const [note, setNote] = useState('');
-
-  // Upload states
-  const [uploadingSlot, setUploadingSlot] = useState<ImageSlot | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Camera/library permission denial state
-  const [cameraPermDenied, setCameraPermDenied] = useState(false);
-  const [libraryPermDenied, setLibraryPermDenied] = useState(false);
-
-  const isMounted = useRef(true);
-  useEffect(
-    () => () => {
-      isMounted.current = false;
+  const [label, setLabel] = useState('Justificatif');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const [selected, setSelected] = useState<Photo | null>(null);
+  const [removeId, setRemoveId] = useState<string | null>(null);
+  const [denied, setDenied] = useState(false);
+  const load = useCallback(
+    async (preserveNote = false) => {
+      const [all, follow] = await Promise.all([
+        subscriptions.list(true),
+        getFollowUps(scope),
+      ]);
+      const item = all.find((s) => s.id === subId);
+      if (!item) throw new Error('Abonnement introuvable.');
+      const rows = await getPhotos(scope, item);
+      if (getDataSession().scope !== scope) return;
+      setSub(item);
+      if (!preserveNote) setNote(item.note ?? '');
+      setPhotos(rows);
+      setAllowed(canCustomizeSubscription(item, all, canUsePlus, follow));
     },
-    [],
+    [scope, subId, canUsePlus],
   );
-
-  // ── Load subscription ────────────────────────────────────────────────────
-  const load = useCallback(async () => {
+  useFocusEffect(
+    useCallback(() => {
+      void load().catch((e) => setError(e.message));
+    }, [load]),
+  );
+  const run = async (action: () => Promise<void>) => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    setMessage('');
     try {
-      setError('');
-      const data = await subsApi.get(subId);
-      if (!isMounted.current) return;
-      setSub(data);
-      setPurchaseUri(data.purchaseProofImage ?? null);
-      setUnsubscribeUri(data.unsubscribeProofImage ?? null);
-      setNote(data.note ?? '');
-    } catch (e: unknown) {
-      if (!isMounted.current) return;
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Enregistrement impossible.');
     } finally {
-      if (isMounted.current) setLoading(false);
-    }
-  }, [subId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // ── Permission helpers ───────────────────────────────────────────────────
-  const requestCameraPermission = async (): Promise<boolean> => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      setCameraPermDenied(true);
-      return false;
-    }
-    setCameraPermDenied(false);
-    return true;
-  };
-
-  const requestLibraryPermission = async (): Promise<boolean> => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setLibraryPermDenied(true);
-      return false;
-    }
-    setLibraryPermDenied(false);
-    return true;
-  };
-
-  // ── Image picker helpers ─────────────────────────────────────────────────
-  const pickImage = async (slot: ImageSlot, source: 'camera' | 'library') => {
-    if (!canUsePlus) {
-      router.push('/(tabs)/premium?reason=history');
-      return;
-    }
-    if (source === 'camera') {
-      const ok = await requestCameraPermission();
-      if (!ok) return;
-    } else {
-      const ok = await requestLibraryPermission();
-      if (!ok) return;
-    }
-
-    const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.75,
-      base64: true,
-    };
-
-    const result =
-      source === 'camera'
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
-    if (result.canceled || !result.assets?.length) return;
-
-    const asset = result.assets[0];
-    const uri = asset.base64
-      ? `data:image/jpeg;base64,${asset.base64}`
-      : asset.uri;
-
-    // Optimistic update
-    if (slot === 'purchaseProofImage') setPurchaseUri(uri);
-    else setUnsubscribeUri(uri);
-
-    // Upload immediately
-    setUploadingSlot(slot);
-    try {
-      await subsApi.update(subId, { [slot]: uri });
-    } catch (e: unknown) {
-      // Revert on failure
-      if (slot === 'purchaseProofImage')
-        setPurchaseUri(sub?.purchaseProofImage ?? null);
-      else setUnsubscribeUri(sub?.unsubscribeProofImage ?? null);
-      Alert.alert(
-        'Enregistrement impossible',
-        e instanceof Error ? e.message : 'Image non enregistrée',
-      );
-    } finally {
-      if (isMounted.current) setUploadingSlot(null);
+      lock.current = false;
+      setBusy(false);
     }
   };
-
-  const removeImage = (slot: ImageSlot) => {
-    Alert.alert('Retirer l’image', `Remove the ${SLOT_LABELS[slot]}?`, [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Retirer',
-        style: 'destructive',
-        onPress: async () => {
-          if (slot === 'purchaseProofImage') setPurchaseUri(null);
-          else setUnsubscribeUri(null);
-          try {
-            await subsApi.update(subId, { [slot]: null });
-          } catch (e: unknown) {
-            // Revert
-            if (slot === 'purchaseProofImage')
-              setPurchaseUri(sub?.purchaseProofImage ?? null);
-            else setUnsubscribeUri(sub?.unsubscribeProofImage ?? null);
-            Alert.alert(
-              'Erreur',
-              e instanceof Error ? e.message : 'Suppression impossible',
-            );
-          }
-        },
-      },
-    ]);
-  };
-
-  // ── Save note ────────────────────────────────────────────────────────────
-  const saveNote = async () => {
-    setSaving(true);
-    try {
-      await subsApi.update(subId, { note: note.trim() || null });
-      Alert.alert('Enregistré', 'Note enregistrée.');
-    } catch (e: unknown) {
-      Alert.alert(
-        'Erreur',
-        e instanceof Error ? e.message : 'Note non enregistrée',
-      );
-    } finally {
-      if (isMounted.current) setSaving(false);
-    }
-  };
-
-  // ── Render ───────────────────────────────────────────────────────────────
-  if (loading) return <LoadingScreen message="Chargement…" />;
-  if (error || !sub) return <ErrorState message={error} onRetry={load} />;
-
+  const pick = (source: 'library' | 'camera') =>
+    void run(async () => {
+      if (!allowed || photos.length >= photoLimit(canUsePlus)) return;
+      if (source === 'camera' && Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setDenied(true);
+          throw new Error(
+            'Autorisez la caméra dans les réglages pour prendre une photo.',
+          );
+        }
+      }
+      // Invoke the web picker directly from the tap; an awaited permission prompt loses its user gesture.
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      };
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled || !result.assets?.length) return;
+      const uri = await preparePhoto(result.assets[0]);
+      if (getDataSession().scope !== scope)
+        throw new Error(
+          'La session a changé. Recommencez depuis votre compte.',
+        );
+      const [all, follow] = await Promise.all([
+        subscriptions.list(true),
+        getFollowUps(scope),
+      ]);
+      const current = all.find((s) => s.id === subId);
+      if (!current || getDataSession().scope !== scope)
+        throw new Error('Abonnement indisponible.');
+      await addPhoto(scope, current, all, follow, hasPlusAccess(), uri, label);
+      await load(true);
+      setMessage('Photo enregistrée.');
+    });
+  const remove = (photo: Photo) =>
+    void run(async () => {
+      if (photo.legacy)
+        await subscriptions.update(subId, { [photo.legacy]: null });
+      else await removePhoto(scope, subId, photo.id);
+      setRemoveId(null);
+      await load(true);
+      setMessage('Photo retirée.');
+    });
+  if (!sub && !error) return <LoadingScreen />;
+  const full = photos.length >= photoLimit(canUsePlus);
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Justificatifs et notes</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {sub.name}
-          </Text>
-        </View>
-      </View>
-
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={80}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Permission denial banners */}
-          {cameraPermDenied && <PermissionDenied source="camera" />}
-          {libraryPermDenied && <PermissionDenied source="library" />}
-
-          {/* Image slots */}
-          <Text style={styles.sectionLabel}>Vos preuves</Text>
-          <Text style={styles.sectionDesc}>
-            Joignez une photo de votre reçu ou de la confirmation de
-            résiliation.
-          </Text>
-
-          {(['purchaseProofImage', 'unsubscribeProofImage'] as ImageSlot[]).map(
-            (slot) => (
-              <ImageSlotCard
-                key={slot}
-                slot={slot}
-                imageUri={
-                  slot === 'purchaseProofImage' ? purchaseUri : unsubscribeUri
-                }
-                uploading={uploadingSlot === slot}
-                onPickCamera={() => pickImage(slot, 'camera')}
-                onPickLibrary={() => pickImage(slot, 'library')}
-                onRemove={() => removeImage(slot)}
-              />
-            ),
+    <Page title="Photos et justificatifs" subtitle={sub?.name}>
+      <Button title="Retour" variant="ghost" onPress={() => router.back()} />
+      {error ? (
+        <Text accessibilityRole="alert" style={ui.error}>
+          {error}
+        </Text>
+      ) : null}
+      {!sub && <Button title="Réessayer" onPress={() => void run(load)} />}
+      {sub && (
+        <>
+          <View
+            style={[
+              ui.card,
+              {
+                backgroundColor: colors.goldSurface,
+                borderColor: colors.goldBorder,
+              },
+            ]}
+          >
+            <Text style={[ui.heading, { color: colors.gold }]}>
+              Gardez vos preuves à portée de main.
+            </Text>
+            <Text style={ui.body}>
+              Reçu, capture d’écran ou confirmation de résiliation : tout reste
+              avec votre abonnement.
+            </Text>
+            <Text style={ui.small}>
+              {canUsePlus
+                ? `${photos.length} photo${photos.length > 1 ? 's' : ''} enregistrée${photos.length > 1 ? 's' : ''}`
+                : `${photos.length} / 5 photos · inclus dans le mode gratuit`}
+            </Text>
+            <Text style={ui.small}>
+              Les nouvelles photos sont enregistrées sur cet appareil, sans
+              synchronisation entre appareils. Conservez vos originaux.
+            </Text>
+          </View>
+          {message ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[ui.body, ui.success]}
+            >
+              {message}
+            </Text>
+          ) : null}
+          <View style={ui.row}>
+            {['Justificatif', 'Résiliation', 'Autre'].map((value) => (
+              <Pressable
+                key={value}
+                accessibilityRole="radio"
+                accessibilityLabel={value}
+                accessibilityState={{ checked: label === value }}
+                aria-checked={label === value}
+                onPress={() => setLabel(value)}
+                style={[
+                  ui.pill,
+                  label === value && { backgroundColor: colors.goldSoft },
+                ]}
+              >
+                <Text style={ui.body}>{value}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Button
+            title="Ajouter une photo"
+            disabled={busy || full || !allowed}
+            onPress={() => pick('library')}
+          />
+          {Platform.OS !== 'web' && (
+            <Button
+              title="Prendre une photo"
+              variant="secondary"
+              disabled={busy || full || !allowed}
+              onPress={() => pick('camera')}
+            />
           )}
-
-          {/* Note */}
-          <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Note</Text>
-          <Card style={styles.noteCard}>
+          {busy && <Text style={ui.small}>Enregistrement en cours…</Text>}
+          {full && (
+            <Text style={ui.body}>
+              {canUsePlus
+                ? 'Cet abonnement ne peut plus recevoir de photo. Retirez-en une pour en ajouter une autre.'
+                : 'Vos 5 photos sont enregistrées. Vous pouvez en retirer une ou passer à Plus.'}
+            </Text>
+          )}
+          {!allowed && (
+            <Text style={ui.body}>
+              L’ajout est disponible pour vos 5 abonnements actifs gratuits. Les
+              photos existantes restent accessibles.
+            </Text>
+          )}
+          {!canUsePlus && (full || !allowed) && (
+            <Button
+              title="Découvrir Plus"
+              variant="secondary"
+              onPress={() => router.push('/(tabs)/premium?reason=photos')}
+            />
+          )}
+          {denied && (
+            <Button
+              title="Ouvrir les réglages"
+              variant="ghost"
+              onPress={() => void Linking.openSettings()}
+            />
+          )}
+          {photos.length === 0 && (
+            <Text style={ui.body}>Ajoutez votre première photo.</Text>
+          )}
+          <View style={ui.row}>
+            {photos.map((photo, index) => (
+              <View key={photo.id} style={[ui.card, { width: '100%' }]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Agrandir la photo ${index + 1}`}
+                  onPress={() => setSelected(photo)}
+                >
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={{ height: 180, width: '100%', borderRadius: 12 }}
+                    resizeMode="contain"
+                    accessibilityLabel={photo.label}
+                  />
+                </Pressable>
+                <Text style={ui.body}>{photo.label}</Text>
+                {removeId === photo.id ? (
+                  <>
+                    <Text style={ui.body}>
+                      Retirer cette photo de l’abonnement ? Votre original reste
+                      dans votre photothèque.
+                    </Text>
+                    <Button
+                      title="Confirmer le retrait"
+                      variant="danger"
+                      disabled={busy}
+                      onPress={() => remove(photo)}
+                    />
+                    <Button
+                      title="Conserver cette photo"
+                      variant="ghost"
+                      disabled={busy}
+                      onPress={() => setRemoveId(null)}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    title="Retirer la photo"
+                    accessibilityLabel={`Retirer la photo ${index + 1}`}
+                    variant="ghost"
+                    disabled={busy}
+                    onPress={() => setRemoveId(photo.id)}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+          <View style={ui.card}>
+            <Text style={ui.heading}>Note</Text>
             <TextInput
-              style={styles.noteInput}
+              accessibilityLabel="Note de l’abonnement"
+              style={[ui.input, { minHeight: 96 }]}
+              multiline
+              maxLength={2000}
               value={note}
               onChangeText={setNote}
-              placeholder="Une note sur cet abonnement…"
-              placeholderTextColor={Colors.textMuted}
-              multiline
-              numberOfLines={5}
-              textAlignVertical="top"
-              maxLength={2000}
-              accessibilityLabel="Note de l’abonnement"
             />
-            <View style={styles.noteFooter}>
-              <Text style={styles.noteCount}>{note.length}/2000</Text>
-              <Pressable
-                onPress={saveNote}
-                style={({ pressed }) => [
-                  styles.saveBtn,
-                  pressed && { opacity: 0.8 },
-                ]}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel="Enregistrer la note"
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark" size={16} color={Colors.white} />
-                    <Text style={styles.saveBtnText}>Enregistrer la note</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <Button
+              title="Enregistrer la note"
+              disabled={busy}
+              variant="secondary"
+              onPress={() =>
+                void run(async () => {
+                  await subscriptions.update(subId, {
+                    note: note.trim() || null,
+                  });
+                  setMessage('Note enregistrée.');
+                })
+              }
+            />
+          </View>
+        </>
+      )}
+      <Modal
+        visible={!!selected}
+        animationType="fade"
+        onRequestClose={() => setSelected(null)}
+      >
+        <SafeAreaView style={[ui.safe, { padding: 20, gap: 12 }]}>
+          <Button
+            title="Fermer la photo"
+            variant="secondary"
+            onPress={() => setSelected(null)}
+          />
+          {selected && (
+            <Image
+              source={{ uri: selected.uri }}
+              accessibilityLabel={selected.label}
+              resizeMode="contain"
+              style={{ flex: 1 }}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
+    </Page>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-const createStyles = (Colors: Palette) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  kav: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: { flex: 1 },
-  headerTitle: { color: Colors.text, fontSize: 18, fontWeight: '700' },
-  headerSub: { color: Colors.textSecondary, fontSize: 13 },
-  content: { paddingHorizontal: 24, paddingBottom: 48 },
-  sectionLabel: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  sectionDesc: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    marginBottom: 16,
-    lineHeight: 19,
-  },
-  // Permission denial
-  permissionBox: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 20,
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.warning + '55',
-  },
-  permissionTitle: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  permissionDesc: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  permissionBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  permissionBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  // Image slot card
-  slotCard: { marginBottom: 16, gap: 12 },
-  slotHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  slotLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  imageWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden' },
-  image: { width: '100%', height: 200, borderRadius: 12 },
-  uploadOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  uploadText: { color: Colors.white, fontSize: 14, fontWeight: '600' },
-  removeBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: Colors.background + 'CC',
-    borderRadius: 12,
-  },
-  placeholder: {
-    height: 140,
-    backgroundColor: Colors.surfaceRaised,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  placeholderText: { color: Colors.textMuted, fontSize: 13 },
-  slotActions: { flexDirection: 'row', gap: 10 },
-  actionChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 10,
-    paddingVertical: 11,
-    minHeight: 44,
-  },
-  actionChipText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-  // Note
-  noteCard: { gap: 0 },
-  noteInput: {
-    color: Colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-    minHeight: 120,
-    paddingVertical: 4,
-  },
-  noteFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-  },
-  noteCount: { color: Colors.textMuted, fontSize: 12 },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 44,
-  },
-  saveBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-});

@@ -130,16 +130,24 @@ export function deadlines(
   )
     return { renewal: null, actionBy: null, safety: null };
   const actionBy = addDays(renewal, -(follow.noticeDays ?? 0));
-  const legacySafety =
-    sub.useSafetyDate && follow.noticeDays === undefined
-      ? parseDay(sub.safetyDate)
+  const selected = sub.useSafetyDate ? parseDay(sub.safetyDate) : null;
+  const anchor =
+    (sub.isTrial ? parseDay(sub.trialEndsAt) : null) ??
+    parseDay(sub.nextRenewal);
+  // Preserve the selected calendar-day offset on subsequent renewals (including DST).
+  const daysBetween = (a: Date, b: Date) =>
+    Math.round(
+      (Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) -
+        Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) /
+        86400000,
+    );
+  const custom =
+    selected && anchor && selected <= anchor
+      ? addDays(renewal, -daysBetween(anchor, selected))
       : null;
-  const safety =
-    legacySafety &&
-    dayKey(legacySafety) >= dayKey(now) &&
-    legacySafety <= renewal
-      ? legacySafety
-      : addDays(actionBy, -(follow.leadDays ?? 1));
+  const safety = custom
+    ? new Date(Math.min(custom.getTime(), actionBy.getTime()))
+    : addDays(actionBy, -(follow.leadDays ?? 1));
   return { renewal, actionBy, safety };
 }
 export function overview(
@@ -179,4 +187,24 @@ export function canAddSubscription(
     plus ||
     subs.filter((sub) => !isEnded(sub, follow[sub.id])).length < FREE_LIMIT
   );
+}
+
+/** Stable free slots after a downgrade. Archived records remain readable. */
+export function canCustomizeSubscription(
+  sub: Subscription,
+  all: Subscription[],
+  plus: boolean,
+  follow: FollowUps = {},
+  now = new Date(),
+): boolean {
+  if (plus) return true;
+  return all
+    .filter((s) => !isEnded(s, follow[s.id], now))
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.createdAt ?? '').localeCompare(b.createdAt ?? '') || a.id - b.id,
+    )
+    .slice(0, FREE_LIMIT)
+    .some((s) => s.id === sub.id);
 }

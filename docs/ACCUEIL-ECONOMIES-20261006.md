@@ -1,5 +1,7 @@
 # PigeonSub — accueil économies, couleurs et archives
 
+> Livraison suivante : [dates de sûreté gratuites, galerie photo et nouveau build](SURETE-PHOTOS-20261006.md). Ce nouveau guide précise les règles actuelles et remplace les anciens accès exclusivement Plus aux dates et photos.
+
 ## État de GitHub
 
 La PR #2 (onboarding, démo, Plus, thèmes et SDK 57) a été fusionnée dans `main` le 6 octobre 2026 : commit de fusion `f59cfb542fadd5b8fb74cc854ac18b0ea16451e2`.

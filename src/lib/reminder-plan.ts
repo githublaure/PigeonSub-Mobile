@@ -1,6 +1,7 @@
 import type { Subscription } from './api';
 import {
   addDays,
+  canCustomizeSubscription,
   dayKey,
   deadlines,
   type FollowUps,
@@ -19,15 +20,17 @@ export function reminderPlan(
   }[] = [];
   for (const sub of subs) {
     const follow = followUps[sub.id] ?? {};
-    if (!follow.reminderEnabled) continue;
+    if (
+      !follow.reminderEnabled ||
+      !canCustomizeSubscription(sub, subs, plus, followUps, now)
+    )
+      continue;
     let cursor = now;
     for (let cycle = 0; cycle < 12; cycle++) {
       const dates = deadlines(sub, follow, cursor);
       if (!dates.renewal || !dates.actionBy) break;
-      const at = addDays(
-        dates.actionBy,
-        -(plus && follow.advancedReminder ? (follow.leadDays ?? 1) : 1),
-      );
+      if (!dates.safety) break;
+      const at = new Date(dates.safety);
       at.setHours(9, 0, 0, 0);
       if (at.getTime() > now.getTime())
         reminders.push({

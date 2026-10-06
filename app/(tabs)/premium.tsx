@@ -79,7 +79,7 @@ export default function PremiumScreen() {
       subtitle={
         reason === 'limit'
           ? 'Vos 5 abonnements gratuits restent accessibles. Passez à Plus pour en suivre davantage.'
-          : 'Une date de sûreté à votre rythme. Moins d’oublis, des économies suivies.'
+          : 'Plus d’abonnements à suivre, la même tranquillité avant le jour J.'
       }
     >
       <Button
@@ -96,16 +96,17 @@ export default function PremiumScreen() {
       <View style={ui.card}>
         <Text style={ui.heading}>Gratuit · 0 €</Text>
         <Text style={ui.body}>
-          5 abonnements actifs · totaux mensuel et annuel · calendrier · un
-          rappel standard par abonnement · premier bilan d’économies.
+          5 abonnements actifs · date de sûreté personnalisée et un rappel par
+          abonnement · 5 photos par abonnement · totaux mensuel et annuel ·
+          calendrier · premier bilan d’économies.
         </Text>
       </View>
       <View style={ui.card}>
         <Text style={ui.heading}>Avec PigeonSub Plus</Text>
         <Text style={ui.body}>
-          ✓ Abonnements illimités{'\n'}✓ Avance de rappel personnalisée{'\n'}✓
-          Preuves et historique de vos résiliations{'\n'}✓ Suivi des économies
-          potentielles et confirmées
+          ✓ Abonnements illimités{'\n'}✓ Dates de sûreté pour tous vos
+          abonnements{'\n'}✓ Photos et historique de vos résiliations{'\n'}✓
+          Suivi des économies potentielles et confirmées
         </Text>
       </View>
       {PLANS.filter(

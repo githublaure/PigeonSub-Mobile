@@ -31,58 +31,83 @@ import { ColorPicker } from './ColorPicker';
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
 // ---------------------------------------------------------------------------
-export const subscriptionFormSchema = z.object({
-  name: z
-    .string({ required_error: 'Le nom est obligatoire' })
-    .min(1, 'Le nom est obligatoire'),
-  price: z
-    .string({ required_error: 'Le prix est obligatoire' })
-    .regex(/^\d+([.,]\d{1,2})?$/, 'Saisissez un prix valide, par exemple 9,99'),
-  frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
-    errorMap: () => ({ message: 'Choisissez une fréquence' }),
-  }),
-  category: z.string().min(1, 'Choisissez une catégorie'),
-  usageFrequency: z.enum(['very_used', 'used', 'rarely_used']).default('used'),
-  categoryColor: z.string().optional(),
-  nextRenewal: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
+export const subscriptionFormSchema = z
+  .object({
+    name: z
+      .string({ required_error: 'Le nom est obligatoire' })
+      .min(1, 'Le nom est obligatoire'),
+    price: z
+      .string({ required_error: 'Le prix est obligatoire' })
+      .regex(
+        /^\d+([.,]\d{1,2})?$/,
+        'Saisissez un prix valide, par exemple 9,99',
+      ),
+    frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
+      errorMap: () => ({ message: 'Choisissez une fréquence' }),
+    }),
+    category: z.string().min(1, 'Choisissez une catégorie'),
+    usageFrequency: z
+      .enum(['very_used', 'used', 'rarely_used'])
+      .default('used'),
+    categoryColor: z.string().optional(),
+    nextRenewal: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    isTrial: z.boolean().default(false),
+    trialEndsAt: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    useSafetyDate: z.boolean().default(false),
+    safetyDate: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    purchaseDate: z
+      .string()
+      .refine(
+        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+        'Saisissez une date valide au format AAAA-MM-JJ',
+      )
+      .optional()
+      .or(z.literal('')),
+    rating: z.number().min(1).max(5).nullable().optional(),
+    note: z.string().optional(),
+    isActive: z.boolean().default(true),
+    isFlagged: z.boolean().default(false),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.useSafetyDate) return;
+    const safety = parseDay(values.safetyDate);
+    const renewal = parseDay(
+      values.isTrial ? values.trialEndsAt : values.nextRenewal,
+    );
+    if (
+      !safety ||
+      !renewal ||
+      safety >= renewal ||
+      values.frequency === 'lifetime'
     )
-    .optional()
-    .or(z.literal('')),
-  isTrial: z.boolean().default(false),
-  trialEndsAt: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  useSafetyDate: z.boolean().default(false),
-  safetyDate: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  purchaseDate: z
-    .string()
-    .refine(
-      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-      'Saisissez une date valide au format AAAA-MM-JJ',
-    )
-    .optional()
-    .or(z.literal('')),
-  rating: z.number().min(1).max(5).nullable().optional(),
-  note: z.string().optional(),
-  isActive: z.boolean().default(true),
-  isFlagged: z.boolean().default(false),
-});
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['safetyDate'],
+        message:
+          'Choisissez une date de sûreté avant le prochain prélèvement ou la fin de l’essai.',
+      });
+  });
 
 export type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;
 
@@ -254,6 +279,7 @@ function ToggleRow({
         ) : null}
       </View>
       <Switch
+        accessibilityLabel={label}
         value={value}
         onValueChange={onChange}
         trackColor={{ false: Colors.border, true: Colors.primary }}
@@ -272,6 +298,7 @@ interface SubscriptionFormProps {
   onSubmit: (values: SubscriptionFormValues) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
+  safetyEditable?: boolean;
 }
 
 export function SubscriptionForm({
@@ -280,6 +307,7 @@ export function SubscriptionForm({
   onSubmit,
   onCancel,
   submitLabel = 'Enregistrer',
+  safetyEditable = true,
 }: SubscriptionFormProps) {
   const { colors: Colors } = useTheme();
   const chipStyles = useThemedStyles(createChipStyles);
@@ -473,9 +501,54 @@ export function SubscriptionForm({
               )}
             />
 
+            <SectionTitle>Date de sûreté</SectionTitle>
+            {safetyEditable ? (
+              <>
+                <Controller
+                  control={control}
+                  name="useSafetyDate"
+                  render={({ field }) => (
+                    <ToggleRow
+                      label="Choisir ma date de sûreté"
+                      value={field.value}
+                      onChange={field.onChange}
+                      description="Le jour où agir pour éviter un renouvellement non souhaité."
+                    />
+                  )}
+                />
+                {useSafetyDate && (
+                  <Controller
+                    control={control}
+                    name="safetyDate"
+                    render={({ field }) => (
+                      <StyledTextInput
+                        label="Date de sûreté (AAAA-MM-JJ)"
+                        placeholder="2026-12-25"
+                        keyboardType="numbers-and-punctuation"
+                        autoCorrect={false}
+                        error={errors.safetyDate?.message}
+                        value={field.value ?? ''}
+                        onChangeText={field.onChange}
+                        onBlur={field.onBlur}
+                      />
+                    )}
+                  />
+                )}
+                <Text style={styles.toggleDesc}>
+                  Incluse pour vos 5 abonnements gratuits. L’avance choisie est
+                  conservée aux prochains renouvellements.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.toggleDesc}>
+                Les réglages existants sont conservés. Plus permet de
+                personnaliser tous vos abonnements.
+              </Text>
+            )}
+
             <Text style={styles.toggleDesc}>
               Le préavis et les rappels se règlent sur la fiche de l’abonnement
-              après son enregistrement.
+              après son enregistrement. Vous pourrez aussi y joindre vos photos.
             </Text>
 
             {/* ── Trial ── */}
