@@ -38,7 +38,7 @@ const SLIDES = [
     imageSource: require('../../assets/mascots/pigeon-microphone.png'),
     title: 'Conserver ou résilier ? À vous de choisir.',
     subtitle:
-      'Visualisez vos économies potentielles, puis confirmez vos résiliations. Commencez gratuitement avec 5 abonnements, sans compte.',
+      'Visualisez vos économies potentielles, puis confirmez vos résiliations. Commencez avec 5 abonnements gratuits.',
   },
 ];
 
@@ -161,7 +161,7 @@ export default function OnboardingScreen() {
         {/* CTA */}
         <View style={styles.actions}>
           <Button
-            title={isLast ? 'Commencer sans compte' : 'Suivant'}
+            title={isLast ? 'Commencer' : 'Suivant'}
             loading={busy}
             onPress={next}
             fullWidth
@@ -175,11 +175,6 @@ export default function OnboardingScreen() {
               disabled={busy}
               onPress={() => void start(true)}
             />
-          )}
-          {isLast && (
-            <Text style={styles.loginLink}>
-              Sans compte · données sur cet appareil.
-            </Text>
           )}
         </View>
       </SafeAreaView>

@@ -66,44 +66,48 @@ export async function getPhotos(
   );
   return [...legacyPhotos(sub), ...photos];
 }
+export type PendingPhoto = { id: string; uri: string; label: string };
+
 export function addPhoto(
-  scope: string,
-  sub: Subscription,
-  all: Subscription[],
-  follow: FollowUps,
-  plus: boolean,
-  uri: string,
-  label: string,
+  scope: string, sub: Subscription, all: Subscription[], follow: FollowUps,
+  plus: boolean, uri: string, label: string,
 ): Promise<void> {
+  return addPhotos(scope, sub, all, follow, plus, [{ uri, label }]);
+}
+
+/** Commit a form's photos together; a failed write leaves the previous gallery intact. */
+export function addPhotos(
+  scope: string, sub: Subscription, all: Subscription[], follow: FollowUps,
+  plus: boolean, photos: { uri: string; label: string }[],
+): Promise<void> {
+  if (!photos.length) return Promise.resolve();
   return serial(async () => {
     if (!canCustomizeSubscription(sub, all, plus, follow))
-      throw new Error(
-        'L’ajout de photos est inclus pour vos 5 abonnements actifs gratuits. Plus permet d’en suivre davantage.',
-      );
+      throw new Error('Les photos sont incluses pour vos 5 abonnements actifs gratuits.');
     const index = await readIndex(scope);
     const rows = index[sub.id] ?? [];
-    if (rows.length + legacyPhotos(sub).length >= photoLimit(plus))
-      throw new Error(
-        plus
-          ? 'Cet abonnement ne peut plus recevoir de photo. Retirez-en une pour en ajouter une autre.'
-          : 'Vos 5 photos sont enregistrées. Retirez-en une ou passez à Plus pour en ajouter davantage.',
-      );
-    if (
-      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(uri) ||
-      uri.length > MAX_PHOTO_LENGTH
-    )
-      throw new Error(
-        'Cette image ne peut pas être enregistrée. Essayez une photo moins volumineuse.',
-      );
-    const id = `${sub.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const blobKey = `${prefix(scope)}${id}`;
-    await AsyncStorage.setItem(blobKey, uri);
+    if (rows.length + legacyPhotos(sub).length + photos.length > photoLimit(plus))
+      throw new Error(plus
+        ? 'Cet abonnement ne peut plus recevoir de photo. Retirez-en une pour en ajouter une autre.'
+        : 'La limite gratuite est de 5 photos par abonnement.');
+    for (const photo of photos)
+      if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo.uri) || photo.uri.length > MAX_PHOTO_LENGTH)
+        throw new Error('Cette image ne peut pas être enregistrée. Essayez une photo moins volumineuse.');
+    const added: PhotoMeta[] = [];
+    const written: string[] = [];
     try {
-      index[sub.id] = [...rows, { id, label }];
+      for (const photo of photos) {
+        const id = `${sub.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const blobKey = `${prefix(scope)}${id}`;
+        written.push(blobKey);
+        await AsyncStorage.setItem(blobKey, photo.uri);
+        added.push({ id, label: photo.label });
+      }
+      index[sub.id] = [...rows, ...added];
       await AsyncStorage.setItem(indexKey(scope), JSON.stringify(index));
-    } catch (e) {
-      await AsyncStorage.removeItem(blobKey).catch(() => undefined);
-      throw e;
+    } catch (error) {
+      await Promise.all(written.map((key) => AsyncStorage.removeItem(key).catch(() => undefined)));
+      throw error;
     }
   });
 }

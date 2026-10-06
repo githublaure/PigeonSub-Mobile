@@ -1,3 +1,5 @@
+import { AddSubscriptionButton } from '../../src/components/ui/AddSubscriptionButton';
+import { PlusBadge } from '../../src/components/ui/PlusBadge';
 import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
 import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +38,7 @@ export default function HomeScreen() {
   const ui = useUI();
   const router = useRouter();
   const { mode, user } = useAuth();
-  const { canUsePlus } = useBilling();
+  const { canUsePlus, isPlus } = useBilling();
   const { data, follow, loading, error, reload } = useSubscriptionData();
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -176,7 +178,7 @@ export default function HomeScreen() {
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={ui.heading}>Prochaines échéances</Text>
         </View>
-        <Button title="+ Ajouter" size="sm" variant="secondary" onPress={add} />
+        <AddSubscriptionButton onPress={add} premium={!canAddSubscription(data, false, follow)} />
       </View>
       {priority && priority.sub.id !== upcoming[0]?.sub.id && (
         <Pressable
@@ -203,7 +205,7 @@ export default function HomeScreen() {
           <Text style={ui.body}>
             Renseignez une date pour suivre le prochain prélèvement.
           </Text>
-          <Button title="Ajouter un abonnement" onPress={add} />
+
         </View>
       )}
       {upcoming.map(({ sub, dates }) => (
@@ -278,7 +280,7 @@ export default function HomeScreen() {
         variant="secondary"
         onPress={() => router.push('/(tabs)/stats')}
       />
-      {!!data.length && !canUsePlus && (
+      {!!data.length && !isPlus && (
         <View
           style={[
             ui.card,
@@ -288,12 +290,10 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Text style={[ui.label, { color: colors.gold }]}>
-            ✦ PIGEONSUB PLUS
-          </Text>
-          <Text style={ui.heading}>Votre pigeon veille avant le jour J.</Text>
+          <View style={ui.row}><PlusBadge /><Text style={[ui.label, { color: colors.gold }]}>PIGEONSUB PLUS</Text></View>
+          <Text style={ui.heading}>Comparez vos budgets possibles.</Text>
           <Text style={ui.body}>
-            Abonnements et essais illimités.
+            Vues avancées · abonnements et essais illimités.
           </Text>
           <Button
             title="Découvrir PigeonSub Plus"
@@ -302,13 +302,7 @@ export default function HomeScreen() {
           />
         </View>
       )}
-      <Text style={ui.small}>
-        {mode === 'account'
-          ? 'Abonnements liés à votre compte. Les décisions et réglages de rappel sont enregistrés sur cet appareil.'
-          : mode === 'guest'
-            ? 'Mode sans compte : vos données sont enregistrées sur cet appareil. Ne désinstallez pas l’app sans les avoir sauvegardées.'
-            : 'Montants fictifs. Vous pouvez modifier librement les exemples de la démo.'}
-      </Text>
+
     </Page>
   );
 }

@@ -1,3 +1,4 @@
+import { PlusBadge } from '../../src/components/ui/PlusBadge';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { hasSevenDayTrial } from '../../src/lib/billing-policy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -79,7 +80,7 @@ export default function PremiumScreen() {
       subtitle={
         reason === 'limit'
           ? 'Vos 5 abonnements gratuits restent accessibles. Passez à Plus pour en suivre davantage.'
-          : 'Plus d’abonnements à suivre, la même tranquillité avant le jour J.'
+          : reason === 'stats' ? 'Comparez vos dépenses selon vos notes et votre utilisation.' : 'Vos scénarios de budget et tous vos abonnements.'
       }
     >
       <Button
@@ -103,11 +104,12 @@ export default function PremiumScreen() {
         </Text>
       </View>
       <View style={ui.card}>
-        <Text style={ui.heading}>Avec PigeonSub Plus</Text>
+        <View style={ui.row}><PlusBadge /><Text style={ui.heading}>Avec PigeonSub Plus</Text></View>
         <Text style={ui.body}>
           ✓ Abonnements et essais suivis illimités{'\n'}✓ Dates de sûreté pour
           tous vos abonnements{'\n'}✓ Davantage de photos par abonnement{'\n'}✓
-          Historique de vos décisions et résiliations
+          Historique de vos décisions et résiliations{'\n'}✓ Simulations selon
+          vos notes, votre utilisation et une vue combinée
         </Text>
       </View>
       {PLANS.filter(

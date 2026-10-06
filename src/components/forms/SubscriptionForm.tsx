@@ -31,6 +31,10 @@ import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
 import { ColorPicker } from './ColorPicker';
 import { DatePickerField } from './DatePickerField';
+import { FormPhotos } from './FormPhotos';
+import { PlusBadge } from '../ui/PlusBadge';
+import type { Subscription } from '../../lib/api';
+import type { PendingPhoto } from '../../lib/subscription-photos';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
@@ -224,10 +228,12 @@ function ToggleRow({
 interface SubscriptionFormProps {
   title: string;
   defaultValues?: Partial<SubscriptionFormValues>;
-  onSubmit: (values: SubscriptionFormValues) => Promise<void>;
+  onSubmit: (values: SubscriptionFormValues, photos: PendingPhoto[]) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
   safetyEditable?: boolean;
+  photoSub?: Subscription;
+  premiumCustomization?: boolean;
 }
 
 export function SubscriptionForm({
@@ -237,6 +243,8 @@ export function SubscriptionForm({
   onCancel,
   submitLabel = 'Enregistrer',
   safetyEditable = true,
+  photoSub,
+  premiumCustomization = false,
 }: SubscriptionFormProps) {
   const { colors: Colors } = useTheme();
   const chipStyles = useThemedStyles(createChipStyles);
@@ -244,6 +252,8 @@ export function SubscriptionForm({
 
   const router = useRouter();
   const [apiError, setApiError] = useState('');
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const {
     control,
@@ -304,7 +314,10 @@ export function SubscriptionForm({
   const handleSubmitWrapped = handleSubmit(async (values) => {
     setApiError('');
     try {
-      await onSubmit({ ...values, price: values.price.replace(',', '.') });
+      if (photoBusy) return;
+      if (!values.isActive && photos.length)
+        throw new Error('Retirez les nouvelles photos avant d’archiver cet abonnement.');
+      await onSubmit({ ...values, price: values.price.replace(',', '.') }, photos);
     } catch (e: unknown) {
       if (e instanceof Error && e.message.startsWith('PLUS_LIMIT:')) {
         router.push('/(tabs)/premium?reason=limit');
@@ -486,7 +499,10 @@ export function SubscriptionForm({
 
             {frequency !== 'lifetime' && (
               <>
-                <SectionTitle>Date de sûreté</SectionTitle>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <SectionTitle>Date de sûreté</SectionTitle>
+                  {premiumCustomization && <PlusBadge />}
+                </View>
                 {safetyEditable ? (
                   <>
                     <Controller
@@ -526,6 +542,16 @@ export function SubscriptionForm({
                 )}
               </>
             )}
+
+            <FormPhotos
+              sub={photoSub}
+              drafts={photos}
+              onChange={setPhotos}
+              allowed={safetyEditable && watch('isActive')}
+              premiumSlot={premiumCustomization}
+              disabled={isSubmitting}
+              onBusy={setPhotoBusy}
+            />
 
             {/* ── Usage ── */}
             <SectionTitle>Utilisation</SectionTitle>
@@ -623,6 +649,7 @@ export function SubscriptionForm({
               title={submitLabel}
               onPress={handleSubmitWrapped}
               loading={isSubmitting}
+              disabled={photoBusy}
               fullWidth
               size="lg"
             />

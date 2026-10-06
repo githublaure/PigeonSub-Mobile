@@ -1,3 +1,4 @@
+import { PlusBadge } from './ui/PlusBadge';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -26,10 +27,12 @@ export function SafetyPanel({
   sub,
   follow = {},
   editable = true,
+  premium = false,
 }: {
   sub: Subscription;
   follow?: FollowUp;
   editable?: boolean;
+  premium?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const ui = useUI();
@@ -109,7 +112,7 @@ export function SafetyPanel({
     return null;
   return (
     <View style={ui.card}>
-      <Text style={ui.heading}>Votre date de sûreté</Text>
+      <View style={ui.row}><Text style={ui.heading}>Votre date de sûreté</Text>{premium && <PlusBadge />}</View>
       <Text style={ui.body}>
         {sub.isTrial ? 'Fin de l’essai' : 'Prochain prélèvement'} :{' '}
         {shortDate(dates.renewal)}
@@ -338,6 +341,7 @@ export function CancellationPanel({
         variant="secondary"
         onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)}
       />
+      <View style={ui.row}><Text style={ui.heading}>Historique</Text><PlusBadge /></View>
       {canUsePlus ? (
         <>
           {(follow.history ?? [])
