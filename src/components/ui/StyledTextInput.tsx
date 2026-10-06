@@ -1,3 +1,5 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React, { forwardRef } from 'react';
 import {
   StyleSheet,
@@ -7,7 +9,6 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 interface StyledTextInputProps extends TextInputProps {
   label?: string;
@@ -18,6 +19,9 @@ interface StyledTextInputProps extends TextInputProps {
 
 export const StyledTextInput = forwardRef<TextInput, StyledTextInputProps>(
   ({ label, error, containerStyle, hint, style, ...rest }, ref) => {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
     return (
       <View style={[styles.container, containerStyle]}>
         {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -27,17 +31,18 @@ export const StyledTextInput = forwardRef<TextInput, StyledTextInputProps>(
           placeholderTextColor={Colors.textMuted}
           selectionColor={Colors.primary}
           {...rest}
+          accessibilityLabel={rest.accessibilityLabel ?? label}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!error && hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
     );
-  }
+  },
 );
 
 StyledTextInput.displayName = 'StyledTextInput';
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     gap: 6,
   },

@@ -1,261 +1,207 @@
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../src/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { Card } from '../../src/components/ui/Card';
-import { EmptyState } from '../../src/components/ui/EmptyState';
-import { ErrorState } from '../../src/components/ui/ErrorState';
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
+import { Page, useUI } from '../../src/components/ui/Page';
+import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
-import { Subscription, subscriptions } from '../../src/lib/api';
-import { Colors } from '../../src/theme/colors';
-
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-function formatDate(d: Date) {
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-function addDays(d: Date, n: number) {
-  const result = new Date(d);
-  result.setDate(result.getDate() + n);
-  return result;
-}
-
+import { ErrorState } from '../../src/components/ui/ErrorState';
+import {
+  addDays,
+  dayKey,
+  deadlines,
+  euro,
+  isEnded,
+} from '../../src/lib/subscription-math';
 export default function CalendarScreen() {
+  const { colors: Colors } = useTheme();
+  const ui = useUI();
+
   const router = useRouter();
-  const [allSubs, setAllSubs] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMonth, setViewMonth] = useState(new Date());
-
-  const load = useCallback(async () => {
-    try {
-      setError('');
-      const data = await subscriptions.list();
-      setAllSubs(data.filter((s) => s.nextRenewal));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const { data, follow, loading, error, reload } = useSubscriptionData();
+  const [month, setMonth] = useState(new Date());
+  const [selected, setSelected] = useState(dayKey(new Date()));
+  const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
+  const events: {
+    day: string;
+    kind: string;
+    name: string;
+    id: number;
+    price: string;
+  }[] = [];
+  for (const sub of data) {
+    if (isEnded(sub, follow[sub.id])) continue;
+    let cursor = new Date(
+      Math.max(first.getTime(), new Date().setHours(0, 0, 0, 0)),
+    );
+    const horizon = addDays(
+      last,
+      (follow[sub.id]?.noticeDays ?? 0) + (follow[sub.id]?.leadDays ?? 1),
+    );
+    for (let cycle = 0; cycle < 160; cycle++) {
+      const d = deadlines(sub, follow[sub.id], cursor);
+      if (!d.renewal || d.renewal > horizon) break;
+      for (const [date, kind] of [
+        [d.renewal, 'Prélèvement'],
+        [d.safety, 'Date de sûreté'],
+      ] as const) {
+        if (date && date >= first && date <= last)
+          events.push({
+            day: dayKey(date),
+            kind,
+            name: sub.name,
+            id: sub.id,
+            price: sub.price,
+          });
+      }
+      cursor = addDays(d.renewal, 1);
     }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Build calendar grid for viewMonth
-  const year = viewMonth.getFullYear();
-  const month = viewMonth.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const startOffset = firstDay.getDay(); // 0=Sun
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // Map renewals to their date
-  const renewalMap = new Map<string, Subscription[]>();
-  allSubs.forEach((s) => {
-    if (!s.nextRenewal) return;
-    const d = new Date(s.nextRenewal);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (!renewalMap.has(key)) renewalMap.set(key, []);
-    renewalMap.get(key)!.push(s);
-  });
-
-  const calendarDays: (Date | null)[] = [
-    ...Array(startOffset).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
-  ];
-
-  const selectedKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
-  const selectedRenewals = renewalMap.get(selectedKey) ?? [];
-
-  const prevMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  const nextMonth = () => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
-
-  // Upcoming 30 days list
-  const upcomingDates: { date: Date; subs: Subscription[] }[] = [];
-  for (let i = 0; i <= 30; i++) {
-    const d = addDays(new Date(), i);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    const subs = renewalMap.get(key);
-    if (subs?.length) upcomingDates.push({ date: d, subs });
   }
-
-  if (loading) return <LoadingScreen message="Loading calendar…" />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
-
+  const selectedEvents = events.filter((e) => e.day === selected);
+  if (loading) return <LoadingScreen />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  const change = (offset: number) => {
+    const date = new Date(
+      month.getFullYear(),
+      month.getMonth() + offset,
+      1,
+      12,
+    );
+    setMonth(date);
+    setSelected(dayKey(date));
+  };
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Colors.primary} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Renewals</Text>
-        </View>
-
-        {/* Calendar */}
-        <Card style={styles.calendarCard}>
-          {/* Month nav */}
-          <View style={styles.monthNav}>
-            <Pressable onPress={prevMonth} hitSlop={12} style={styles.navBtn}>
-              <Ionicons name="chevron-back" size={22} color={Colors.text} />
-            </Pressable>
-            <Text style={styles.monthLabel}>
-              {viewMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-            </Text>
-            <Pressable onPress={nextMonth} hitSlop={12} style={styles.navBtn}>
-              <Ionicons name="chevron-forward" size={22} color={Colors.text} />
-            </Pressable>
-          </View>
-
-          {/* Day-of-week headers */}
-          <View style={styles.weekRow}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <Text key={i} style={styles.weekDay}>{d}</Text>
-            ))}
-          </View>
-
-          {/* Grid */}
-          <View style={styles.grid}>
-            {calendarDays.map((day, idx) => {
-              if (!day) return <View key={`empty-${idx}`} style={styles.dayCell} />;
-              const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-              const hasRenewals = renewalMap.has(key);
-              const isToday = isSameDay(day, new Date());
-              const isSelected = isSameDay(day, selectedDate);
-              return (
-                <Pressable
-                  key={key}
-                  onPress={() => setSelectedDate(day)}
-                  style={[
-                    styles.dayCell,
-                    isSelected && styles.dayCellSelected,
-                    isToday && !isSelected && styles.dayCellToday,
-                  ]}
-                >
-                  <Text style={[
-                    styles.dayText,
-                    isSelected && styles.dayTextSelected,
-                    isToday && !isSelected && styles.dayTextToday,
-                  ]}>
-                    {day.getDate()}
-                  </Text>
-                  {hasRenewals && (
-                    <View style={[styles.dot, isSelected && styles.dotSelected]} />
-                  )}
-                </Pressable>
-              );
+    <Page
+      title="Votre calendrier"
+      subtitle="Anticipez le prélèvement. Gardez une marge pour agir."
+    >
+      <View style={ui.card}>
+        <View style={[ui.row, { justifyContent: 'space-between' }]}>
+          <Button
+            title="‹"
+            accessibilityLabel="Mois précédent"
+            variant="secondary"
+            onPress={() => change(-1)}
+          />
+          <Text style={ui.heading}>
+            {month.toLocaleDateString('fr-FR', {
+              month: 'long',
+              year: 'numeric',
             })}
-          </View>
-        </Card>
-
-        {/* Selected date renewals */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{formatDate(selectedDate)}</Text>
-          {selectedRenewals.length === 0 ? (
-            <Text style={styles.noneText}>No renewals on this day</Text>
-          ) : (
-            <View style={styles.renewalList}>
-              {selectedRenewals.map((sub) => (
-                <Pressable
-                  key={sub.id}
-                  style={styles.renewalItem}
-                  onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)}
-                >
-                  <View style={[styles.renewalDot, { backgroundColor: sub.categoryColor || Colors.primary }]} />
-                  <Text style={styles.renewalName}>{sub.name}</Text>
-                  <Text style={styles.renewalPrice}>
-                    {parseFloat(sub.price).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
+          </Text>
+          <Button
+            title="›"
+            accessibilityLabel="Mois suivant"
+            variant="secondary"
+            onPress={() => change(1)}
+          />
         </View>
-
-        {/* Next 30 days */}
-        {upcomingDates.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Next 30 days</Text>
-            {upcomingDates.map(({ date, subs }) => (
-              <Card key={date.toISOString()} style={styles.upcomingCard}>
-                <Text style={styles.upcomingDate}>{formatDate(date)}</Text>
-                {subs.map((sub) => (
-                  <Pressable
-                    key={sub.id}
-                    style={styles.upcomingRow}
-                    onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)}
-                  >
-                    <View style={[styles.renewalDot, { backgroundColor: sub.categoryColor || Colors.primary }]} />
-                    <Text style={styles.renewalName} numberOfLines={1}>{sub.name}</Text>
-                    <Text style={styles.renewalPrice}>
-                      {parseFloat(sub.price).toLocaleString('en-US', { style: 'currency', currency: 'EUR' })}
-                    </Text>
-                  </Pressable>
-                ))}
-              </Card>
-            ))}
-          </View>
-        )}
-
-        {upcomingDates.length === 0 && (
-          <EmptyState icon="calendar-outline" title="Nothing renewing soon" description="No subscriptions are due in the next 30 days." />
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((label, i) => (
+            <Text
+              key={`day-${i}`}
+              style={[
+                ui.small,
+                { width: '14.28%', textAlign: 'center', paddingVertical: 10 },
+              ]}
+            >
+              {label}
+            </Text>
+          ))}
+          {Array.from({ length: (first.getDay() + 6) % 7 }, (_, i) => (
+            <View key={`blank-${i}`} style={{ width: '14.28%' }} />
+          ))}
+          {Array.from({ length: last.getDate() }, (_, i) => {
+            const date = new Date(
+              first.getFullYear(),
+              first.getMonth(),
+              i + 1,
+              12,
+            );
+            const key = dayKey(date);
+            const matches = events.filter((e) => e.day === key);
+            return (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityLabel={`${date.toLocaleDateString('fr-FR')}, ${matches.length} échéance(s)`}
+                accessibilityState={{ selected: selected === key }}
+                onPress={() => setSelected(key)}
+                style={{
+                  width: '14.28%',
+                  minHeight: 48,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 12,
+                  backgroundColor:
+                    selected === key ? Colors.primary : 'transparent',
+                }}
+              >
+                <Text style={{ color: selected === key ? Colors.white : Colors.text }}>{i + 1}</Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    gap: 3,
+                    height: 7,
+                    marginTop: 4,
+                  }}
+                >
+                  {matches.some((e) => e.kind === 'Prélèvement') && (
+                    <View
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: 3,
+                        backgroundColor: Colors.textSecondary,
+                      }}
+                    />
+                  )}
+                  {matches.some((e) => e.kind === 'Date de sûreté') && (
+                    <View
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: 3,
+                        backgroundColor: Colors.warning,
+                      }}
+                    />
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={ui.small}>
+          ● Violet : prélèvement · ● Orange : date de sûreté
+        </Text>
+      </View>
+      <Text style={ui.heading}>{selected.split('-').reverse().join('/')}</Text>
+      {!selectedEvents.length && (
+        <Text style={ui.body}>Aucune échéance prévue ce jour.</Text>
+      )}
+      {selectedEvents.map((e, i) => (
+        <Pressable
+          key={`${e.id}-${e.kind}-${i}`}
+          style={ui.card}
+          onPress={() => router.push(`/(tabs)/subscriptions/${e.id}`)}
+          accessibilityRole="button"
+        >
+          <Text style={ui.heading}>{e.name}</Text>
+          <Text style={[ui.body, e.kind === 'Date de sûreté' && ui.warning]}>
+            {e.kind}
+            {e.kind === 'Prélèvement'
+              ? ` · ${euro(Number(e.price))}`
+              : ' · vérifier avant le jour J'}
+          </Text>
+        </Pressable>
+      ))}
+      <Text style={ui.small}>
+        Projection à partir des dates et préavis renseignés. Les dates passées
+        ne constituent pas un historique de paiements. Activez vos rappels sur
+        la fiche de chaque abonnement.
+      </Text>
+    </Page>
   );
 }
-
-const CELL_SIZE = 44;
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
-  title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
-  calendarCard: { marginHorizontal: 24, marginBottom: 16 },
-  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  navBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  monthLabel: { color: Colors.text, fontSize: 17, fontWeight: '700' },
-  weekRow: { flexDirection: 'row', marginBottom: 4 },
-  weekDay: { flex: 1, textAlign: 'center', color: Colors.textMuted, fontSize: 12, fontWeight: '600' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: {
-    width: `${100 / 7}%`,
-    height: CELL_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  dayCellSelected: { backgroundColor: Colors.primary, borderRadius: CELL_SIZE / 2 },
-  dayCellToday: { borderWidth: 1, borderColor: Colors.primary, borderRadius: CELL_SIZE / 2 },
-  dayText: { color: Colors.text, fontSize: 14 },
-  dayTextSelected: { color: Colors.white, fontWeight: '700' },
-  dayTextToday: { color: Colors.primary, fontWeight: '700' },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.primary },
-  dotSelected: { backgroundColor: Colors.white },
-  section: { paddingHorizontal: 24, marginBottom: 24 },
-  sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  noneText: { color: Colors.textMuted, fontSize: 14 },
-  renewalList: { gap: 8 },
-  renewalItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.surface, borderRadius: 12, padding: 14, minHeight: 48,
-  },
-  renewalDot: { width: 8, height: 8, borderRadius: 4 },
-  renewalName: { flex: 1, color: Colors.text, fontSize: 15 },
-  renewalPrice: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  upcomingCard: { marginBottom: 10, gap: 10 },
-  upcomingDate: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  upcomingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36 },
-});

@@ -1,7 +1,8 @@
+import { useTheme } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Image, ImageSourcePropType } from 'react-native';
-import { Colors } from '../../src/theme/colors';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type PigeonTabIconPair = {
@@ -19,8 +20,19 @@ const CALENDAR_ICONS: PigeonTabIconPair = {
   outline: require('../../assets/icons/navigation/security-calendar-outline.png'),
 };
 
-function tabIcon(focused: boolean, name: IoniconName, outlineName: IoniconName) {
-  return <Ionicons name={focused ? name : outlineName} size={24} color={focused ? Colors.primary : Colors.textMuted} />;
+function tabIcon(
+  Colors: Palette,
+  focused: boolean,
+  name: IoniconName,
+  outlineName: IoniconName,
+) {
+  return (
+    <Ionicons
+      name={focused ? name : outlineName}
+      size={24}
+      color={focused ? Colors.primary : Colors.textMuted}
+    />
+  );
 }
 
 function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
@@ -35,6 +47,8 @@ function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
 }
 
 export default function TabsLayout() {
+  const { colors: Colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -55,42 +69,54 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Accueil',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, DASHBOARD_ICONS),
         }}
       />
       <Tabs.Screen
         name="subscriptions"
         options={{
-          title: 'Subs',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'list', 'list-outline'),
+          title: 'Abonnements',
+          tabBarIcon: ({ focused }) => tabIcon(Colors, focused, 'list', 'list-outline'),
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: 'Calendrier',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'bar-chart', 'bar-chart-outline'),
+          title: 'Bilan',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(Colors, focused, 'bar-chart', 'bar-chart-outline'),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused }) => tabIcon(focused, 'person-circle', 'person-circle-outline'),
+          title: 'Profil',
+          tabBarIcon: ({ focused }) =>
+            tabIcon(Colors, focused, 'person-circle', 'person-circle-outline'),
         }}
       />
       {/* Hidden screens — accessible via navigation but not shown in tab bar */}
-      <Tabs.Screen name="voice" options={{ href: null, title: 'Voice Reminders' }} />
+      <Tabs.Screen
+        name="voice"
+        options={{ href: null, title: 'Voice Reminders' }}
+      />
       <Tabs.Screen name="premium" options={{ href: null, title: 'Premium' }} />
-      <Tabs.Screen name="coupons" options={{ href: null, title: 'Trials & Suspects' }} />
+      <Tabs.Screen
+        name="privacy"
+        options={{ href: null, title: 'Confidentialité' }}
+      />
+      <Tabs.Screen
+        name="coupons"
+        options={{ href: null, title: 'Trials & Suspects' }}
+      />
     </Tabs>
   );
 }

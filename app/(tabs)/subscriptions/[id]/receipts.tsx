@@ -1,3 +1,6 @@
+import { useTheme, useThemedStyles } from '../../../../src/contexts/ThemeContext';
+import type { Palette } from '../../../../src/theme/colors';
+import { useBilling } from '../../../../src/contexts/BillingContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,8 +23,10 @@ import {
 import { Card } from '../../../../src/components/ui/Card';
 import { ErrorState } from '../../../../src/components/ui/ErrorState';
 import { LoadingScreen } from '../../../../src/components/ui/LoadingScreen';
-import { Subscription, subscriptions as subsApi } from '../../../../src/lib/api';
-import { Colors } from '../../../../src/theme/colors';
+import {
+  Subscription,
+  subscriptions as subsApi,
+} from '../../../../src/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,8 +34,8 @@ import { Colors } from '../../../../src/theme/colors';
 type ImageSlot = 'purchaseProofImage' | 'unsubscribeProofImage';
 
 const SLOT_LABELS: Record<ImageSlot, string> = {
-  purchaseProofImage: 'Purchase Receipt',
-  unsubscribeProofImage: 'Cancellation Proof',
+  purchaseProofImage: 'Justificatif d’achat',
+  unsubscribeProofImage: 'Preuve de résiliation',
 };
 
 const SLOT_ICONS: Record<ImageSlot, keyof typeof Ionicons.glyphMap> = {
@@ -42,6 +47,9 @@ const SLOT_ICONS: Record<ImageSlot, keyof typeof Ionicons.glyphMap> = {
 // PermissionDenied helper
 // ---------------------------------------------------------------------------
 function PermissionDenied({ source }: { source: 'camera' | 'library' }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.permissionBox}>
       <Ionicons
@@ -50,18 +58,20 @@ function PermissionDenied({ source }: { source: 'camera' | 'library' }) {
         color={Colors.textMuted}
       />
       <Text style={styles.permissionTitle}>
-        {source === 'camera' ? 'Camera access denied' : 'Photo library access denied'}
+        {source === 'camera'
+          ? 'Accès à la caméra refusé'
+          : 'Accès aux photos refusé'}
       </Text>
       <Text style={styles.permissionDesc}>
-        PigeonSub needs access to your {source === 'camera' ? 'camera' : 'photo library'} to
-        attach receipt photos. Enable it in System Settings.
+        Autorisez PigeonSub à accéder à vos photos ou à la caméra dans les
+        réglages du téléphone pour joindre un justificatif.
       </Text>
       <Pressable
         onPress={() => Linking.openSettings()}
         style={styles.permissionBtn}
         accessibilityRole="button"
       >
-        <Text style={styles.permissionBtnText}>Open Settings</Text>
+        <Text style={styles.permissionBtnText}>Ouvrir les réglages</Text>
       </Pressable>
     </View>
   );
@@ -85,11 +95,18 @@ function ImageSlotCard({
   onPickCamera: () => void;
   onRemove: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Card style={styles.slotCard}>
       {/* Slot label */}
       <View style={styles.slotHeader}>
-        <Ionicons name={SLOT_ICONS[slot]} size={16} color={Colors.textSecondary} />
+        <Ionicons
+          name={SLOT_ICONS[slot]}
+          size={16}
+          color={Colors.textSecondary}
+        />
         <Text style={styles.slotLabel}>{SLOT_LABELS[slot]}</Text>
       </View>
 
@@ -105,14 +122,14 @@ function ImageSlotCard({
           {uploading && (
             <View style={styles.uploadOverlay}>
               <ActivityIndicator color={Colors.white} size="large" />
-              <Text style={styles.uploadText}>Uploading…</Text>
+              <Text style={styles.uploadText}>Enregistrement…</Text>
             </View>
           )}
           <Pressable
             onPress={onRemove}
             style={styles.removeBtn}
             hitSlop={8}
-            accessibilityLabel="Remove image"
+            accessibilityLabel="Retirer l’image"
           >
             <Ionicons name="close-circle" size={24} color={Colors.danger} />
           </Pressable>
@@ -120,7 +137,7 @@ function ImageSlotCard({
       ) : (
         <View style={styles.placeholder}>
           <Ionicons name="image-outline" size={40} color={Colors.textMuted} />
-          <Text style={styles.placeholderText}>No image attached</Text>
+          <Text style={styles.placeholderText}>Aucun justificatif</Text>
         </View>
       )}
 
@@ -133,7 +150,7 @@ function ImageSlotCard({
           disabled={uploading}
         >
           <Ionicons name="camera-outline" size={16} color={Colors.primary} />
-          <Text style={styles.actionChipText}>Take photo</Text>
+          <Text style={styles.actionChipText}>Prendre une photo</Text>
         </Pressable>
         <Pressable
           onPress={onPickLibrary}
@@ -142,7 +159,7 @@ function ImageSlotCard({
           disabled={uploading}
         >
           <Ionicons name="images-outline" size={16} color={Colors.primary} />
-          <Text style={styles.actionChipText}>Choose</Text>
+          <Text style={styles.actionChipText}>Choisir</Text>
         </Pressable>
       </View>
     </Card>
@@ -153,8 +170,12 @@ function ImageSlotCard({
 // Main screen
 // ---------------------------------------------------------------------------
 export default function ReceiptsScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { canUsePlus } = useBilling();
   const subId = Number(id);
 
   const [sub, setSub] = useState<Subscription | null>(null);
@@ -175,7 +196,12 @@ export default function ReceiptsScreen() {
   const [libraryPermDenied, setLibraryPermDenied] = useState(false);
 
   const isMounted = useRef(true);
-  useEffect(() => () => { isMounted.current = false; }, []);
+  useEffect(
+    () => () => {
+      isMounted.current = false;
+    },
+    [],
+  );
 
   // ── Load subscription ────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -195,7 +221,9 @@ export default function ReceiptsScreen() {
     }
   }, [subId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // ── Permission helpers ───────────────────────────────────────────────────
   const requestCameraPermission = async (): Promise<boolean> => {
@@ -219,10 +247,11 @@ export default function ReceiptsScreen() {
   };
 
   // ── Image picker helpers ─────────────────────────────────────────────────
-  const pickImage = async (
-    slot: ImageSlot,
-    source: 'camera' | 'library'
-  ) => {
+  const pickImage = async (slot: ImageSlot, source: 'camera' | 'library') => {
+    if (!canUsePlus) {
+      router.push('/(tabs)/premium?reason=history');
+      return;
+    }
     if (source === 'camera') {
       const ok = await requestCameraPermission();
       if (!ok) return;
@@ -247,10 +276,9 @@ export default function ReceiptsScreen() {
     if (result.canceled || !result.assets?.length) return;
 
     const asset = result.assets[0];
-    const uri =
-      asset.base64
-        ? `data:image/jpeg;base64,${asset.base64}`
-        : asset.uri;
+    const uri = asset.base64
+      ? `data:image/jpeg;base64,${asset.base64}`
+      : asset.uri;
 
     // Optimistic update
     if (slot === 'purchaseProofImage') setPurchaseUri(uri);
@@ -262,38 +290,42 @@ export default function ReceiptsScreen() {
       await subsApi.update(subId, { [slot]: uri });
     } catch (e: unknown) {
       // Revert on failure
-      if (slot === 'purchaseProofImage') setPurchaseUri(sub?.purchaseProofImage ?? null);
+      if (slot === 'purchaseProofImage')
+        setPurchaseUri(sub?.purchaseProofImage ?? null);
       else setUnsubscribeUri(sub?.unsubscribeProofImage ?? null);
-      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not save image');
+      Alert.alert(
+        'Enregistrement impossible',
+        e instanceof Error ? e.message : 'Image non enregistrée',
+      );
     } finally {
       if (isMounted.current) setUploadingSlot(null);
     }
   };
 
   const removeImage = (slot: ImageSlot) => {
-    Alert.alert(
-      'Remove image',
-      `Remove the ${SLOT_LABELS[slot]}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            if (slot === 'purchaseProofImage') setPurchaseUri(null);
-            else setUnsubscribeUri(null);
-            try {
-              await subsApi.update(subId, { [slot]: null });
-            } catch (e: unknown) {
-              // Revert
-              if (slot === 'purchaseProofImage') setPurchaseUri(sub?.purchaseProofImage ?? null);
-              else setUnsubscribeUri(sub?.unsubscribeProofImage ?? null);
-              Alert.alert('Error', e instanceof Error ? e.message : 'Could not remove image');
-            }
-          },
+    Alert.alert('Retirer l’image', `Remove the ${SLOT_LABELS[slot]}?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Retirer',
+        style: 'destructive',
+        onPress: async () => {
+          if (slot === 'purchaseProofImage') setPurchaseUri(null);
+          else setUnsubscribeUri(null);
+          try {
+            await subsApi.update(subId, { [slot]: null });
+          } catch (e: unknown) {
+            // Revert
+            if (slot === 'purchaseProofImage')
+              setPurchaseUri(sub?.purchaseProofImage ?? null);
+            else setUnsubscribeUri(sub?.unsubscribeProofImage ?? null);
+            Alert.alert(
+              'Erreur',
+              e instanceof Error ? e.message : 'Suppression impossible',
+            );
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // ── Save note ────────────────────────────────────────────────────────────
@@ -301,28 +333,37 @@ export default function ReceiptsScreen() {
     setSaving(true);
     try {
       await subsApi.update(subId, { note: note.trim() || null });
-      Alert.alert('Saved', 'Note saved successfully.');
+      Alert.alert('Enregistré', 'Note enregistrée.');
     } catch (e: unknown) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not save note');
+      Alert.alert(
+        'Erreur',
+        e instanceof Error ? e.message : 'Note non enregistrée',
+      );
     } finally {
       if (isMounted.current) setSaving(false);
     }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
-  if (loading) return <LoadingScreen message="Loading receipts…" />;
+  if (loading) return <LoadingScreen message="Chargement…" />;
   if (error || !sub) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </Pressable>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Receipts & Notes</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{sub.name}</Text>
+          <Text style={styles.headerTitle}>Justificatifs et notes</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>
+            {sub.name}
+          </Text>
         </View>
       </View>
 
@@ -341,22 +382,27 @@ export default function ReceiptsScreen() {
           {libraryPermDenied && <PermissionDenied source="library" />}
 
           {/* Image slots */}
-          <Text style={styles.sectionLabel}>Proof Images</Text>
+          <Text style={styles.sectionLabel}>Vos preuves</Text>
           <Text style={styles.sectionDesc}>
-            Attach screenshots or photos of your receipts and cancellation confirmations.
+            Joignez une photo de votre reçu ou de la confirmation de
+            résiliation.
           </Text>
 
-          {((['purchaseProofImage', 'unsubscribeProofImage'] as ImageSlot[])).map((slot) => (
-            <ImageSlotCard
-              key={slot}
-              slot={slot}
-              imageUri={slot === 'purchaseProofImage' ? purchaseUri : unsubscribeUri}
-              uploading={uploadingSlot === slot}
-              onPickCamera={() => pickImage(slot, 'camera')}
-              onPickLibrary={() => pickImage(slot, 'library')}
-              onRemove={() => removeImage(slot)}
-            />
-          ))}
+          {(['purchaseProofImage', 'unsubscribeProofImage'] as ImageSlot[]).map(
+            (slot) => (
+              <ImageSlotCard
+                key={slot}
+                slot={slot}
+                imageUri={
+                  slot === 'purchaseProofImage' ? purchaseUri : unsubscribeUri
+                }
+                uploading={uploadingSlot === slot}
+                onPickCamera={() => pickImage(slot, 'camera')}
+                onPickLibrary={() => pickImage(slot, 'library')}
+                onRemove={() => removeImage(slot)}
+              />
+            ),
+          )}
 
           {/* Note */}
           <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Note</Text>
@@ -365,29 +411,32 @@ export default function ReceiptsScreen() {
               style={styles.noteInput}
               value={note}
               onChangeText={setNote}
-              placeholder="Add a note about this subscription…"
+              placeholder="Une note sur cet abonnement…"
               placeholderTextColor={Colors.textMuted}
               multiline
               numberOfLines={5}
               textAlignVertical="top"
               maxLength={2000}
-              accessibilityLabel="Subscription note"
+              accessibilityLabel="Note de l’abonnement"
             />
             <View style={styles.noteFooter}>
               <Text style={styles.noteCount}>{note.length}/2000</Text>
               <Pressable
                 onPress={saveNote}
-                style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }]}
+                style={({ pressed }) => [
+                  styles.saveBtn,
+                  pressed && { opacity: 0.8 },
+                ]}
                 disabled={saving}
                 accessibilityRole="button"
-                accessibilityLabel="Save note"
+                accessibilityLabel="Enregistrer la note"
               >
                 {saving ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <>
                     <Ionicons name="checkmark" size={16} color={Colors.white} />
-                    <Text style={styles.saveBtnText}>Save note</Text>
+                    <Text style={styles.saveBtnText}>Enregistrer la note</Text>
                   </>
                 )}
               </Pressable>
@@ -402,7 +451,7 @@ export default function ReceiptsScreen() {
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   header: {
@@ -413,7 +462,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 8,
   },
-  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerText: { flex: 1 },
   headerTitle: { color: Colors.text, fontSize: 18, fontWeight: '700' },
   headerSub: { color: Colors.textSecondary, fontSize: 13 },
@@ -426,7 +480,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 6,
   },
-  sectionDesc: { color: Colors.textSecondary, fontSize: 13, marginBottom: 16, lineHeight: 19 },
+  sectionDesc: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 16,
+    lineHeight: 19,
+  },
   // Permission denial
   permissionBox: {
     backgroundColor: Colors.surface,
@@ -438,8 +497,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.warning + '55',
   },
-  permissionTitle: { color: Colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  permissionDesc: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  permissionTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  permissionDesc: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
   permissionBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 10,
@@ -457,7 +526,7 @@ const styles = StyleSheet.create({
   imageWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden' },
   image: { width: '100%', height: 200, borderRadius: 12 },
   uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',

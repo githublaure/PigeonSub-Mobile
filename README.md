@@ -25,7 +25,9 @@ Then scan the QR code with Expo Go (iOS/Android) or run on a simulator.
 
 Use Node 22.13+ or Node 24 and npm. The mobile project is the repository root
 (the directory containing `app.json` and the package named `pigeonsub-mobile`),
-**not** `backend/`. Expo remains locked to **54.0.37 / SDK 54**.
+**not** `backend/`. This feature branch now uses **57.0.26 / SDK 57**.
+See [SDK 57, themes and Replit preview](docs/SDK57-REPLIT-20261006.md) for retrieval,
+preview compatibility, validation and rollback. The SDK 54 build remains backed up.
 
 In a disposable checkout, run:
 

@@ -1,6 +1,7 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 const CATEGORY_COLORS: Record<string, string> = {
   entertainment: '#EC4899',
@@ -23,19 +24,22 @@ interface CategoryBadgeProps {
 }
 
 export function CategoryBadge({ category, color, size = 'md' }: CategoryBadgeProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const bg = color || CATEGORY_COLORS[category.toLowerCase()] || Colors.primary;
   const isSmall = size === 'sm';
 
   return (
     <View style={[styles.badge, { backgroundColor: bg + '26' }, isSmall && styles.sm]}>
-      <Text style={[styles.text, { color: bg }, isSmall && styles.textSm]}>
+      <Text style={[styles.text, { color: Colors.text }, isSmall && styles.textSm]}>
         {category.charAt(0).toUpperCase() + category.slice(1)}
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   badge: {
     borderRadius: 6,
     paddingHorizontal: 10,

@@ -1,8 +1,11 @@
+import { useThemedStyles } from '../src/contexts/ThemeContext';
+import type { Palette } from '../src/theme/colors';
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../src/theme/colors';
 
 export default function NotFoundScreen() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <>
       <Stack.Screen options={{ title: 'Not found', headerShown: true }} />
@@ -17,7 +20,7 @@ export default function NotFoundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

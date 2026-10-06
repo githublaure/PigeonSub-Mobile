@@ -1,6 +1,7 @@
+import { useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 const LABELS: Record<string, string> = {
   monthly: '/mo',
@@ -15,6 +16,8 @@ interface FrequencyLabelProps {
 }
 
 export function FrequencyLabel({ frequency, style }: FrequencyLabelProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Text style={[styles.text, style]}>
       {LABELS[frequency] ?? `/${frequency}`}
@@ -22,7 +25,7 @@ export function FrequencyLabel({ frequency, style }: FrequencyLabelProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   text: {
     color: Colors.textSecondary,
     fontSize: 13,

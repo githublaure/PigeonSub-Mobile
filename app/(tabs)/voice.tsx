@@ -1,8 +1,10 @@
+import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
+import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -20,7 +22,6 @@ import { EmptyState } from '../../src/components/ui/EmptyState';
 import { ErrorState } from '../../src/components/ui/ErrorState';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { Subscription, subscriptions as subsApi, voice, VoiceReminder } from '../../src/lib/api';
-import { Colors } from '../../src/theme/colors';
 
 const EL_KEY_STORAGE = 'pigeonsub_elevenlabs_key';
 const REMINDER_TYPES = ['renewal', 'cancellation', 'usage'] as const;
@@ -31,6 +32,9 @@ function formatDate(d: string) {
 }
 
 export default function VoiceScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const params = useLocalSearchParams<{ subscriptionId?: string }>();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [reminders, setReminders] = useState<VoiceReminder[]>([]);
@@ -43,7 +47,8 @@ export default function VoiceScreen() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [playing, setPlaying] = useState<number | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const player = useAudioPlayer(null);
+  const playbackStatus = useAudioPlayerStatus(player);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [tempKey, setTempKey] = useState('');
 
@@ -117,27 +122,23 @@ export default function VoiceScreen() {
     }
   };
 
-  const playAudio = async (reminder: VoiceReminder) => {
+  const playAudio = (reminder: VoiceReminder) => {
     try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
+      player.pause();
       if (playing === reminder.id) { setPlaying(null); return; }
-
-      const { sound } = await Audio.Sound.createAsync({ uri: reminder.audioUrl });
-      soundRef.current = sound;
+      player.replace({ uri: reminder.audioUrl });
       setPlaying(reminder.id);
-      await sound.playAsync();
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) setPlaying(null);
-      });
+      player.play();
     } catch {
-      Alert.alert('Playback error', 'Could not play this reminder.');
+      setPlaying(null);
+      Alert.alert('Lecture impossible', 'Impossible de lire ce rappel.');
     }
   };
 
-  useEffect(() => () => { soundRef.current?.unloadAsync(); }, []);
+  useEffect(() => {
+    if (playbackStatus.didJustFinish) setPlaying(null);
+  }, [playbackStatus.didJustFinish]);
+  // useAudioPlayer releases its native player automatically on unmount.
 
   if (loading) return <LoadingScreen message="Loading voice reminders…" />;
   if (error) return <ErrorState message={error} onRetry={load} />;
@@ -276,7 +277,7 @@ export default function VoiceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: 40 },
   header: {
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
   keyBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  warningCard: { marginHorizontal: 24, marginBottom: 16, backgroundColor: '#2D2000' },
+  warningCard: { marginHorizontal: 24, marginBottom: 16, backgroundColor: Colors.warningSurface },
   warningText: { color: Colors.warning, fontSize: 14, lineHeight: 20 },
   sectionLabel: {
     color: Colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase',

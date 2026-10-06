@@ -1,12 +1,16 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 
 interface LoadingScreenProps {
   message?: string;
 }
 
-export function LoadingScreen({ message = 'Loading…' }: LoadingScreenProps) {
+export function LoadingScreen({ message = 'Chargement…' }: LoadingScreenProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={Colors.primary} />
@@ -15,7 +19,7 @@ export function LoadingScreen({ message = 'Loading…' }: LoadingScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

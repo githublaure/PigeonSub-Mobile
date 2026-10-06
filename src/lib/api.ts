@@ -1,3 +1,12 @@
+import { Platform } from 'react-native';
+import {
+  isLocalSession,
+  localRequest,
+  dataChanged,
+  getFollowUps,
+} from './local-data';
+import { canAddSubscription } from './subscription-math';
+import { hasPlusAccess } from './entitlements-state';
 import * as SecureStore from 'expo-secure-store';
 import { buildApiUrl, stripQueryForLog } from './api-url';
 import { API_BASE_URL } from './config';
@@ -8,12 +17,24 @@ import { API_BASE_URL } from './config';
 const TOKEN_KEY = 'pigeonsub_jwt';
 
 export async function getStoredToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return Platform.OS === 'web'
+    ? typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem(TOKEN_KEY)
+      : null
+    : SecureStore.getItemAsync(TOKEN_KEY);
 }
 export async function setStoredToken(token: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    return;
+  }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 export async function clearStoredToken(): Promise<void> {
+  if (Platform.OS === 'web') {
+    sessionStorage.removeItem(TOKEN_KEY);
+    return;
+  }
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
@@ -23,7 +44,7 @@ export async function clearStoredToken(): Promise<void> {
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -33,10 +54,15 @@ export class ApiError extends Error {
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
-  requireAuth = true
+  requireAuth = true,
 ): Promise<T> {
+  if (requireAuth && !path.startsWith('/auth') && isLocalSession())
+    return localRequest<T>(path, options);
   if (!API_BASE_URL) {
-    throw new ApiError(0, 'API_BASE_URL is not configured. Set EXPO_PUBLIC_API_BASE_URL in mobile/.env');
+    throw new ApiError(
+      0,
+      'API_BASE_URL is not configured. Set EXPO_PUBLIC_API_BASE_URL in mobile/.env',
+    );
   }
 
   const headers: Record<string, string> = {
@@ -60,7 +86,8 @@ async function apiFetch<T>(
     headers,
   });
 
-  if (__DEV__) console.info(`[PigeonSub API] ${method} ${diagnosticUrl} -> ${res.status}`);
+  if (__DEV__)
+    console.info(`[PigeonSub API] ${method} ${diagnosticUrl} -> ${res.status}`);
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -71,6 +98,7 @@ async function apiFetch<T>(
     throw new ApiError(res.status, message);
   }
 
+  if (method !== 'GET' && !path.startsWith('/auth')) dataChanged();
   if (res.status === 204) return undefined as unknown as T;
   return res.json() as Promise<T>;
 }
@@ -169,7 +197,11 @@ export interface Stats {
   budgetGap: string;
   suspectCount: number;
   categoryTotals: Record<string, number>;
-  usageBreakdown: { very_used: number; used: number; rarely_used: number } & Record<string, number>;
+  usageBreakdown: {
+    very_used: number;
+    used: number;
+    rarely_used: number;
+  } & Record<string, number>;
 }
 
 export interface BudgetMonth {
@@ -188,16 +220,24 @@ export interface BudgetsResponse {
 // ---------------------------------------------------------------------------
 export const auth = {
   register: (data: { name: string; email: string; password: string }) =>
-    apiFetch<AuthResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, false),
+    apiFetch<AuthResponse>(
+      '/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+      false,
+    ),
 
   login: (data: { email: string; password: string }) =>
-    apiFetch<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, false),
+    apiFetch<AuthResponse>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+      false,
+    ),
 
   demoLogin: () =>
     apiFetch<AuthResponse>('/auth/demo-login', { method: 'POST' }, false),
@@ -211,19 +251,26 @@ export const auth = {
     }),
 
   forgotPassword: (email: string) =>
-    apiFetch<{ message: string }>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }, false),
+    apiFetch<{ message: string }>(
+      '/auth/forgot-password',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      },
+      false,
+    ),
 
   resetPassword: (data: { token: string; newPassword: string }) =>
-    apiFetch<{ message: string }>('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, false),
+    apiFetch<{ message: string }>(
+      '/auth/reset-password',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+      false,
+    ),
 
-  deleteAccount: () =>
-    apiFetch<void>('/auth/account', { method: 'DELETE' }),
+  deleteAccount: () => apiFetch<void>('/auth/account', { method: 'DELETE' }),
 };
 
 // ---------------------------------------------------------------------------
@@ -231,21 +278,44 @@ export const auth = {
 // ---------------------------------------------------------------------------
 export const subscriptions = {
   list: (includeArchived = false) =>
-    apiFetch<Subscription[]>(`/subscriptions?includeArchived=${includeArchived}`),
+    apiFetch<Subscription[]>(
+      `/subscriptions?includeArchived=${includeArchived}`,
+    ),
 
   get: (id: number) => apiFetch<Subscription>(`/subscriptions/${id}`),
 
-  create: (data: InsertSubscription) =>
-    apiFetch<Subscription>('/subscriptions', {
+  create: async (data: InsertSubscription) => {
+    const all = await subscriptions.list(true);
+    if (
+      data.isActive !== false &&
+      !canAddSubscription(all, hasPlusAccess(), await getFollowUps())
+    )
+      throw new Error(
+        'PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.',
+      );
+    return apiFetch<Subscription>('/subscriptions', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
-  update: (id: number, data: Partial<InsertSubscription>) =>
-    apiFetch<Subscription>(`/subscriptions/${id}`, {
+  update: async (id: number, data: Partial<InsertSubscription>) => {
+    if (data.isActive) {
+      const all = await subscriptions.list(true);
+      const previous = all.find((s) => s.id === id);
+      if (
+        !previous?.isActive &&
+        !canAddSubscription(all, hasPlusAccess(), await getFollowUps())
+      )
+        throw new Error(
+          'PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.',
+        );
+    }
+    return apiFetch<Subscription>(`/subscriptions/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   remove: (id: number) =>
     apiFetch<void>(`/subscriptions/${id}`, { method: 'DELETE' }),
@@ -267,19 +337,25 @@ export const settings = {
     }),
 
   setMonthlyOverrides: (monthlyOverrides: Record<string, number>) =>
-    apiFetch<{ monthlyOverrides: Record<string, string> }>('/settings/monthly-overrides', {
-      method: 'PATCH',
-      body: JSON.stringify({ monthlyOverrides }),
-    }),
+    apiFetch<{ monthlyOverrides: Record<string, string> }>(
+      '/settings/monthly-overrides',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ monthlyOverrides }),
+      },
+    ),
 
   getBudgets: (start: string, months: number) =>
-    apiFetch<BudgetsResponse>(`/settings/budgets?start=${start}&months=${months}`),
+    apiFetch<BudgetsResponse>(
+      `/settings/budgets?start=${start}&months=${months}`,
+    ),
 
   setBudgets: (data: { budgets: BudgetMonth[]; defaultBudget: number }) =>
-    apiFetch<{ success: boolean; defaultBudget: number; monthlyBudgets: BudgetMonth[] }>(
-      '/settings/budgets',
-      { method: 'PUT', body: JSON.stringify(data) }
-    ),
+    apiFetch<{
+      success: boolean;
+      defaultBudget: number;
+      monthlyBudgets: BudgetMonth[];
+    }>('/settings/budgets', { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 // ---------------------------------------------------------------------------
@@ -306,7 +382,7 @@ export const voice = {
       text?: string;
       voiceName?: string;
     },
-    elevenLabsKey: string
+    elevenLabsKey: string,
   ) =>
     apiFetch<VoiceReminder>('/voice/generate', {
       method: 'POST',

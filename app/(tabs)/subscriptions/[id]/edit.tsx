@@ -21,11 +21,13 @@ export default function EditSubscriptionScreen() {
       const data = await subscriptions.get(Number(id));
       setSub(data);
     } catch (e: unknown) {
-      setLoadError(e instanceof Error ? e.message : 'Failed to load subscription');
+      setLoadError(e instanceof Error ? e.message : 'Chargement impossible');
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSubmit = async (values: SubscriptionFormValues) => {
     await subscriptions.update(Number(id), {
@@ -39,7 +41,9 @@ export default function EditSubscriptionScreen() {
       isTrial: values.isTrial,
       trialEndsAt: values.isTrial ? dateFieldToIso(values.trialEndsAt) : null,
       useSafetyDate: values.useSafetyDate,
-      safetyDate: values.useSafetyDate ? dateFieldToIso(values.safetyDate) : null,
+      safetyDate: values.useSafetyDate
+        ? dateFieldToIso(values.safetyDate)
+        : null,
       purchaseDate: dateFieldToIso(values.purchaseDate),
       rating: values.rating ?? null,
       note: values.note || null,
@@ -59,7 +63,9 @@ export default function EditSubscriptionScreen() {
     frequency: sub.frequency as SubscriptionFormValues['frequency'],
     category: sub.category,
     categoryColor: sub.categoryColor ?? '',
-    usageFrequency: (sub.usageFrequency as SubscriptionFormValues['usageFrequency']) ?? 'used',
+    usageFrequency:
+      (sub.usageFrequency as SubscriptionFormValues['usageFrequency']) ??
+      'used',
     nextRenewal: isoToDateField(sub.nextRenewal),
     isTrial: sub.isTrial,
     trialEndsAt: isoToDateField(sub.trialEndsAt),
@@ -74,8 +80,8 @@ export default function EditSubscriptionScreen() {
 
   return (
     <SubscriptionForm
-      title="Edit subscription"
-      submitLabel="Save changes"
+      title="Modifier l’abonnement"
+      submitLabel="Enregistrer"
       defaultValues={defaultValues}
       onSubmit={handleSubmit}
       onCancel={() => router.back()}

@@ -16,9 +16,9 @@ function checkLock(root) {
     throw new Error('Expected the root mobile project, not backend/.');
   }
   const expo = lock.packages?.['node_modules/expo'];
-  if (!expo?.version?.startsWith('54.') ||
+  if (!expo?.version?.startsWith('57.') ||
       manifest.dependencies.expo !== lock.packages[''].dependencies.expo) {
-    throw new Error('Expected locked Expo SDK 54 and matching mobile manifests.');
+    throw new Error('Expected locked Expo SDK 57 and matching mobile manifests.');
   }
   for (const [name, entry] of Object.entries(lock.packages)) {
     if (!name) continue;
@@ -46,7 +46,7 @@ function preflight(root) {
   }
   const cli = path.join(expoRoot, 'bin', 'cli');
   if (!fs.existsSync(cli)) throw new Error('Local Expo CLI is missing; reinstall mobile dependencies.');
-  console.log(`Mobile preflight: local Expo ${installed.version} (SDK 54) at ${expoRoot}`);
+  console.log(`Mobile preflight: local Expo ${installed.version} (SDK 57) at ${expoRoot}`);
   return cli;
 }
 

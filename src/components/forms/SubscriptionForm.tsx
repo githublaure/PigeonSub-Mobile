@@ -1,3 +1,8 @@
+import { useThemedStyles, useTheme } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
+import { useRouter } from 'expo-router';
+import { parseDay } from '../../lib/subscription-math';
+import { categoryLabels } from '../../lib/labels';
 /**
  * Shared form used by both Add and Edit subscription screens.
  * Covers every field in InsertSubscription from shared/schema.ts.
@@ -21,42 +26,55 @@ import { z } from 'zod';
 import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
-import { Colors } from '../../theme/colors';
 
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
 // ---------------------------------------------------------------------------
 export const subscriptionFormSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z
+    .string({ required_error: 'Le nom est obligatoire' })
+    .min(1, 'Le nom est obligatoire'),
   price: z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, 'Enter a valid price e.g. 9.99'),
+    .string({ required_error: 'Le prix est obligatoire' })
+    .regex(/^\d+([.,]\d{1,2})?$/, 'Saisissez un prix valide, par exemple 9,99'),
   frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
-    errorMap: () => ({ message: 'Select a frequency' }),
+    errorMap: () => ({ message: 'Choisissez une fréquence' }),
   }),
-  category: z.string().min(1, 'Category is required'),
+  category: z.string().min(1, 'Choisissez une catégorie'),
   usageFrequency: z.enum(['very_used', 'used', 'rarely_used']).default('used'),
   categoryColor: z.string().optional(),
   nextRenewal: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD')
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+      'Saisissez une date valide au format AAAA-MM-JJ',
+    )
     .optional()
     .or(z.literal('')),
   isTrial: z.boolean().default(false),
   trialEndsAt: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD')
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+      'Saisissez une date valide au format AAAA-MM-JJ',
+    )
     .optional()
     .or(z.literal('')),
   useSafetyDate: z.boolean().default(false),
   safetyDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD')
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+      'Saisissez une date valide au format AAAA-MM-JJ',
+    )
     .optional()
     .or(z.literal('')),
   purchaseDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use format YYYY-MM-DD')
+    .refine(
+      (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
+      'Saisissez une date valide au format AAAA-MM-JJ',
+    )
     .optional()
     .or(z.literal('')),
   rating: z.number().min(1).max(5).nullable().optional(),
@@ -72,21 +90,30 @@ export type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;
 // ---------------------------------------------------------------------------
 const FREQUENCIES = ['monthly', 'yearly', 'weekly', 'lifetime'] as const;
 const FREQUENCY_LABELS: Record<string, string> = {
-  monthly: 'Monthly',
-  yearly: 'Yearly',
-  weekly: 'Weekly',
-  lifetime: 'Lifetime',
+  monthly: 'Mensuel',
+  yearly: 'Annuel',
+  weekly: 'Hebdomadaire',
+  lifetime: 'Achat unique',
 };
 
 const CATEGORIES = [
-  'entertainment', 'music', 'productivity', 'design',
-  'cloud', 'gaming', 'news', 'health', 'education', 'finance', 'other',
+  'entertainment',
+  'music',
+  'productivity',
+  'design',
+  'cloud',
+  'gaming',
+  'news',
+  'health',
+  'education',
+  'finance',
+  'other',
 ] as const;
 
 const USAGE_OPTIONS = [
-  { value: 'very_used', label: 'Very used' },
-  { value: 'used', label: 'Used' },
-  { value: 'rarely_used', label: 'Rarely' },
+  { value: 'very_used', label: 'Très utilisé' },
+  { value: 'used', label: 'Utilisé' },
+  { value: 'rarely_used', label: 'Peu utilisé' },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -94,8 +121,7 @@ const USAGE_OPTIONS = [
 // ---------------------------------------------------------------------------
 export function dateFieldToIso(val: string | undefined | null): string | null {
   if (!val || val.trim() === '') return null;
-  const d = new Date(val + 'T00:00:00Z');
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  return parseDay(val) ? val + 'T00:00:00.000Z' : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,10 +136,14 @@ export function isoToDateField(iso: string | null | undefined): string {
 // Sub-components
 // ---------------------------------------------------------------------------
 function SectionTitle({ children }: { children: string }) {
+  const styles = useThemedStyles(createStyles);
+
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
 function FieldError({ message }: { message?: string }) {
+  const styles = useThemedStyles(createStyles);
+
   if (!message) return null;
   return <Text style={styles.fieldError}>{message}</Text>;
 }
@@ -131,8 +161,17 @@ function ChipGroup<T extends string>({
   label: string;
   error?: string;
 }) {
-  const normalised: { value: T; label: string }[] = (options as readonly (T | { value: T; label: string })[]).map(
-    (o) => (typeof o === 'string' ? { value: o as T, label: (o as string).charAt(0).toUpperCase() + (o as string).slice(1) } : o)
+  const chipStyles = useThemedStyles(createChipStyles);
+
+  const normalised: { value: T; label: string }[] = (
+    options as readonly (T | { value: T; label: string })[]
+  ).map((o) =>
+    typeof o === 'string'
+      ? {
+          value: o as T,
+          label: (o as string).charAt(0).toUpperCase() + (o as string).slice(1),
+        }
+      : o,
   );
 
   return (
@@ -147,7 +186,12 @@ function ChipGroup<T extends string>({
             accessibilityRole="radio"
             accessibilityState={{ selected: value === v }}
           >
-            <Text style={[chipStyles.chipText, value === v && chipStyles.chipTextActive]}>
+            <Text
+              style={[
+                chipStyles.chipText,
+                value === v && chipStyles.chipTextActive,
+              ]}
+            >
               {l}
             </Text>
           </Pressable>
@@ -158,7 +202,7 @@ function ChipGroup<T extends string>({
   );
 }
 
-const chipStyles = StyleSheet.create({
+const createChipStyles = (Colors: Palette) => StyleSheet.create({
   container: { gap: 8 },
   label: {
     color: Colors.textSecondary,
@@ -193,11 +237,16 @@ function ToggleRow({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.toggleRow}>
       <View style={styles.toggleText}>
         <Text style={styles.toggleLabel}>{label}</Text>
-        {description ? <Text style={styles.toggleDesc}>{description}</Text> : null}
+        {description ? (
+          <Text style={styles.toggleDesc}>{description}</Text>
+        ) : null}
       </View>
       <Switch
         value={value}
@@ -225,8 +274,13 @@ export function SubscriptionForm({
   defaultValues,
   onSubmit,
   onCancel,
-  submitLabel = 'Save subscription',
+  submitLabel = 'Enregistrer',
 }: SubscriptionFormProps) {
+  const { colors: Colors } = useTheme();
+  const chipStyles = useThemedStyles(createChipStyles);
+  const styles = useThemedStyles(createStyles);
+
+  const router = useRouter();
   const [apiError, setApiError] = useState('');
 
   const {
@@ -237,6 +291,14 @@ export function SubscriptionForm({
   } = useForm<SubscriptionFormValues>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
+      name: '',
+      price: '',
+      nextRenewal: '',
+      purchaseDate: '',
+      trialEndsAt: '',
+      safetyDate: '',
+      categoryColor: '',
+      note: '',
       frequency: 'monthly',
       usageFrequency: 'used',
       category: 'entertainment',
@@ -255,9 +317,15 @@ export function SubscriptionForm({
   const handleSubmitWrapped = handleSubmit(async (values) => {
     setApiError('');
     try {
-      await onSubmit(values);
+      await onSubmit({ ...values, price: values.price.replace(',', '.') });
     } catch (e: unknown) {
-      setApiError(e instanceof Error ? e.message : 'Something went wrong');
+      if (e instanceof Error && e.message.startsWith('PLUS_LIMIT:')) {
+        router.push('/(tabs)/premium?reason=limit');
+        return;
+      }
+      setApiError(
+        e instanceof Error ? e.message : 'Enregistrement impossible.',
+      );
     }
   });
 
@@ -276,7 +344,7 @@ export function SubscriptionForm({
           {/* Header */}
           <View style={styles.header}>
             <Pressable onPress={onCancel} hitSlop={12}>
-              <Text style={styles.cancel}>Cancel</Text>
+              <Text style={styles.cancel}>Annuler</Text>
             </Pressable>
             <Text style={styles.title}>{title}</Text>
             <View style={{ width: 60 }} />
@@ -284,15 +352,15 @@ export function SubscriptionForm({
 
           <View style={styles.form}>
             {/* ── Basic info ── */}
-            <SectionTitle>Basic info</SectionTitle>
+            <SectionTitle>Votre abonnement</SectionTitle>
 
             <Controller
               control={control}
               name="name"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Name"
-                  placeholder="e.g. Netflix, Spotify"
+                  label="Nom"
+                  placeholder="Par exemple Netflix, Spotify"
                   autoCapitalize="words"
                   returnKeyType="next"
                   error={errors.name?.message}
@@ -308,7 +376,7 @@ export function SubscriptionForm({
               name="price"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Price"
+                  label="Prix (€)"
                   placeholder="9.99"
                   keyboardType="decimal-pad"
                   returnKeyType="next"
@@ -325,8 +393,11 @@ export function SubscriptionForm({
               name="frequency"
               render={({ field }) => (
                 <ChipGroup
-                  label="Billing frequency"
-                  options={FREQUENCIES.map((f) => ({ value: f, label: FREQUENCY_LABELS[f] }))}
+                  label="Fréquence de paiement"
+                  options={FREQUENCIES.map((f) => ({
+                    value: f,
+                    label: FREQUENCY_LABELS[f],
+                  }))}
                   value={field.value}
                   onChange={field.onChange}
                   error={errors.frequency?.message}
@@ -339,8 +410,11 @@ export function SubscriptionForm({
               name="category"
               render={({ field }) => (
                 <ChipGroup
-                  label="Category"
-                  options={CATEGORIES as unknown as readonly string[]}
+                  label="Catégorie"
+                  options={CATEGORIES.map((value) => ({
+                    value,
+                    label: categoryLabels[value] ?? value,
+                  }))}
                   value={field.value}
                   onChange={(v) => field.onChange(v)}
                   error={errors.category?.message}
@@ -353,7 +427,7 @@ export function SubscriptionForm({
               name="categoryColor"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Category colour (hex, optional)"
+                  label="Couleur de catégorie (facultatif)"
                   placeholder="#7C3AED"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -366,15 +440,15 @@ export function SubscriptionForm({
             />
 
             {/* ── Billing dates ── */}
-            <SectionTitle>Billing dates</SectionTitle>
+            <SectionTitle>Vos échéances</SectionTitle>
 
             <Controller
               control={control}
               name="nextRenewal"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Next renewal (YYYY-MM-DD)"
-                  placeholder="2025-12-31"
+                  label="Prochain prélèvement (AAAA-MM-JJ)"
+                  placeholder="2026-12-31"
                   keyboardType="numbers-and-punctuation"
                   autoCorrect={false}
                   returnKeyType="next"
@@ -391,7 +465,7 @@ export function SubscriptionForm({
               name="purchaseDate"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Purchase date (YYYY-MM-DD, optional)"
+                  label="Date de souscription (AAAA-MM-JJ, facultatif)"
                   placeholder="2024-01-15"
                   keyboardType="numbers-and-punctuation"
                   autoCorrect={false}
@@ -403,48 +477,20 @@ export function SubscriptionForm({
               )}
             />
 
-            {/* Safety date */}
-            <Controller
-              control={control}
-              name="useSafetyDate"
-              render={({ field }) => (
-                <ToggleRow
-                  label="Use safety date"
-                  description="Cancel before this date to avoid the next charge"
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
-
-            {useSafetyDate && (
-              <Controller
-                control={control}
-                name="safetyDate"
-                render={({ field }) => (
-                  <StyledTextInput
-                    label="Safety date (YYYY-MM-DD)"
-                    placeholder="2025-12-01"
-                    keyboardType="numbers-and-punctuation"
-                    autoCorrect={false}
-                    error={errors.safetyDate?.message}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    onBlur={field.onBlur}
-                  />
-                )}
-              />
-            )}
+            <Text style={styles.toggleDesc}>
+              Le préavis et les rappels se règlent sur la fiche de l’abonnement
+              après son enregistrement.
+            </Text>
 
             {/* ── Trial ── */}
-            <SectionTitle>Trial</SectionTitle>
+            <SectionTitle>Période d’essai</SectionTitle>
 
             <Controller
               control={control}
               name="isTrial"
               render={({ field }) => (
                 <ToggleRow
-                  label="This is a trial"
+                  label="Abonnement en période d’essai"
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -457,8 +503,8 @@ export function SubscriptionForm({
                 name="trialEndsAt"
                 render={({ field }) => (
                   <StyledTextInput
-                    label="Trial ends (YYYY-MM-DD)"
-                    placeholder="2025-02-15"
+                    label="Fin de l’essai (AAAA-MM-JJ)"
+                    placeholder="2026-12-15"
                     keyboardType="numbers-and-punctuation"
                     autoCorrect={false}
                     error={errors.trialEndsAt?.message}
@@ -471,14 +517,14 @@ export function SubscriptionForm({
             )}
 
             {/* ── Usage ── */}
-            <SectionTitle>Usage</SectionTitle>
+            <SectionTitle>Utilisation</SectionTitle>
 
             <Controller
               control={control}
               name="usageFrequency"
               render={({ field }) => (
                 <ChipGroup
-                  label="How often do you use it?"
+                  label="À quelle fréquence l’utilisez-vous ?"
                   options={USAGE_OPTIONS}
                   value={field.value}
                   onChange={field.onChange}
@@ -489,7 +535,7 @@ export function SubscriptionForm({
 
             {/* Rating */}
             <View style={styles.ratingContainer}>
-              <Text style={chipStyles.label}>Rating (optional)</Text>
+              <Text style={chipStyles.label}>Votre note (facultatif)</Text>
               <Controller
                 control={control}
                 name="rating"
@@ -504,15 +550,15 @@ export function SubscriptionForm({
             </View>
 
             {/* ── Status ── */}
-            <SectionTitle>Status</SectionTitle>
+            <SectionTitle>État</SectionTitle>
 
             <Controller
               control={control}
               name="isActive"
               render={({ field }) => (
                 <ToggleRow
-                  label="Active"
-                  description="Uncheck to archive this subscription"
+                  label="Actif"
+                  description="Désactivez pour archiver cet abonnement"
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -524,8 +570,8 @@ export function SubscriptionForm({
               name="isFlagged"
               render={({ field }) => (
                 <ToggleRow
-                  label="Flagged for review"
-                  description="Mark for later review"
+                  label="À examiner"
+                  description="À revoir plus tard"
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -540,8 +586,8 @@ export function SubscriptionForm({
               name="note"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Note (optional)"
-                  placeholder="Any details about this subscription…"
+                  label="Note (facultatif)"
+                  placeholder="Des informations utiles sur cet abonnement…"
                   multiline
                   numberOfLines={3}
                   style={{ minHeight: 88, textAlignVertical: 'top' }}
@@ -555,7 +601,11 @@ export function SubscriptionForm({
 
             {apiError ? (
               <View style={styles.apiErrorBox}>
-                <Ionicons name="alert-circle-outline" size={16} color={Colors.danger} />
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={16}
+                  color={Colors.danger}
+                />
                 <Text style={styles.apiError}>{apiError}</Text>
               </View>
             ) : null}
@@ -574,7 +624,7 @@ export function SubscriptionForm({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   kav: { flex: 1 },
   scroll: { flexGrow: 1, paddingBottom: 48 },
@@ -618,7 +668,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#2D1515',
+    backgroundColor: Colors.danger + '14',
     borderRadius: 10,
     padding: 12,
   },

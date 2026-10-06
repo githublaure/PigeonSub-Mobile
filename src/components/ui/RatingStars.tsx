@@ -1,6 +1,7 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 
 interface RatingStarsProps {
@@ -11,6 +12,9 @@ interface RatingStarsProps {
 }
 
 export function RatingStars({ value, onChange, size = 22 }: RatingStarsProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.row}>
       {[1, 2, 3, 4, 5].map((star) => {
@@ -45,6 +49,6 @@ export function RatingStars({ value, onChange, size = 22 }: RatingStarsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', gap: 4 },
 });

@@ -1,7 +1,8 @@
+import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
+import type { Palette } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Button } from './Button';
 
 interface ErrorStateProps {
@@ -11,23 +12,26 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
+  title = 'Chargement impossible',
   message,
   onRetry,
 }: ErrorStateProps) {
+  const { colors: Colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <Ionicons name="alert-circle-outline" size={56} color={Colors.danger} />
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {onRetry ? (
-        <Button title="Try again" onPress={onRetry} style={styles.retry} />
+        <Button title="Réessayer" onPress={onRetry} style={styles.retry} />
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: Palette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
