@@ -1,3 +1,4 @@
+import { AddSubscriptionButton } from '../../../src/components/ui/AddSubscriptionButton';
 import { useTheme, useThemedStyles } from '../../../src/contexts/ThemeContext';
 import type { Palette } from '../../../src/theme/colors';
 import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
@@ -69,13 +70,7 @@ export default function SubscriptionsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Abonnements</Text>
-        <Pressable
-          onPress={add}
-          style={styles.addBtn}
-          accessibilityLabel="Ajouter un abonnement"
-        >
-          <Ionicons name="add" size={22} color={Colors.white} />
-        </Pressable>
+        <AddSubscriptionButton onPress={add} premium={!canAddSubscription(data, false, follow)} />
       </View>
 
       {/* Search */}
@@ -160,8 +155,6 @@ export default function SubscriptionsScreen() {
                 ? 'Essayez une autre recherche.'
                 : 'Ajoutez votre premier abonnement pour voir quand agir.'
             }
-            actionLabel={search ? undefined : 'Ajouter un abonnement'}
-            onAction={search ? undefined : add}
           />
         }
       />

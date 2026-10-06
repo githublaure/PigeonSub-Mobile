@@ -86,6 +86,7 @@ export default function SubscriptionScreen() {
         sub={sub}
         follow={follow[sub.id]}
         editable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
+        premium={!canCustomizeSubscription(sub, data, false, follow)}
       />
       {!!sub.note && (
         <View style={ui.card}>

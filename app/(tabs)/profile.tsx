@@ -182,17 +182,14 @@ export default function ProfileScreen() {
         title="Votre espace"
         subtitle={
           mode === 'demo'
-            ? 'Camille · compte fictif de démonstration'
-            : 'Mode sans compte · vos données restent sur cet appareil'
+            ? 'Camille · démo'
+            : 'Espace personnel'
         }
       >
         <View style={ui.card}><ThemeControls /></View>
         <View style={ui.card}>
           <Text style={ui.heading}>
             {isPlus ? 'PigeonSub Plus' : 'PigeonSub Gratuit'}
-          </Text>
-          <Text style={ui.body}>
-            Retrouvez vos offres, restaurez un achat ou gérez votre abonnement.
           </Text>
           <Button
             title="Mon offre PigeonSub"
@@ -213,12 +210,7 @@ export default function ProfileScreen() {
         )}
         <View style={ui.card}>
           <Text style={ui.heading}>
-            Un compte, seulement si vous le souhaitez
-          </Text>
-          <Text style={ui.body}>
-            Retrouvez un compte existant ou créez-en un. Vos abonnements sans
-            compte restent séparés et conservés sur cet appareil ; ils ne sont
-            pas importés automatiquement.
+            Compte
           </Text>
           <Button
             title="Me connecter"

@@ -1,3 +1,7 @@
+import { useAuth } from '../../../../src/contexts/AuthContext';
+import { saveFormPhotos } from '../../../../src/lib/form-photos';
+import type { PendingPhoto } from '../../../../src/lib/subscription-photos';
+import { getDataSession } from '../../../../src/lib/local-data';
 import { useSubscriptionData } from '../../../../src/hooks/useSubscriptionData';
 import { useBilling } from '../../../../src/contexts/BillingContext';
 import { canCustomizeSubscription } from '../../../../src/lib/subscription-math';
@@ -16,6 +20,7 @@ import { Subscription, subscriptions } from '../../../../src/lib/api';
 export default function EditSubscriptionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { scope } = useAuth();
   const { canUsePlus } = useBilling();
   const { data, follow } = useSubscriptionData();
   const [sub, setSub] = useState<Subscription | null>(null);
@@ -34,8 +39,9 @@ export default function EditSubscriptionScreen() {
     load();
   }, [load]);
 
-  const handleSubmit = async (values: SubscriptionFormValues) => {
-    await subscriptions.update(Number(id), {
+  const handleSubmit = async (values: SubscriptionFormValues, photos: PendingPhoto[]) => {
+    if (getDataSession().scope !== scope) throw new Error('La session a changé.');
+    const updated = await subscriptions.update(Number(id), {
       name: values.name,
       price: values.price,
       frequency: values.frequency,
@@ -55,6 +61,7 @@ export default function EditSubscriptionScreen() {
       isActive: values.isActive,
       isFlagged: values.isFlagged,
     });
+    await saveFormPhotos(scope, updated, photos);
     router.back();
   };
 
@@ -88,6 +95,8 @@ export default function EditSubscriptionScreen() {
       title="Modifier l’abonnement"
       submitLabel="Enregistrer"
       defaultValues={defaultValues}
+      photoSub={sub}
+      premiumCustomization={!canCustomizeSubscription(sub, data, false, follow)}
       safetyEditable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
       onSubmit={handleSubmit}
       onCancel={() => router.back()}

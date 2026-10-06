@@ -32,7 +32,7 @@ export default function PrivacyScreen() {
       </Text>
       <Text style={ui.body}>
         Avec un compte, vos informations de compte et vos abonnements sont
-        transmis au serveur PigeonSub. Les décisions de résiliation et les
+        transmis au serveur PigeonSub. Les données créées sans compte restent séparées et ne sont pas importées automatiquement. Les décisions de résiliation et les
         réglages de rappel de cette version restent sur cet appareil. La
         suppression de compte est disponible dans Profil.
       </Text>

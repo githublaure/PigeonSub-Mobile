@@ -76,8 +76,7 @@ export default function RegisterScreen() {
 
           <Text style={styles.title}>Votre compte PigeonSub</Text>
           <Text style={styles.subtitle}>
-            Facultatif : un espace pour vos abonnements. Vos données sans compte
-            restent séparées sur cet appareil.
+            Vos données locales restent séparées de ce compte.
           </Text>
 
           <View style={styles.form}>

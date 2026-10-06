@@ -890,3 +890,64 @@ test('cancellation links reject executable URLs and credentials but can be clear
   ])
     assert.throws(() => cancellationUrl(url));
 });
+
+test('budget scenarios use explicit ratings, exclude archived costs and never double-count overlaps', () => {
+  const views = load('stats-views');
+  const all = [
+    sub({ id: 1, price: '10', usageFrequency: 'rarely_used', rating: 2 }),
+    sub({ id: 2, price: '20', rating: 1 }),
+    sub({ id: 3, price: '30', usageFrequency: 'rarely_used', rating: 5 }),
+    sub({ id: 4, price: '5', rating: null }),
+    sub({ id: 5, price: '7', rating: 0 }),
+    sub({ id: 6, price: '11', isTrial: true, usageFrequency: 'rarely_used', rating: 1 }),
+    sub({ id: 7, price: '100', isActive: false, rating: 1 }),
+  ];
+  const before = JSON.stringify(all);
+  const follow = { 1: { decision: 'cancel_requested' } };
+  const now = date('2026-10-07');
+  assert.equal(views.statsScenario(all, follow, 'current', now).monthly, 72);
+  assert.equal(views.statsScenario(all, follow, 'cancellations', now).monthly, 62);
+  assert.equal(views.statsScenario(all, follow, 'underused', now).monthly, 32);
+  assert.equal(views.statsScenario(all, follow, 'low_rated', now).monthly, 42);
+  const combined = views.statsScenario(all, follow, 'optimized', now);
+  assert.equal(combined.monthly, 12);
+  assert.equal(combined.avoidedMonthly, 60);
+  assert.deepEqual(combined.excluded.map((s) => s.id), [1, 2, 3, 6]);
+  assert.equal(JSON.stringify(all), before);
+});
+test('advanced views fall back to current when Plus access is lost', () => {
+  const views = load('stats-views');
+  for (const v of ['underused', 'low_rated', 'optimized']) {
+    assert.equal(views.availableStatsView(v, false), 'current');
+    assert.equal(views.availableStatsView(v, true), v);
+  }
+  assert.equal(views.availableStatsView('cancellations', false), 'cancellations');
+});
+test('budget input accepts zero and comma cents, rejects incomplete and ambiguous amounts', () => {
+  const { parseMonthlyBudget } = load('stats-views');
+  assert.equal(parseMonthlyBudget('80,50'), 80.5);
+  assert.equal(parseMonthlyBudget('0'), 0);
+  assert.equal(parseMonthlyBudget(' 42.75 '), 42.75);
+  for (const bad of ['', '-1', '1,234', '1.2.3', 'NaN', 'Infinity', '1e3', '1000001'])
+    assert.throws(() => parseMonthlyBudget(bad));
+});
+test('form photo batch rolls back a partial write and retries without duplicate attachments', async () => {
+  const h = harness(), photos = h.load('subscription-photos'), item = sub();
+  const uri = 'data:image/jpeg;base64,YWJj';
+  await photos.addPhoto('guest', item, [item], {}, false, uri, 'Original');
+  const set = h.storage.setItem;
+  let blobs = 0;
+  h.storage.setItem = async (key, value) => {
+    if (!key.endsWith('.index') && ++blobs === 2) throw new Error('Disk full');
+    return set(key, value);
+  };
+  const drafts = ['A', 'B', 'C'].map((label) => ({ uri, label }));
+  await assert.rejects(photos.addPhotos('guest', item, [item], {}, false, drafts), /Disk full/);
+  assert.equal((await photos.getPhotos('guest', item)).length, 1);
+  assert.equal(h.memory.size, 2);
+  h.storage.setItem = set;
+  await photos.addPhotos('guest', item, [item], {}, false, drafts);
+  assert.equal((await photos.getPhotos('guest', item)).length, 4);
+  await assert.rejects(photos.addPhotos('guest', item, [item], {}, false, drafts), /5 photos/);
+  assert.equal((await photos.getPhotos('guest', item)).length, 4);
+});

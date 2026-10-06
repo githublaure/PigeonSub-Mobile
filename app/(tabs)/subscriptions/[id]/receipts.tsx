@@ -1,3 +1,4 @@
+import { PlusBadge } from '../../../../src/components/ui/PlusBadge';
 import React, { useCallback, useRef, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -201,6 +202,7 @@ export default function ReceiptsScreen() {
               </Pressable>
             ))}
           </View>
+          {(photos.length >= 5 || !allowed) && <PlusBadge />}
           <Button
             title="Ajouter une photo"
             disabled={busy || full || !allowed}

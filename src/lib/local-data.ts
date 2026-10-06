@@ -185,7 +185,7 @@ export async function seedDemo() {
   ] as const;
   const data: LocalData = {
     nextId: 7,
-    settings: { budgetCap: '85', monthlyOverrides: null },
+    settings: { budgetCap: '50', monthlyOverrides: null },
     subscriptions: rows.map((r, i) =>
       subscription(
         {
@@ -195,6 +195,7 @@ export async function seedDemo() {
           category: r[3],
           nextRenewal: dayKey(addDays(now, r[4])),
           usageFrequency: r[5],
+          rating: [2, 5, 1, 4, 4, 2][i],
           isTrial: i === 4,
           trialEndsAt: i === 4 ? dayKey(addDays(now, 4)) : null,
           note: 'Exemple fictif pour découvrir PigeonSub.',

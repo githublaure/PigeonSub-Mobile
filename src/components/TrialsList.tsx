@@ -1,3 +1,4 @@
+import { PlusBadge } from './ui/PlusBadge';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -28,11 +29,7 @@ export function TrialsList() {
   return (
     <View style={{ gap: 16 }}>
       <Text style={ui.heading}>Décidez avant le premier prélèvement.</Text>
-      <Text style={ui.body}>
-        {canUsePlus
-          ? 'Avec Plus, suivez vos essais sans limite de nombre, avec leurs dates de sûreté et leurs rappels.'
-          : 'Vos essais partagent la limite de 5 abonnements actifs gratuits. Les dates de sûreté et un rappel par essai sont inclus.'}
-      </Text>
+      <View style={ui.row}><Text style={ui.small}>5 abonnements et essais gratuits · illimités avec Plus</Text><PlusBadge /></View>
       <Button
         title="Ajouter un essai gratuit"
         onPress={() =>
