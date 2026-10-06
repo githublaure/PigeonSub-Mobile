@@ -3,11 +3,16 @@ import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useBilling } from '../../src/contexts/BillingContext';
 import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
-import { TrialStatus } from '../../src/components/TrialStatus';
 import { DecisionActions } from '../../src/components/DecisionActions';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
@@ -16,15 +21,16 @@ import { Page, useUI } from '../../src/components/ui/Page';
 import {
   canAddSubscription,
   dayKey,
-  deadlines,
   euro,
   frequencyLabels,
-  isEnded,
   overview,
   shortDate,
+  trialLabel,
+  upcomingRenewals,
 } from '../../src/lib/subscription-math';
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const ui = useUI();
@@ -38,22 +44,20 @@ export default function HomeScreen() {
   const pending = data.filter(
     (s) => s.isActive && follow[s.id]?.decision === 'cancel_requested',
   ).length;
-  const upcoming = data
+  const renewals = upcomingRenewals(data, follow);
+  const upcoming = renewals.slice(0, 5);
+  // A later renewal may need attention earlier. Keep that safety date visible
+  // even when the subscription is outside the five nearest renewals.
+  const priority = renewals
     .filter(
-      (s) =>
-        !isEnded(s, follow[s.id]) &&
-        s.frequency !== 'lifetime' &&
-        follow[s.id]?.decision !== 'cancel_confirmed',
+      ({ sub, dates }) =>
+        dates.safety && follow[sub.id]?.decision !== 'cancel_confirmed',
     )
-    .map((sub) => ({ sub, dates: deadlines(sub, follow[sub.id]) }))
-    .sort(
-      (a, b) =>
-        ((a.dates.safety ?? a.dates.actionBy ?? a.dates.renewal)?.getTime() ??
-          Infinity) -
-        ((b.dates.safety ?? b.dates.actionBy ?? b.dates.renewal)?.getTime() ??
-          Infinity),
-    )
-    .slice(0, 5);
+    .reduce<(typeof renewals)[number] | undefined>(
+      (first, item) =>
+        !first || item.dates.safety! < first.dates.safety! ? item : first,
+      undefined,
+    );
   const add = () =>
     router.push(
       canAddSubscription(data, canUsePlus, follow)
@@ -70,7 +74,6 @@ export default function HomeScreen() {
             ? `Bonjour ${user.name}`
             : 'Vos abonnements'
       }
-      subtitle="Décidez avant le prochain prélèvement."
       headerAccessory={
         mode === 'demo' ? (
           <Pressable
@@ -89,8 +92,18 @@ export default function HomeScreen() {
         ) : undefined
       }
     >
-      <View style={styles.savingsCard}>
+      <View style={styles.savingsCard} testID="home-summary">
         <View style={styles.heroAccent} />
+        <View style={styles.spendingBlock}>
+          <Text style={styles.costLabel}>CE QUE VOUS DÉPENSEZ</Text>
+          <View style={styles.amountRow}>
+            <Text style={styles.costAmount}>{euro(total.monthly)}</Text>
+            <Text style={styles.costPeriod}>/ mois</Text>
+          </View>
+          <Text style={styles.annualCost}>
+            {euro(total.annual)} / an · hors essais
+          </Text>
+        </View>
         <View style={ui.row}>
           <Ionicons
             name="sparkles-outline"
@@ -100,7 +113,12 @@ export default function HomeScreen() {
           <Text style={styles.savingsLabel}>ÉCONOMIES POTENTIELLES</Text>
         </View>
         <View style={styles.amountRow}>
-          <Text style={styles.savingsAmount}>
+          <Text
+            style={[
+              styles.savingsAmount,
+              width < 360 && { fontSize: 36, lineHeight: 44 },
+            ]}
+          >
             {euro(total.potentialAnnual)}
           </Text>
           <Text style={styles.savingsPeriod}>/ an</Text>
@@ -108,90 +126,92 @@ export default function HomeScreen() {
         <Text style={styles.savingsHint}>
           {pending
             ? `${euro(total.potentialAnnual / 12)} / mois · ${pending} démarche${pending > 1 ? 's' : ''} à terminer`
-            : 'Choisissez Résilier sur un abonnement pour suivre une économie potentielle.'}
+            : 'Sélectionnez les abonnements à résilier.'}
         </Text>
-        <View style={styles.confirmedRow}>
-          <View style={styles.confirmedLabel}>
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={16}
-              color={colors.savingsText}
-            />
-            <Text style={styles.savingsHint}>Confirmées par vous</Text>
+        {total.confirmedAnnual > 0 && (
+          <View style={styles.confirmedRow}>
+            <View style={styles.confirmedLabel}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color={colors.savingsText}
+              />
+              <Text style={styles.savingsHint}>Résiliations confirmées</Text>
+            </View>
+            <Text style={styles.confirmedAmount}>
+              {euro(total.confirmedAnnual)} / an
+            </Text>
           </View>
-          <Text style={styles.confirmedAmount}>
-            {euro(total.confirmedAnnual)} / an
-          </Text>
-        </View>
-        <Text style={styles.savingsNote}>
-          Projections annuelles après résiliation, pas des remboursements.
-        </Text>
-      </View>
-
-      <View style={styles.costRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={ui.small}>Coût actuel · hors essais</Text>
-          <Text style={styles.costAmount}>
-            {euro(total.monthly)} <Text style={styles.costPeriod}>/ mois</Text>
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end', gap: 3 }}>
-          <Text style={styles.annualCost}>{euro(total.annual)} / an</Text>
-          <Text style={ui.small}>
-            {total.active} actif{total.active > 1 ? 's' : ''}
-          </Text>
-        </View>
+        )}
+        {(pending > 0 || total.confirmedAnnual > 0) && (
+          <Text style={styles.savingsNote}>Estimation après résiliation.</Text>
+        )}
       </View>
 
       {total.trialCount > 0 && (
-        <View style={ui.card}>
-          <Text style={ui.heading}>
-            {total.trialCount} essai{total.trialCount > 1 ? 's' : ''} à suivre
-          </Text>
-          <Text style={ui.body}>
-            Si les essais non résiliés deviennent payants :{' '}
-            {euro(total.afterTrialsMonthly)} / mois, soit +
-            {euro(total.trialMonthly)}.
-          </Text>
-          {total.expiredTrials > 0 && (
-            <Text style={[ui.small, ui.warning]}>
-              {total.expiredTrials} statut{total.expiredTrials > 1 ? 's' : ''} à
-              vérifier.
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Voir mes essais gratuits"
+          style={styles.trialLink}
+          onPress={() => router.push('/(tabs)/coupons?view=trials')}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.trialTitle}>
+              {total.trialCount} essai{total.trialCount > 1 ? 's' : ''} · +
+              {euro(total.trialMonthly)}/mois si conservé
+              {total.trialCount > 1 ? 's' : ''}
             </Text>
-          )}
-          <Button
-            title="Voir mes essais gratuits"
-            variant="secondary"
-            onPress={() => router.push('/(tabs)/coupons?view=trials')}
-          />
-        </View>
+            {total.expiredTrials > 0 && (
+              <Text style={[ui.small, ui.warning]}>
+                {total.expiredTrials} statut
+                {total.expiredTrials > 1 ? 's' : ''} à vérifier
+              </Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+        </Pressable>
       )}
 
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={ui.heading}>À décider bientôt</Text>
-          <Text style={ui.small}>
-            Les dates de sûreté les plus proches d’abord.
-          </Text>
+          <Text style={ui.heading}>Prochaines échéances</Text>
         </View>
         <Button title="+ Ajouter" size="sm" variant="secondary" onPress={add} />
       </View>
+      {priority && priority.sub.id !== upcoming[0]?.sub.id && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Date de sûreté prioritaire : ${priority.sub.name}`}
+          onPress={() => router.push(`/(tabs)/subscriptions/${priority.sub.id}`)}
+          style={styles.deadline}
+        >
+          <Ionicons name="time-outline" size={15} color={colors.warning} />
+          <Text style={styles.deadlineText}>
+            Sûreté prioritaire · {priority.sub.name} ·{' '}
+            {shortDate(priority.dates.safety)}
+          </Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.warning} />
+        </Pressable>
+      )}
       {!upcoming.length && (
         <View style={ui.card}>
           <Text style={ui.heading}>
             {data.length
-              ? 'Aucune décision en attente.'
-              : 'Votre premier déclic commence ici.'}
+              ? 'Aucune échéance à venir.'
+              : 'Ajoutez votre premier abonnement.'}
           </Text>
           <Text style={ui.body}>
-            Ajoutez un abonnement et sa prochaine échéance pour découvrir votre
-            coût annuel et quand agir.
+            Renseignez une date pour suivre le prochain prélèvement.
           </Text>
           <Button title="Ajouter un abonnement" onPress={add} />
         </View>
       )}
       {upcoming.map(({ sub, dates }) => (
-        <View key={sub.id} style={[ui.card, { gap: 12, padding: 16 }]}>
+        <View
+          key={sub.id}
+          testID={`home-renewal-${sub.id}`}
+          style={[ui.card, { gap: 10, padding: 16 }]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Voir ${sub.name}`}
@@ -207,12 +227,23 @@ export default function HomeScreen() {
               <Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text>
               <Text style={ui.pill}>
                 {sub.isTrial ? 'Après essai · ' : ''}
-                {euro(Number(sub.price))} /{' '}
+                {euro(Number(sub.price.replace(',', '.')))} /{' '}
                 {frequencyLabels[sub.frequency] ?? sub.frequency}
               </Text>
             </View>
-            <TrialStatus sub={sub} follow={follow[sub.id]} />
-            {dates.actionBy && (
+            <View style={ui.row}>
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={styles.renewalDate}>
+                {sub.isTrial ? 'Fin de l’essai' : 'Renouvellement'} ·{' '}
+                {shortDate(dates.renewal)}
+              </Text>
+            </View>
+            {sub.isTrial && <Text style={ui.small}>{trialLabel(sub)}</Text>}
+            {dates.safety && follow[sub.id]?.decision !== 'cancel_confirmed' && (
               <View style={styles.deadline}>
                 <Ionicons
                   name="time-outline"
@@ -220,32 +251,33 @@ export default function HomeScreen() {
                   color={colors.warning}
                 />
                 <Text style={styles.deadlineText}>
-                  {dayKey(dates.actionBy) < dayKey(new Date())
-                    ? 'Délai à vérifier · '
-                    : 'Agir avant le '}
-                  {shortDate(dates.actionBy)}
+                  {dayKey(dates.safety) < dayKey(new Date())
+                    ? 'Sûreté dépassée · '
+                    : 'Sûreté · '}
+                  {shortDate(dates.safety)}
                 </Text>
               </View>
             )}
-            <Text style={ui.small}>
-              {sub.isTrial ? 'Fin de l’essai' : 'Prélèvement'} :{' '}
-              {shortDate(dates.renewal)}
-              {dates.safety ? ` · Sûreté : ${shortDate(dates.safety)}` : ''}
-            </Text>
           </Pressable>
-          <DecisionActions sub={sub} follow={follow[sub.id]} highlightSavings />
+          <DecisionActions
+            sub={sub}
+            follow={follow[sub.id]}
+            showSavings={false}
+          />
         </View>
       ))}
+      {renewals.length > 5 && (
+        <Button
+          title="Voir toutes les échéances"
+          variant="secondary"
+          onPress={() => router.push('/(tabs)/calendar')}
+        />
+      )}
       <Button
         title="Voir mes stats et mes économies"
         variant="secondary"
         onPress={() => router.push('/(tabs)/stats')}
       />
-      <Text style={ui.small}>
-        Les coûts actuels sont mensualisés, hors achats à vie et essais non
-        confirmés payants. Les économies sont des projections, sans vérification
-        bancaire.
-      </Text>
       {!!data.length && !canUsePlus && (
         <View
           style={[
@@ -261,9 +293,7 @@ export default function HomeScreen() {
           </Text>
           <Text style={ui.heading}>Votre pigeon veille avant le jour J.</Text>
           <Text style={ui.body}>
-            Suivez autant d’abonnements et d’essais que nécessaire avec Plus.
-            Vos 5 abonnements gratuits incluent déjà leurs dates de sûreté
-            personnalisées et leurs rappels.
+            Abonnements et essais illimités.
           </Text>
           <Button
             title="Découvrir PigeonSub Plus"
@@ -367,25 +397,35 @@ const createStyles = (c: Palette) =>
       fontVariant: ['tabular-nums'],
     },
     savingsNote: { color: c.savingsText, fontSize: 11, lineHeight: 15 },
-    costRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: 12,
-      padding: 16,
-      backgroundColor: c.surface,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: c.border,
+    spendingBlock: {
+      gap: 4,
+      paddingBottom: 14,
+      marginBottom: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: c.savingsBorder,
     },
+    costLabel: { color: c.text, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
     costAmount: {
       color: c.text,
-      fontSize: 24,
+      fontSize: 32,
       fontWeight: '800',
-      lineHeight: 32,
+      lineHeight: 38,
+      fontVariant: ['tabular-nums'],
     },
-    costPeriod: { fontSize: 14, fontWeight: '500' },
-    annualCost: { color: c.textSecondary, fontSize: 14, fontWeight: '600' },
+    costPeriod: { color: c.text, fontSize: 16, fontWeight: '500' },
+    annualCost: { color: c.textSecondary, fontSize: 13, fontWeight: '500' },
+    trialLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      minHeight: 44,
+      borderRadius: 14,
+      backgroundColor: c.surfaceRaised,
+    },
+    trialTitle: { color: c.text, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+    renewalDate: { color: c.text, fontSize: 15, fontWeight: '700', flexShrink: 1 },
     deadline: {
       flexDirection: 'row',
       alignItems: 'center',

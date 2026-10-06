@@ -144,6 +144,30 @@ test('requesting cancellation does not reduce costs; future confirmed end is res
   assert.equal(math.overview(subs, follow, now).confirmedAnnual, 144);
   assert.equal(math.deadlines(sub(), follow[1], now).renewal, null);
 });
+test('home renewals sort by renewal while retaining earlier safety dates and unresolved trials', () => {
+  const now = date('2026-10-06');
+  const items = [
+    sub({ id: 1, nextRenewal: '2026-10-20', useSafetyDate: true, safetyDate: '2026-10-07' }),
+    sub({ id: 2, nextRenewal: '2026-10-10' }),
+    sub({ id: 3, isActive: false }),
+    sub({ id: 4, frequency: 'lifetime' }),
+    sub({ id: 5, nextRenewal: null }),
+    sub({ id: 6, isTrial: true, trialEndsAt: '2026-10-05' }),
+    sub({ id: 7, nextRenewal: '2026-10-08' }),
+    sub({ id: 8, nextRenewal: '2026-10-09' }),
+  ];
+  const follow = {
+    2: { decision: 'keep' },
+    7: { decision: 'cancel_confirmed', effectiveOn: '2026-10-07' },
+    8: { decision: 'cancel_confirmed', effectiveOn: '2026-10-15' },
+  };
+  const result = math.upcomingRenewals(items, follow, now);
+  assert.deepEqual(result.map(({ sub }) => sub.id), [6, 8, 2, 1]);
+  assert.equal(math.dayKey(result[3].dates.safety), '2026-10-07');
+  assert.equal(math.dayKey(result[0].dates.renewal), '2026-10-05');
+  assert.equal(items[0].id, 1, 'input order is untouched');
+});
+
 test('free quota permits five, blocks sixth, preserves old records after Plus expires', () => {
   const four = Array.from({ length: 4 }, (_, i) => sub({ id: i + 1 }));
   assert.equal(math.canAddSubscription(four, false), true);
@@ -236,7 +260,10 @@ test('trial shown only for a verified eligible free seven-day offer', () => {
       {
         product: {
           ...item.product,
-          introPrice: { ...item.product.introPrice, periodNumberOfUnits: 3 },
+          introPrice: {
+            ...item.product.introPrice,
+            periodNumberOfUnits: 3,
+          },
         },
       },
       { annual: true },
@@ -370,8 +397,11 @@ test('offers validate real dates and reject executable or credential-bearing lin
     offers.validateOffer({ ...draft, expiresOn: '2026-02-30' }),
   );
   assert.equal(
-    offers.validateOffer({ ...draft, url: 'https://example.com', used: true })
-      .url,
+    offers.validateOffer({
+      ...draft,
+      url: 'https://example.com',
+      used: true,
+    }).url,
     'https://example.com',
   );
   assert.equal(offers.offerDays(draft, date('2026-10-12')), 0);
@@ -452,7 +482,9 @@ test('shell-quote rejects the reported command-injection vector without executin
 
 test('chosen safety day drives free notifications and recurs by calendar-day offset', () => {
   const custom = sub({ useSafetyDate: true, safetyDate: '2026-10-10' });
-  const follow = { 1: { reminderEnabled: true, noticeDays: 2, leadDays: 1 } };
+  const follow = {
+    1: { reminderEnabled: true, noticeDays: 2, leadDays: 1 },
+  };
   const plan = reminderPlan([custom], follow, false, date('2026-10-06'));
   assert.equal(math.dayKey(plan[0].at), '2026-10-10');
   assert.equal(plan[0].at.getHours(), 9);
@@ -704,7 +736,10 @@ test('confirming the paid transition uses the first paid date and preserves the 
   });
   assert.throws(() => math.paidTrialPatch(item, date('2026-10-09')));
   assert.throws(() => math.paidTrialPatch(item, date('2026-10-12')));
-  const paid = { ...item, ...math.paidTrialPatch(item, date('2026-10-16')) };
+  const paid = {
+    ...item,
+    ...math.paidTrialPatch(item, date('2026-10-16')),
+  };
   assert.equal(paid.isTrial, false);
   assert.equal(paid.nextRenewal, '2026-10-15');
   assert.equal(paid.safetyDate, '2026-10-13');
@@ -766,8 +801,11 @@ test('trial form requires a real end date even without safety enabled and reject
     false,
   );
   assert.equal(
-    schema.safeParse({ ...base, trialEndsAt: '2026-10-12', nextRenewal: '' })
-      .success,
+    schema.safeParse({
+      ...base,
+      trialEndsAt: '2026-10-12',
+      nextRenewal: '',
+    }).success,
     true,
   );
   assert.equal(
@@ -786,6 +824,55 @@ test('trial form requires a real end date even without safety enabled and reject
       safetyDate: '2026-10-13',
     }).success,
     false,
+  );
+});
+test('safety calendar dates validate the real billing date and identify missing dependencies', () => {
+  const { subscriptionFormSchema: schema } = load('subscription-form-schema');
+  const base = {
+    name: 'Service',
+    price: '9,99',
+    frequency: 'monthly',
+    category: 'other',
+    useSafetyDate: true,
+    safetyDate: '2026-12-01',
+  };
+  assert.equal(
+    schema.safeParse({ ...base, nextRenewal: '2026-12-31' }).success,
+    true,
+  );
+  const missing = schema.safeParse({ ...base, nextRenewal: '' });
+  assert.equal(missing.success, false);
+  assert(missing.error.issues.some((issue) => issue.path[0] === 'nextRenewal'));
+  assert(!missing.error.issues.some((issue) => issue.path[0] === 'safetyDate'));
+  assert.equal(
+    schema.safeParse({ ...base, nextRenewal: '2026-12-01' }).success,
+    false,
+  );
+  assert.equal(
+    schema.safeParse({ ...base, nextRenewal: '2026-11-30' }).success,
+    false,
+  );
+  assert.equal(
+    schema.safeParse({ ...base, useSafetyDate: false, nextRenewal: '' })
+      .success,
+    true,
+  );
+  assert.equal(
+    schema.safeParse({
+      ...base,
+      isTrial: true,
+      trialEndsAt: '2026-11-30',
+      nextRenewal: '2026-12-31',
+    }).success,
+    false,
+  );
+  assert.equal(
+    schema.safeParse({
+      ...base,
+      safetyDate: '2028-02-29',
+      nextRenewal: '2028-03-01',
+    }).success,
+    true,
   );
 });
 test('cancellation links reject executable URLs and credentials but can be cleared', () => {

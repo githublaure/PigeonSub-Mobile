@@ -4,17 +4,18 @@ import {
   DarkTheme,
   DefaultTheme,
 } from 'expo-router/react-navigation';
-import { LoadingScreen } from '../src/components/ui/LoadingScreen';
+import { FeatherRevealOverlay } from '../src/components/onboarding/FeatherRevealOverlay';
 import { BillingProvider } from '../src/contexts/BillingContext';
 import { ReminderSync } from '../src/contexts/ReminderSync';
 import { SplashScreen, Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-function RootNavigator() {
+function RootNavigator({ onReady }: { onReady: () => void }) {
   const { colors, scheme } = useTheme();
   const { isAuthenticated, isLoading, mode, scope } = useAuth();
   const segments = useSegments();
@@ -38,14 +39,10 @@ function RootNavigator() {
       return;
     }
 
-    // The onboarding reveal hides the native splash only after both its
-    // content and the mask are ready, preventing a blank intermediate frame.
-    if (!isAuthenticated && inOnboarding) return;
+    onReady();
+  }, [isAuthenticated, isLoading, mode, router, segments, onReady]);
 
-    void SplashScreen.hideAsync();
-  }, [isAuthenticated, isLoading, mode, router, segments]);
-
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return null;
 
   return (
     <NavigationThemeProvider
@@ -78,14 +75,30 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [contentReady, setContentReady] = useState(false);
+  const [revealing, setRevealing] = useState(true);
+  const ready = useCallback(() => setContentReady(true), []);
+  const finish = useCallback(() => setRevealing(false), []);
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BillingProvider>
-          <RootNavigator />
-          <ReminderSync />
-        </BillingProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <View style={{ flex: 1, backgroundColor: '#6226FB' }}>
+      <View
+        style={{ flex: 1 }}
+        pointerEvents={revealing ? 'none' : 'auto'}
+        accessibilityElementsHidden={revealing}
+        importantForAccessibility={revealing ? 'no-hide-descendants' : 'auto'}
+      >
+        <ThemeProvider>
+          <AuthProvider>
+            <BillingProvider>
+              <RootNavigator onReady={ready} />
+              <ReminderSync />
+            </BillingProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </View>
+      {revealing && (
+        <FeatherRevealOverlay contentReady={contentReady} onFinished={finish} />
+      )}
+    </View>
   );
 }
