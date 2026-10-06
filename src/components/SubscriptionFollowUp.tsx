@@ -50,6 +50,12 @@ export function SafetyPanel({
     setError('');
     setMessage('');
     try {
+      if (!editable && !enabled) {
+        await updateFollowUp(sub.id, { reminderEnabled: false });
+        if (mode !== 'demo') await syncReminders();
+        setMessage('Rappel désactivé.');
+        return;
+      }
       if (!editable)
         throw new Error(
           'Plus permet de personnaliser tous vos abonnements. Vos dates existantes sont conservées.',
@@ -104,7 +110,8 @@ export function SafetyPanel({
     <View style={ui.card}>
       <Text style={ui.heading}>Votre date de sûreté</Text>
       <Text style={ui.body}>
-        Prochain prélèvement : {shortDate(dates.renewal)}
+        {sub.isTrial ? 'Fin de l’essai' : 'Prochain prélèvement'} :{' '}
+        {shortDate(dates.renewal)}
       </Text>
       <Text style={ui.body}>
         Date limite contractuelle estimée : {shortDate(dates.actionBy)}
@@ -134,9 +141,11 @@ export function SafetyPanel({
       {sub.useSafetyDate && sub.safetyDate ? (
         <>
           <Text style={ui.small}>
-            Votre date choisie se répète avec le même nombre de jours d’avance à
-            chaque renouvellement. Si le préavis l’exige, elle est avancée à la
-            date limite contractuelle estimée.
+            {sub.isTrial
+              ? 'Votre date de sûreté concerne la fin de cet essai. Aucun renouvellement payant n’est supposé confirmé.'
+              : 'Votre date choisie se répète avec le même nombre de jours d’avance à chaque renouvellement.'}{' '}
+            Si le préavis l’exige, elle est avancée à la date limite
+            contractuelle estimée.
           </Text>
           <Button
             title="Modifier ma date de sûreté"
@@ -183,7 +192,7 @@ export function SafetyPanel({
         <Switch
           accessibilityLabel="Recevoir un rappel pour cet abonnement"
           value={follow.reminderEnabled ?? false}
-          disabled={busy || !editable}
+          disabled={busy || (!editable && !follow.reminderEnabled)}
           onValueChange={(value) => void save(value)}
           trackColor={{ true: Colors.primary }}
         />
@@ -272,8 +281,9 @@ export function CancellationPanel({
             Apple si vous avez souscrit via l’App Store.
           </Text>
           <Text style={ui.body}>
-            2. Demandez la résiliation et vérifiez le préavis ainsi que la date
-            du dernier prélèvement.
+            {sub.isTrial
+              ? '2. Demandez l’arrêt de l’essai avant sa date limite et vérifiez qu’aucun premier prélèvement n’est dû.'
+              : '2. Demandez la résiliation et vérifiez le préavis ainsi que la date du dernier prélèvement.'}
           </Text>
           <Text style={ui.body}>
             3. Conservez la confirmation du fournisseur, puis renseignez la date

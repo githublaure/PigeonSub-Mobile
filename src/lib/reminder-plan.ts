@@ -17,6 +17,7 @@ export function reminderPlan(
     name: string;
     at: Date;
     renewal: string;
+    isTrial: boolean;
   }[] = [];
   for (const sub of subs) {
     const follow = followUps[sub.id] ?? {};
@@ -38,7 +39,9 @@ export function reminderPlan(
           name: sub.name,
           at,
           renewal: dayKey(dates.renewal),
+          isTrial: sub.isTrial,
         });
+      if (sub.isTrial) break;
       cursor = addDays(dates.renewal, 1);
     }
   }

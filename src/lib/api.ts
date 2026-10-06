@@ -10,6 +10,8 @@ import {
 import {
   canAddSubscription,
   canCustomizeSubscription,
+  paidTrialPatch,
+  isEnded,
 } from './subscription-math';
 import { hasPlusAccess } from './entitlements-state';
 import * as SecureStore from 'expo-secure-store';
@@ -288,6 +290,21 @@ export const subscriptions = {
     ),
 
   get: (id: number) => apiFetch<Subscription>(`/subscriptions/${id}`),
+
+  confirmTrialPaid: async (id: number) => {
+    const previous = await subscriptions.get(id);
+    const follow = (await getFollowUps())[id];
+    if (isEnded(previous, follow) || follow?.decision === 'cancel_confirmed')
+      throw new Error(
+        'Cet essai est archivé ou sa résiliation est déjà confirmée.',
+      );
+    // Recording an observed payment remains free after a downgrade. Only the
+    // existing safety offset is carried over; this does not unlock customization.
+    return apiFetch<Subscription>(`/subscriptions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paidTrialPatch(previous)),
+    });
+  },
 
   create: async (data: InsertSubscription) => {
     const all = await subscriptions.list(true);

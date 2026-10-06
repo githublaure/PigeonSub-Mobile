@@ -22,7 +22,10 @@ import {
   Platform,
   SafeAreaView,
 } from 'react-native';
-import { z } from 'zod';
+import {
+  subscriptionFormSchema,
+  type SubscriptionFormValues,
+} from '../../lib/subscription-form-schema';
 import { Button } from '../ui/Button';
 import { RatingStars } from '../ui/RatingStars';
 import { StyledTextInput } from '../ui/StyledTextInput';
@@ -31,85 +34,10 @@ import { ColorPicker } from './ColorPicker';
 // ---------------------------------------------------------------------------
 // Schema — matches InsertSubscription with correct enum values
 // ---------------------------------------------------------------------------
-export const subscriptionFormSchema = z
-  .object({
-    name: z
-      .string({ required_error: 'Le nom est obligatoire' })
-      .min(1, 'Le nom est obligatoire'),
-    price: z
-      .string({ required_error: 'Le prix est obligatoire' })
-      .regex(
-        /^\d+([.,]\d{1,2})?$/,
-        'Saisissez un prix valide, par exemple 9,99',
-      ),
-    frequency: z.enum(['monthly', 'yearly', 'weekly', 'lifetime'], {
-      errorMap: () => ({ message: 'Choisissez une fréquence' }),
-    }),
-    category: z.string().min(1, 'Choisissez une catégorie'),
-    usageFrequency: z
-      .enum(['very_used', 'used', 'rarely_used'])
-      .default('used'),
-    categoryColor: z.string().optional(),
-    nextRenewal: z
-      .string()
-      .refine(
-        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
-      )
-      .optional()
-      .or(z.literal('')),
-    isTrial: z.boolean().default(false),
-    trialEndsAt: z
-      .string()
-      .refine(
-        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
-      )
-      .optional()
-      .or(z.literal('')),
-    useSafetyDate: z.boolean().default(false),
-    safetyDate: z
-      .string()
-      .refine(
-        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
-      )
-      .optional()
-      .or(z.literal('')),
-    purchaseDate: z
-      .string()
-      .refine(
-        (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !!parseDay(value),
-        'Saisissez une date valide au format AAAA-MM-JJ',
-      )
-      .optional()
-      .or(z.literal('')),
-    rating: z.number().min(1).max(5).nullable().optional(),
-    note: z.string().optional(),
-    isActive: z.boolean().default(true),
-    isFlagged: z.boolean().default(false),
-  })
-  .superRefine((values, ctx) => {
-    if (!values.useSafetyDate) return;
-    const safety = parseDay(values.safetyDate);
-    const renewal = parseDay(
-      values.isTrial ? values.trialEndsAt : values.nextRenewal,
-    );
-    if (
-      !safety ||
-      !renewal ||
-      safety >= renewal ||
-      values.frequency === 'lifetime'
-    )
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['safetyDate'],
-        message:
-          'Choisissez une date de sûreté avant le prochain prélèvement ou la fin de l’essai.',
-      });
-  });
-
-export type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;
+export {
+  subscriptionFormSchema,
+  type SubscriptionFormValues,
+} from '../../lib/subscription-form-schema';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -404,12 +332,47 @@ export function SubscriptionForm({
               )}
             />
 
+            {/* ── Trial ── */}
+            <SectionTitle>Période d’essai</SectionTitle>
+
+            <Controller
+              control={control}
+              name="isTrial"
+              render={({ field }) => (
+                <ToggleRow
+                  label="Abonnement en période d’essai"
+                  description="Gratuit maintenant, puis au tarif renseigné. Les essais comptent parmi vos 5 abonnements gratuits."
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+
+            {isTrial && (
+              <Controller
+                control={control}
+                name="trialEndsAt"
+                render={({ field }) => (
+                  <StyledTextInput
+                    label="Fin de l’essai (AAAA-MM-JJ, obligatoire)"
+                    placeholder="2026-12-15"
+                    keyboardType="numbers-and-punctuation"
+                    autoCorrect={false}
+                    error={errors.trialEndsAt?.message}
+                    value={field.value ?? ''}
+                    onChangeText={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
+            )}
+
             <Controller
               control={control}
               name="price"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Prix (€)"
+                  label={isTrial ? 'Tarif après l’essai (€)' : 'Prix (€)'}
                   placeholder="9.99"
                   keyboardType="decimal-pad"
                   returnKeyType="next"
@@ -471,7 +434,11 @@ export function SubscriptionForm({
               name="nextRenewal"
               render={({ field }) => (
                 <StyledTextInput
-                  label="Prochain prélèvement (AAAA-MM-JJ)"
+                  label={
+                    isTrial
+                      ? 'Premier prélèvement (facultatif si identique à la fin de l’essai)'
+                      : 'Prochain prélèvement (AAAA-MM-JJ)'
+                  }
                   placeholder="2026-12-31"
                   keyboardType="numbers-and-punctuation"
                   autoCorrect={false}
@@ -550,40 +517,6 @@ export function SubscriptionForm({
               Le préavis et les rappels se règlent sur la fiche de l’abonnement
               après son enregistrement. Vous pourrez aussi y joindre vos photos.
             </Text>
-
-            {/* ── Trial ── */}
-            <SectionTitle>Période d’essai</SectionTitle>
-
-            <Controller
-              control={control}
-              name="isTrial"
-              render={({ field }) => (
-                <ToggleRow
-                  label="Abonnement en période d’essai"
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
-
-            {isTrial && (
-              <Controller
-                control={control}
-                name="trialEndsAt"
-                render={({ field }) => (
-                  <StyledTextInput
-                    label="Fin de l’essai (AAAA-MM-JJ)"
-                    placeholder="2026-12-15"
-                    keyboardType="numbers-and-punctuation"
-                    autoCorrect={false}
-                    error={errors.trialEndsAt?.message}
-                    value={field.value ?? ''}
-                    onChangeText={field.onChange}
-                    onBlur={field.onBlur}
-                  />
-                )}
-              />
-            )}
 
             {/* ── Usage ── */}
             <SectionTitle>Utilisation</SectionTitle>

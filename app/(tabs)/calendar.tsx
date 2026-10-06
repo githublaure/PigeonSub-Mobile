@@ -13,6 +13,8 @@ import {
   deadlines,
   euro,
   isEnded,
+  firstPayment,
+  parseDay,
 } from '../../src/lib/subscription-math';
 export default function CalendarScreen() {
   const { colors: Colors } = useTheme();
@@ -38,13 +40,24 @@ export default function CalendarScreen() {
     );
     const horizon = addDays(
       last,
-      (follow[sub.id]?.noticeDays ?? 0) + (follow[sub.id]?.leadDays ?? 1),
+      Math.max(
+        366,
+        (follow[sub.id]?.noticeDays ?? 0) + (follow[sub.id]?.leadDays ?? 1),
+      ),
     );
     for (let cycle = 0; cycle < 160; cycle++) {
       const d = deadlines(sub, follow[sub.id], cursor);
       if (!d.renewal || d.renewal > horizon) break;
       for (const [date, kind] of [
-        [d.renewal, 'Prélèvement'],
+        [d.renewal, sub.isTrial ? 'Fin de l’essai' : 'Prélèvement'],
+        [
+          sub.isTrial &&
+          firstPayment(sub) &&
+          dayKey(firstPayment(sub)!) !== dayKey(parseDay(sub.trialEndsAt)!)
+            ? firstPayment(sub)
+            : null,
+          'Premier prélèvement prévu',
+        ],
         [d.safety, 'Date de sûreté'],
       ] as const) {
         if (date && date >= first && date <= last)
@@ -56,6 +69,7 @@ export default function CalendarScreen() {
             price: sub.price,
           });
       }
+      if (sub.isTrial) break;
       cursor = addDays(d.renewal, 1);
     }
   }
@@ -139,7 +153,13 @@ export default function CalendarScreen() {
                     selected === key ? Colors.primary : 'transparent',
                 }}
               >
-                <Text style={{ color: selected === key ? Colors.white : Colors.text }}>{i + 1}</Text>
+                <Text
+                  style={{
+                    color: selected === key ? Colors.white : Colors.text,
+                  }}
+                >
+                  {i + 1}
+                </Text>
                 <View
                   style={{
                     flexDirection: 'row',
@@ -148,7 +168,7 @@ export default function CalendarScreen() {
                     marginTop: 4,
                   }}
                 >
-                  {matches.some((e) => e.kind === 'Prélèvement') && (
+                  {matches.some((e) => e.kind !== 'Date de sûreté') && (
                     <View
                       style={{
                         width: 5,
@@ -174,7 +194,7 @@ export default function CalendarScreen() {
           })}
         </View>
         <Text style={ui.small}>
-          ● Violet : prélèvement · ● Orange : date de sûreté
+          ● Prélèvement ou fin d’essai · ● Orange : date de sûreté
         </Text>
       </View>
       <Text style={ui.heading}>{selected.split('-').reverse().join('/')}</Text>
@@ -191,8 +211,8 @@ export default function CalendarScreen() {
           <Text style={ui.heading}>{e.name}</Text>
           <Text style={[ui.body, e.kind === 'Date de sûreté' && ui.warning]}>
             {e.kind}
-            {e.kind === 'Prélèvement'
-              ? ` · ${euro(Number(e.price))}`
+            {e.kind !== 'Date de sûreté'
+              ? ` · ${e.kind === 'Prélèvement' ? '' : 'tarif prévu après essai : '}${euro(Number(e.price))}`
               : ' · vérifier avant le jour J'}
           </Text>
         </Pressable>

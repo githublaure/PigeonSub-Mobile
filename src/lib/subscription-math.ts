@@ -10,6 +10,7 @@ export interface FollowUp {
   leadDays?: number;
   reminderEnabled?: boolean;
   advancedReminder?: boolean;
+  cancellationUrl?: string;
   history?: { decision: Decision; at: string; effectiveOn?: string }[];
 }
 export type FollowUps = Record<string, FollowUp>;
@@ -51,6 +52,66 @@ export const shortDate = (date: Date | null) =>
   date
     ? date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
     : 'À renseigner';
+export function trialState(sub: Subscription, now = new Date()) {
+  if (!sub.isTrial) return 'none';
+  const end = parseDay(sub.trialEndsAt);
+  if (!end) return 'missing_date';
+  return dayKey(end) < dayKey(now) ? 'expired' : 'active';
+}
+export function trialLabel(sub: Subscription, now = new Date()): string {
+  const state = trialState(sub, now);
+  if (state === 'none') return '';
+  if (state === 'missing_date') return 'Essai · date de fin à renseigner';
+  if (state === 'expired') return 'Essai terminé · à confirmer';
+  const end = parseDay(sub.trialEndsAt)!;
+  const days = Math.round(
+    (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) /
+      86400000,
+  );
+  return days === 0
+    ? 'Essai gratuit · se termine aujourd’hui'
+    : `Essai gratuit · se termine dans ${days} jour${days > 1 ? 's' : ''}`;
+}
+/** nextRenewal is the first paid date during a trial; older records fall back to its end. */
+export function firstPayment(sub: Subscription): Date | null {
+  const end = parseDay(sub.trialEndsAt);
+  const payment = parseDay(sub.nextRenewal);
+  return end && payment
+    ? new Date(Math.max(end.getTime(), payment.getTime()))
+    : end;
+}
+/** A trial never becomes a confirmed paid subscription without the user's confirmation. */
+export function currentMonthlyCost(sub: Subscription): number {
+  return sub.isTrial ? 0 : monthlyCost(sub);
+}
+export function paidTrialPatch(sub: Subscription, now = new Date()) {
+  const payment = firstPayment(sub);
+  if (
+    trialState(sub, now) !== 'expired' ||
+    !payment ||
+    dayKey(payment) > dayKey(now)
+  )
+    throw new Error(
+      'Vérifiez la fin de l’essai et la date du premier prélèvement.',
+    );
+  const end = parseDay(sub.trialEndsAt)!;
+  const safety = sub.useSafetyDate ? parseDay(sub.safetyDate) : null;
+  const offset = safety
+    ? Math.round(
+        (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+          Date.UTC(safety.getFullYear(), safety.getMonth(), safety.getDate())) /
+          86400000,
+      )
+    : 0;
+  return {
+    isTrial: false,
+    nextRenewal: dayKey(payment),
+    ...(safety
+      ? { safetyDate: dayKey(addDays(payment, -Math.max(0, offset))) }
+      : {}),
+  };
+}
 export function monthlyCost(
   sub: Pick<Subscription, 'price' | 'frequency'>,
 ): number {
@@ -91,8 +152,9 @@ function cycleDate(
 }
 export function nextRenewal(sub: Subscription, now = new Date()): Date | null {
   if (!sub.isActive || sub.frequency === 'lifetime') return null;
-  const trial = sub.isTrial ? parseDay(sub.trialEndsAt) : null;
-  const anchor = trial ?? parseDay(sub.nextRenewal);
+  // A trial ends only once. Keep an overdue end visible until the user resolves it.
+  if (sub.isTrial) return parseDay(sub.trialEndsAt);
+  const anchor = parseDay(sub.nextRenewal);
   if (!anchor) return null;
   const today = dayKey(now);
   if (dayKey(anchor) >= today) return anchor;
@@ -156,13 +218,22 @@ export function overview(
   now = new Date(),
 ) {
   let monthly = 0,
+    trialMonthly = 0,
+    trialCount = 0,
+    expiredTrials = 0,
     potentialAnnual = 0,
     confirmedAnnual = 0,
     active = 0;
   for (const sub of subs) {
     const item = follow[sub.id] ?? {};
     if (!isEnded(sub, item, now)) {
-      monthly += monthlyCost(sub);
+      monthly += currentMonthlyCost(sub);
+      if (sub.isTrial) {
+        trialCount++;
+        if (trialState(sub, now) !== 'active') expiredTrials++;
+        if (item.decision !== 'cancel_confirmed')
+          trialMonthly += monthlyCost(sub);
+      }
       active++;
     }
     if (item.decision === 'cancel_requested' && sub.isActive)
@@ -173,6 +244,10 @@ export function overview(
   return {
     monthly,
     annual: monthly * 12,
+    trialMonthly,
+    afterTrialsMonthly: monthly + trialMonthly,
+    trialCount,
+    expiredTrials,
     potentialAnnual,
     confirmedAnnual,
     active,

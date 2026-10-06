@@ -70,8 +70,12 @@ export function syncReminders(): Promise<void> {
         }
         await N.scheduleNotificationAsync({
           content: {
-            title: `${item.name} : on garde ou on résilie ?`,
-            body: 'Votre date de sûreté approche. Vérifiez votre abonnement avant le prochain prélèvement.',
+            title: item.isTrial
+              ? `${item.name} : votre essai gratuit se termine`
+              : `${item.name} : on garde ou on résilie ?`,
+            body: item.isTrial
+              ? 'Vérifiez le tarif après essai et décidez avant le premier prélèvement.'
+              : 'Votre date de sûreté approche. Vérifiez votre abonnement avant le prochain prélèvement.',
             sound: true,
             data: {
               pigeonsub: true,

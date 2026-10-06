@@ -10,6 +10,7 @@ import {
   isEnded,
   canCustomizeSubscription,
 } from '../../../src/lib/subscription-math';
+import { TrialStatus } from '../../../src/components/TrialStatus';
 import { DecisionActions } from '../../../src/components/DecisionActions';
 import {
   CancellationPanel,
@@ -71,11 +72,12 @@ export default function SubscriptionScreen() {
           {sub.frequency === 'lifetime'
             ? 'Achat unique'
             : `Par ${frequencyLabels[sub.frequency] ?? sub.frequency}`}
-          {sub.isTrial ? ' · essai en cours' : ''}
+          {sub.isTrial ? ' · tarif après essai' : ''}
         </Text>
         {isEnded(sub, follow[sub.id]) && (
           <Text style={ui.small}>Terminé ou archivé</Text>
         )}
+        <TrialStatus key={sub.id} sub={sub} follow={follow[sub.id]} detail />
         <DecisionActions inDetail sub={sub} follow={follow[sub.id]} />
       </View>
       <CancellationPanel sub={sub} follow={follow[sub.id]} />

@@ -1,3 +1,5 @@
+import { useLocalSearchParams } from 'expo-router';
+import { TrialsList } from '../../src/components/TrialsList';
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +28,13 @@ export default function CouponsScreen() {
   const { colors: c } = useTheme();
   const { scope, mode } = useAuth();
   const { offers, loading, error, reload } = useSavedOffers();
+  const { view } = useLocalSearchParams<{ view?: string }>();
+  const [section, setSection] = useState(
+    view === 'trials' ? 'trials' : 'coupons',
+  );
+  useEffect(() => {
+    if (view === 'trials') setSection('trials');
+  }, [view]);
   const [filter, setFilter] = useState<Filter>('saved');
   const [draft, setDraft] = useState<OfferDraft | null>(null);
   const [editing, setEditing] = useState<string>();
@@ -89,15 +98,35 @@ export default function CouponsScreen() {
           ? editing
             ? 'Modifier l’offre'
             : 'Ajouter une offre'
-          : 'Coupons & bons plans'
+          : 'Essais & coupons'
       }
       subtitle={
         draft
-          ? 'Un code, un essai ou une offre temporaire à garder en vue.'
-          : 'Des réductions sur ce que vous gardez vraiment.'
+          ? 'Un code ou une offre temporaire à garder en vue.'
+          : section === 'trials'
+            ? 'Anticipez la fin de vos périodes gratuites.'
+            : 'Des réductions sur ce que vous gardez vraiment.'
       }
     >
-      {draft ? (
+      {!draft && (
+        <View style={ui.row}>
+          <Button
+            title="Essais gratuits"
+            variant={section === 'trials' ? 'primary' : 'secondary'}
+            onPress={() => setSection('trials')}
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Coupons"
+            variant={section === 'coupons' ? 'primary' : 'secondary'}
+            onPress={() => setSection('coupons')}
+            style={{ flex: 1 }}
+          />
+        </View>
+      )}
+      {!draft && section === 'trials' ? (
+        <TrialsList />
+      ) : draft ? (
         <>
           {(
             [

@@ -17,6 +17,7 @@ import {
   dayKey,
   deadlines,
   monthlyCost,
+  currentMonthlyCost,
   overview,
   type FollowUp,
   type FollowUps,
@@ -194,6 +195,8 @@ export async function seedDemo() {
           category: r[3],
           nextRenewal: dayKey(addDays(now, r[4])),
           usageFrequency: r[5],
+          isTrial: i === 4,
+          trialEndsAt: i === 4 ? dayKey(addDays(now, 4)) : null,
           note: 'Exemple fictif pour découvrir PigeonSub.',
           isActive: i !== 5,
         },
@@ -327,7 +330,7 @@ export async function localRequest<T>(
       };
       for (const sub of data.subscriptions.filter((s) => s.isActive)) {
         stats.categoryTotals[sub.category] =
-          (stats.categoryTotals[sub.category] ?? 0) + monthlyCost(sub);
+          (stats.categoryTotals[sub.category] ?? 0) + currentMonthlyCost(sub);
         stats.usageBreakdown[sub.usageFrequency] =
           (stats.usageBreakdown[sub.usageFrequency] ?? 0) + 1;
       }
