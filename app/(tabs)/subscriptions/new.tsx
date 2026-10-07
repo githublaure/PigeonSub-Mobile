@@ -1,3 +1,4 @@
+import { assertIconChangeAllowed, saveSubscriptionIcon, type IconDraft } from '../../../src/lib/subscription-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef } from 'react';
 import {
@@ -21,8 +22,9 @@ export default function NewSubscriptionScreen() {
   const { data, follow } = useSubscriptionData();
   const { trial } = useLocalSearchParams<{ trial?: string }>();
 
-  const handleSubmit = async (values: SubscriptionFormValues, photos: PendingPhoto[]) => {
+  const handleSubmit = async (values: SubscriptionFormValues, photos: PendingPhoto[], icon: IconDraft) => {
     if (getDataSession().scope !== scope) throw new Error('La session a changé.');
+    assertIconChangeAllowed(scope, icon);
     const payload = {
       name: values.name,
       price: values.price,
@@ -47,6 +49,8 @@ export default function NewSubscriptionScreen() {
       ? await subscriptions.update(saved.current.id, payload)
       : await subscriptions.create(payload);
     saved.current = created;
+    try { await saveSubscriptionIcon(scope, created.id, icon); }
+    catch (e) { throw new Error(`Abonnement enregistré, icône non enregistrée. ${e instanceof Error ? e.message : 'Réessayez.'} Vous pouvez réessayer ici.`); }
     await saveFormPhotos(scope, created, photos);
     router.replace(`/(tabs)/subscriptions/${created.id}`);
   };

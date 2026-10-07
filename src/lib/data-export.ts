@@ -1,3 +1,4 @@
+import { getSubscriptionIcon } from './subscription-icon-store';
 import { Platform } from 'react-native';
 import { subscriptions, settings } from './api';
 import { getDataSession, getFollowUps, getSavedOffers } from './local-data';
@@ -14,9 +15,13 @@ export async function exportMyData(includePhotos = false): Promise<string> {
     settings.get(),
   ]);
   const photos: Record<string, Awaited<ReturnType<typeof getPhotos>>> = {};
+  const icons: Record<string, string> = {};
   if (includePhotos)
-    for (const sub of rows)
+    for (const sub of rows) {
       photos[sub.id] = await getPhotos(session.scope, sub);
+      const icon = await getSubscriptionIcon(session.scope, sub.id);
+      if (icon) icons[sub.id] = icon;
+    }
   if (
     getDataSession().scope !== session.scope ||
     getDataSession().mode !== session.mode
@@ -40,7 +45,7 @@ export async function exportMyData(includePhotos = false): Promise<string> {
       offers,
       settings: preferences,
       photosIncluded: includePhotos,
-      ...(includePhotos ? { photos } : {}),
+      ...(includePhotos ? { photos, icons } : {}),
       notes:
         'Données déclaratives. Les anciennes pièces jointes par URL restent des liens. L’import automatique n’est pas disponible dans cette version.',
     },

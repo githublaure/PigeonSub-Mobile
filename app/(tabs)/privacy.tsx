@@ -60,13 +60,13 @@ export default function PrivacyScreen() {
         </Text>
         <View style={ui.row}>
           <Switch
-            accessibilityLabel="Inclure mes photos dans l’export"
+            accessibilityLabel="Inclure mes photos et icônes dans l’export"
             value={photos}
             onValueChange={setPhotos}
             disabled={busy}
           />
           <Text style={[ui.body, { flex: 1 }]}>
-            Inclure les photos enregistrées sur cet appareil
+            Inclure les photos et icônes enregistrées sur cet appareil
           </Text>
         </View>
         <Text style={ui.small}>

@@ -1,3 +1,4 @@
+import { clearSubscriptionIcons } from './subscription-icon-store';
 import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
 import { demoProofs } from './demo-proofs';
 import {
@@ -92,6 +93,7 @@ export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
 }
 export async function clearAccountFollowUps(namespace: string) {
   await clearPhotos(namespace);
+  await clearSubscriptionIcons(namespace);
   await AsyncStorage.removeItem(key('followups', namespace));
   await AsyncStorage.removeItem(key('offers', namespace));
 }
@@ -175,6 +177,7 @@ export function changeOffer(
 export async function seedDemo() {
   const now = new Date();
   await replaceDemoPhotos(demoProofs);
+  await clearSubscriptionIcons('demo');
   await AsyncStorage.setItem(
     key('offers', 'demo'),
     JSON.stringify(demoOffers(now)),

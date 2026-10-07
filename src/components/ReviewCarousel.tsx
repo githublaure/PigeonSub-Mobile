@@ -1,3 +1,4 @@
+import { SubscriptionIcon } from './ui/SubscriptionIcon';
 import React, { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,7 +32,7 @@ export function ReviewCarousel({ data, follow }: { data: Subscription[]; follow:
     <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={{ flex: 1, gap: 5 }}>
         <Text style={[ui.value, { color: c.gold }]}>{euro(Number(sub.price.replace(',', '.')))}</Text>
-        <Text style={ui.heading}>{sub.name}</Text>
+        <View style={[ui.row, { flexWrap: 'nowrap', gap: 10 }]}><SubscriptionIcon id={sub.id} name={sub.name} size={36} /><Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text></View>
         <Text style={ui.small}>{sub.isTrial ? 'Après essai' : 'Prochaine échéance'} · {shortDate(dates.renewal)} · / {frequencyLabels[sub.frequency]}</Text>
       </View>
       <Image source={require('../../assets/mascots/pigeon-calculator.png')} style={{ width: 80, height: 105 }} resizeMode="contain" accessible={false} />

@@ -1,3 +1,4 @@
+import { SubscriptionIcon } from './SubscriptionIcon';
 import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
 import { categoryLabels } from '../../lib/labels';
@@ -72,6 +73,7 @@ export function SubscriptionCard({
 
       <View style={styles.content}>
         <View style={styles.header}>
+          <SubscriptionIcon id={subscription.id} name={subscription.name} size={36} />
           <View style={styles.nameRow}>
             <Text
               style={[styles.name, archived && styles.archivedText]}
@@ -172,6 +174,7 @@ const createStyles = (Colors: Palette) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
+      gap: 10,
     },
     nameRow: {
       alignItems: 'flex-start',

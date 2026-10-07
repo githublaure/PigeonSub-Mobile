@@ -1,3 +1,4 @@
+import { SubscriptionIcon } from '../../src/components/ui/SubscriptionIcon';
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
 import { BudgetPanel } from '../../src/components/BudgetPanel';
 import { ReviewCarousel } from '../../src/components/ReviewCarousel';
@@ -186,7 +187,7 @@ export default function HomeScreen() {
                 { justifyContent: 'space-between', alignItems: 'flex-start' },
               ]}
             >
-              <Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}><SubscriptionIcon id={sub.id} name={sub.name} size={34} /><Text style={[ui.heading, { flexShrink: 1 }]}>{sub.name}</Text></View>
               <Text style={ui.pill}>
                 {sub.isTrial ? 'Après essai · ' : ''}
                 {euro(Number(sub.price.replace(',', '.')))} /{' '}
