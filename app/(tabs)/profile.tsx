@@ -1,3 +1,5 @@
+import { PremiumSettings } from '../../src/components/PremiumSettings';
+import { GuideScrollView } from '../../src/components/guide/GuideScrollView';
 import { ThemeControls } from '../../src/components/ThemeControls';
 import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
 import type { Palette } from '../../src/theme/colors';
@@ -14,7 +16,6 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -189,16 +190,8 @@ export default function ProfileScreen() {
             : 'Espace personnel'
         }
       >
+        <PremiumSettings />
         <View style={ui.card}><ThemeControls /></View>
-        <View style={ui.card}>
-          <Text style={ui.heading}>
-            {isPlus ? 'PigeonSub Plus' : 'PigeonSub Gratuit'}
-          </Text>
-          <Button
-            title="Mon offre PigeonSub"
-            onPress={() => router.push('/(tabs)/premium')}
-          />
-        </View>
         {mode === 'demo' ? (
           <View style={{ gap: 10 }}>
             <Button title="Réinitialiser les exemples de démo" variant="secondary" disabled={demoBusy} onPress={() => setResetDemo(true)} />
@@ -256,7 +249,7 @@ export default function ProfileScreen() {
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
+        <GuideScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
@@ -276,6 +269,7 @@ export default function ProfileScreen() {
             <Text style={styles.avatarEmail}>{user?.email}</Text>
           </View>
 
+          <View style={{ marginHorizontal: 24, marginTop: 16 }}><PremiumSettings /></View>
           {/* Account settings */}
           <Text style={styles.sectionLabel}>Compte</Text>
           <Card style={styles.card}>
@@ -392,7 +386,7 @@ export default function ProfileScreen() {
           </Card>
 
           <Text style={styles.version}>PigeonSub Mobile v1.0.0 🐦</Text>
-        </ScrollView>
+        </GuideScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

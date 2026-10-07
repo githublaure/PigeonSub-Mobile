@@ -1,3 +1,4 @@
+import { GuideAnchor } from './guide/GuideScrollView';
 import { PlusBadge } from './ui/PlusBadge';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
@@ -112,7 +113,7 @@ export function SafetyPanel({
     return null;
   return (
     <View style={ui.card}>
-      <View style={ui.row}><Text style={ui.heading}>Votre date de sûreté</Text>{premium && <PlusBadge />}</View>
+      <View style={ui.row}><Text style={ui.heading}>Votre date de sûreté</Text>{premium && <PlusBadge reason="safety" />}</View>
       <Text style={ui.body}>
         {sub.isTrial ? 'Fin de l’essai' : 'Prochain prélèvement'} :{' '}
         {shortDate(dates.renewal)}
@@ -166,7 +167,7 @@ export function SafetyPanel({
         <Button
           title="Personnaliser tous mes abonnements avec Plus"
           variant="secondary"
-          onPress={() => router.push('/(tabs)/premium?reason=limit')}
+          onPress={() => router.push('/(tabs)/premium?reason=safety')}
         />
       )}
       <Button
@@ -341,7 +342,17 @@ export function CancellationPanel({
         variant="secondary"
         onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)}
       />
-      <View style={ui.row}><Text style={ui.heading}>Historique</Text><PlusBadge /></View>
+      {error ? <Text style={ui.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+export function DecisionHistory({ follow = {} }: { follow?: FollowUp }) {
+  const ui = useUI();
+  const router = useRouter();
+  const { canUsePlus } = useBilling();
+  return <GuideAnchor id="subscription-history"><View style={ui.card}>
+      <View style={ui.row}><Text style={ui.heading}>Historique</Text><PlusBadge reason="history" /></View>
       {canUsePlus ? (
         <>
           {(follow.history ?? [])
@@ -367,7 +378,6 @@ export function CancellationPanel({
           onPress={() => router.push('/(tabs)/premium?reason=history')}
         />
       )}
-      {error ? <Text style={ui.error}>{error}</Text> : null}
-    </View>
-  );
+      {canUsePlus && !follow.history?.length && <Text style={ui.small}>Vos prochaines décisions apparaîtront ici.</Text>}
+    </View></GuideAnchor>;
 }

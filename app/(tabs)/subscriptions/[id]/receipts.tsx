@@ -202,7 +202,7 @@ export default function ReceiptsScreen() {
               </Pressable>
             ))}
           </View>
-          {(photos.length >= 5 || !allowed) && <PlusBadge />}
+          {(photos.length >= 5 || !allowed) && <PlusBadge reason="photos" />}
           <Button
             title="Ajouter une photo"
             disabled={busy || full || !allowed}

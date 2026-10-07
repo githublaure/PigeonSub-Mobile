@@ -1,3 +1,4 @@
+import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
 import { DatePickerField } from '../../src/components/forms/DatePickerField';
 import { useLocalSearchParams } from 'expo-router';
 import { TrialsList } from '../../src/components/TrialsList';
@@ -34,7 +35,7 @@ export default function CouponsScreen() {
     view === 'trials' ? 'trials' : 'coupons',
   );
   useEffect(() => {
-    if (view === 'trials') setSection('trials');
+    if (view === 'trials' || view === 'coupons') setSection(view);
   }, [view]);
   const [filter, setFilter] = useState<Filter>('saved');
   const [draft, setDraft] = useState<OfferDraft | null>(null);
@@ -110,7 +111,7 @@ export default function CouponsScreen() {
       }
     >
       {!draft && (
-        <View style={ui.row}>
+        <GuideAnchor id="offers-content"><View style={ui.row}>
           <Button
             title="Essais gratuits"
             variant={section === 'trials' ? 'primary' : 'secondary'}
@@ -123,7 +124,7 @@ export default function CouponsScreen() {
             onPress={() => setSection('coupons')}
             style={{ flex: 1 }}
           />
-        </View>
+        </View></GuideAnchor>
       )}
       {!draft && section === 'trials' ? (
         <TrialsList />

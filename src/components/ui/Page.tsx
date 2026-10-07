@@ -1,35 +1,38 @@
 import { useThemedStyles } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GuideScrollView } from '../guide/GuideScrollView';
+import { SafeAreaView, StyleSheet, Text, View, type StyleProp, type TextStyle } from 'react-native';
 export function Page({
   title,
   subtitle,
   children,
   headerAccessory,
+  titleStyle,
 }: {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   headerAccessory?: React.ReactNode;
+  titleStyle?: StyleProp<TextStyle>;
 }) {
   const ui = useUI();
 
   return (
     <SafeAreaView style={ui.safe}>
-      <ScrollView
+      <GuideScrollView
         contentContainerStyle={ui.page}
         keyboardShouldPersistTaps="handled"
       >
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={[ui.title, { flex: 1 }]}>{title}</Text>
+            <Text style={[ui.title, { flex: 1 }, titleStyle]}>{title}</Text>
             {headerAccessory}
           </View>
           {subtitle && <Text style={ui.body}>{subtitle}</Text>}
         </View>
         {children}
-      </ScrollView>
+      </GuideScrollView>
     </SafeAreaView>
   );
 }

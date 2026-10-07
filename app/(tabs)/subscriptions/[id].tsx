@@ -1,3 +1,4 @@
+import { GuideAnchor } from '../../../src/components/guide/GuideScrollView';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Text, View } from 'react-native';
@@ -14,6 +15,7 @@ import { TrialStatus } from '../../../src/components/TrialStatus';
 import { DecisionActions } from '../../../src/components/DecisionActions';
 import {
   CancellationPanel,
+  DecisionHistory,
   SafetyPanel,
 } from '../../../src/components/SubscriptionFollowUp';
 import { Page, useUI } from '../../../src/components/ui/Page';
@@ -81,15 +83,16 @@ export default function SubscriptionScreen() {
         <TrialStatus key={sub.id} sub={sub} follow={follow[sub.id]} detail />
         <DecisionActions inDetail sub={sub} follow={follow[sub.id]} />
       </View>
-      <SubscriptionProofPreview sub={sub} />
+      <GuideAnchor id="subscription-proofs"><SubscriptionProofPreview sub={sub} /></GuideAnchor>
       <CancellationPanel sub={sub} follow={follow[sub.id]} />
-      <SafetyPanel
+      <GuideAnchor id="subscription-safety"><SafetyPanel
         key={sub.id}
         sub={sub}
         follow={follow[sub.id]}
         editable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
         premium={!canCustomizeSubscription(sub, data, false, follow)}
-      />
+      /></GuideAnchor>
+      <DecisionHistory follow={follow[sub.id]} />
       {!!sub.note && (
         <View style={ui.card}>
           <Text style={ui.heading}>Vos notes</Text>

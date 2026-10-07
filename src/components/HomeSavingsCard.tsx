@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { euro } from '../lib/subscription-math';
 
-export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pendingNames, onDetails }: {
+export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pendingNames, onDetails, budget }: {
   monthly: number;
   potentialAnnual: number;
   confirmedAnnual: number;
   pendingNames: string[];
   onDetails: () => void;
+  budget?: React.ReactNode;
 }) {
   const { colors: c, scheme } = useTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -29,6 +30,7 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pen
         </Text>
       </View>
 
+      {budget}
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
           <Text style={[styles.title, { color: c.text }]}>Si vous résiliez</Text>

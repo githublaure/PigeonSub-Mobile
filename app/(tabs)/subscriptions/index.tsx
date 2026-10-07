@@ -1,227 +1,58 @@
-import { AddSubscriptionButton } from '../../../src/components/ui/AddSubscriptionButton';
-import { useTheme, useThemedStyles } from '../../../src/contexts/ThemeContext';
-import type { Palette } from '../../../src/theme/colors';
-import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
-import { useBilling } from '../../../src/contexts/BillingContext';
-import {
-  canAddSubscription,
-  isEnded,
-  nextRenewal,
-} from '../../../src/lib/subscription-math';
+import React, { useEffect, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { EmptyState } from '../../../src/components/ui/EmptyState';
-import { ErrorState } from '../../../src/components/ui/ErrorState';
-import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
+import { useTheme } from '../../../src/contexts/ThemeContext';
+import { useBilling } from '../../../src/contexts/BillingContext';
+import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
+import { canAddSubscription, isEnded, monthlyCost, nextRenewal } from '../../../src/lib/subscription-math';
+import { SUBSCRIPTION_VIEWS, filterSubscriptions, type SubscriptionView } from '../../../src/lib/subscription-views';
+import { AddSubscriptionButton } from '../../../src/components/ui/AddSubscriptionButton';
+import { SubscriptionCalendar } from '../../../src/components/SubscriptionCalendar';
 import { SubscriptionCard } from '../../../src/components/ui/SubscriptionCard';
-
-type SortKey = 'name' | 'price' | 'renewal';
+import { GuideAnchor } from '../../../src/components/guide/GuideScrollView';
+import { Page, useUI } from '../../../src/components/ui/Page';
+import { Button } from '../../../src/components/ui/Button';
+import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
+import { ErrorState } from '../../../src/components/ui/ErrorState';
 
 export default function SubscriptionsScreen() {
-  const { colors: Colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-
+  const { colors: c } = useTheme();
+  const ui = useUI();
   const router = useRouter();
-  const { data, follow, loading, error, reload: load } = useSubscriptionData();
+  const { data, follow, loading, error, reload } = useSubscriptionData();
   const { canUsePlus } = useBilling();
-  const refreshing = false;
+  const { view: routeView } = useLocalSearchParams<{ view?: string }>();
   const [search, setSearch] = useState('');
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [sortBy, setSortBy] = useState<SortKey>('renewal');
-
-  const add = () =>
-    router.push(
-      canAddSubscription(data, canUsePlus, follow)
-        ? '/(tabs)/subscriptions/new'
-        : '/(tabs)/premium?reason=limit',
-    );
-
-  const filtered = data
-    .filter((s) => includeArchived || !isEnded(s, follow[s.id]))
-    .filter(
-      (s) =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.category.toLowerCase().includes(search.toLowerCase()),
-    )
-    .sort((a, b) => {
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      if (sortBy === 'price') return parseFloat(b.price) - parseFloat(a.price);
-      // renewal
-      const da = nextRenewal(a)?.getTime() ?? Infinity;
-      const db = nextRenewal(b)?.getTime() ?? Infinity;
-      return da - db;
-    });
-
-  if (loading) return <LoadingScreen message="Chargement…" />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Abonnements</Text>
-        <AddSubscriptionButton onPress={add} premium={!canAddSubscription(data, false, follow)} />
+  const [view, setView] = useState<SubscriptionView>('active');
+  const [sort, setSort] = useState<'renewal' | 'name' | 'price'>('renewal');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dayIds, setDayIds] = useState<number[]>([]);
+  useEffect(() => { if (SUBSCRIPTION_VIEWS.some(v => v.id === routeView)) setView(routeView as SubscriptionView); }, [routeView]);
+  if (loading) return <LoadingScreen />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  const filtered = filterSubscriptions(data, follow, view)
+    .filter(s => !selectedDay || dayIds.includes(s.id))
+    .filter(s => `${s.name} ${s.category}`.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr')))
+    .sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'price' ? monthlyCost(b) - monthlyCost(a) : (nextRenewal(a)?.getTime() ?? Infinity) - (nextRenewal(b)?.getTime() ?? Infinity));
+  return <Page title="Abonnements" headerAccessory={<AddSubscriptionButton onPress={() => router.push(canAddSubscription(data, canUsePlus, follow) ? '/(tabs)/subscriptions/new' : '/(tabs)/premium?reason=limit')} premium={!canAddSubscription(data, false, follow)} />}>
+    <SubscriptionCalendar data={data} follow={follow} selected={selectedDay} onSelect={(day, ids) => { setSelectedDay(day); setDayIds(ids); }} />
+    <GuideAnchor id="subscription-views"><View style={{ gap: 12 }}>
+      <View style={[ui.row, { justifyContent: 'space-between' }]}><Text style={ui.label}>VUE DES ABONNEMENTS</Text><Text style={ui.small}>{filtered.length} résultat{filtered.length > 1 ? 's' : ''}</Text></View>
+      <View style={[ui.row, { gap: 6 }]} testID="subscription-view-tags">
+        {SUBSCRIPTION_VIEWS.map(option => {
+          const count = filterSubscriptions(data, follow, option.id).filter(s => !selectedDay || dayIds.includes(s.id)).length;
+          return <Pressable key={option.id} accessibilityRole="radio" accessibilityLabel={`Vue ${option.label}`} accessibilityState={{ checked: view === option.id }} aria-checked={view === option.id} onPress={() => setView(option.id)} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 16, backgroundColor: view === option.id ? c.primary : c.surface, borderWidth: 1, borderColor: view === option.id ? c.primary : c.border }}><Text style={{ color: view === option.id ? c.white : c.text, fontSize: 12, fontWeight: '600' }}>{option.label} · {count}</Text></Pressable>;
+        })}
       </View>
-
-      {/* Search */}
-      <View style={styles.searchRow}>
-        <Ionicons
-          name="search-outline"
-          size={18}
-          color={Colors.textMuted}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Rechercher…"
-          placeholderTextColor={Colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-        />
+      <View style={[ui.input, { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 0 }]}><Ionicons name="search-outline" size={19} color={c.textMuted} /><TextInput accessibilityLabel="Rechercher un abonnement" placeholder="Rechercher un abonnement…" placeholderTextColor={c.textMuted} value={search} onChangeText={setSearch} style={{ flex: 1, minHeight: 46, color: c.text, fontSize: 15 }} /></View>
+      <View style={[ui.row, { gap: 6 }]}>
+        {(['renewal', 'name', 'price'] as const).map(key => <Pressable key={key} accessibilityRole="radio" accessibilityLabel={`Trier par ${{ renewal: 'échéance', name: 'nom', price: 'coût mensuel' }[key]}`} accessibilityState={{ checked: sort === key }} aria-checked={sort === key} onPress={() => setSort(key)} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 12, backgroundColor: sort === key ? c.surfaceRaised : 'transparent' }}><Text style={{ color: sort === key ? c.primary : c.textSecondary, fontSize: 12 }}>{({ renewal: 'Échéance', name: 'Nom', price: 'Coût mensuel' })[key]}</Text></Pressable>)}
       </View>
-
-      {/* Toolbar */}
-      <View style={styles.toolbar}>
-        {(['renewal', 'name', 'price'] as SortKey[]).map((key) => (
-          <Pressable
-            key={key}
-            onPress={() => setSortBy(key)}
-            style={[styles.sortChip, sortBy === key && styles.sortChipActive]}
-          >
-            <Text
-              style={[
-                styles.sortChipText,
-                sortBy === key && styles.sortChipTextActive,
-              ]}
-            >
-              {{ renewal: 'Échéance', name: 'Nom', price: 'Prix' }[key]}
-            </Text>
-          </Pressable>
-        ))}
-        <Pressable
-          onPress={() => setIncludeArchived((v) => !v)}
-          accessibilityRole="switch"
-          accessibilityLabel="Afficher aussi les abonnements archivés"
-          accessibilityState={{ checked: includeArchived }}
-          aria-checked={includeArchived}
-          style={[styles.sortChip, includeArchived && styles.sortChipActive]}
-        >
-          <Text
-            style={[
-              styles.sortChipText,
-              includeArchived && styles.sortChipTextActive,
-            ]}
-          >
-            Archives
-          </Text>
-        </Pressable>
-      </View>
-
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <SubscriptionCard
-            subscription={item}
-            archived={isEnded(item, follow[item.id])}
-            onPress={() => router.push(`/(tabs)/subscriptions/${item.id}`)}
-          />
-        )}
-        contentContainerStyle={[
-          styles.list,
-          filtered.length === 0 && styles.listEmpty,
-        ]}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        refreshing={refreshing}
-        onRefresh={load}
-        ListEmptyComponent={
-          <EmptyState
-            imageSource={require('../../../assets/mascots/pigeon-money-bag.png')}
-            title="Aucun abonnement"
-            description={
-              search
-                ? 'Essayez une autre recherche.'
-                : 'Ajoutez votre premier abonnement pour voir quand agir.'
-            }
-          />
-        }
-      />
-    </SafeAreaView>
-  );
+    </View></GuideAnchor>
+    <View style={{ gap: 10 }} testID="subscription-results">
+      {filtered.map(sub => <SubscriptionCard key={sub.id} subscription={sub} archived={isEnded(sub, follow[sub.id])} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} />)}
+      {!filtered.length && <View style={ui.card}><Text style={ui.heading}>Aucun abonnement dans cette vue</Text><Text style={ui.body}>Changez de vue, de date ou de recherche.</Text><Button title="Réinitialiser les filtres" variant="secondary" onPress={() => { setView('active'); setSelectedDay(null); setSearch(''); }} /></View>}
+    </View>
+  </Page>;
 }
-
-const createStyles = (Colors: Palette) =>
-  StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 16,
-      paddingBottom: 12,
-    },
-    title: { color: Colors.text, fontSize: 28, fontWeight: '800' },
-    addBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: Colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    searchRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: Colors.surface,
-      marginHorizontal: 24,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: Colors.border,
-      paddingHorizontal: 12,
-      marginBottom: 12,
-      height: 44,
-    },
-    searchIcon: { marginRight: 8 },
-    searchInput: { flex: 1, color: Colors.text, fontSize: 15 },
-    toolbar: {
-      flexDirection: 'row',
-      paddingHorizontal: 24,
-      gap: 8,
-      marginBottom: 16,
-      flexWrap: 'wrap',
-    },
-    sortChip: {
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-      borderRadius: 20,
-      backgroundColor: Colors.surface,
-      borderWidth: 1,
-      borderColor: Colors.border,
-      minHeight: 34,
-    },
-    sortChipActive: {
-      backgroundColor: Colors.primary,
-      borderColor: Colors.primary,
-    },
-    sortChipText: {
-      color: Colors.textSecondary,
-      fontSize: 13,
-      fontWeight: '500',
-    },
-    sortChipTextActive: { color: Colors.white },
-    list: { paddingHorizontal: 24, paddingBottom: 32 },
-    listEmpty: { flexGrow: 1 },
-  });

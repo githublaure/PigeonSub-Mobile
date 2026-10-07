@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { UsageBadge } from './UsageBadge';
 import { Subscription } from '../../lib/api';
 
 interface SubscriptionCardProps {
@@ -29,8 +30,8 @@ function formatPrice(price: string, frequency: string): string {
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const date = new Date(dateStr), today = new Date();
+  return Math.round((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
 }
 
 export function SubscriptionCard({
@@ -68,7 +69,7 @@ export function SubscriptionCard({
           <View style={styles.nameRow}>
             <Text
               style={[styles.name, archived && styles.archivedText]}
-              numberOfLines={1}
+              numberOfLines={2}
             >
               {subscription.name}
             </Text>
@@ -96,6 +97,7 @@ export function SubscriptionCard({
         {subscription.isTrial && !archived && (
           <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
         )}
+        {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
         <View style={styles.footer}>
           <Text style={[styles.category, archived && styles.archivedText]}>
             {categoryLabels[subscription.category] ?? subscription.category}
@@ -165,8 +167,7 @@ const createStyles = (Colors: Palette) =>
       alignItems: 'flex-start',
     },
     nameRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 6,
       flex: 1,
       marginRight: 8,
@@ -175,9 +176,11 @@ const createStyles = (Colors: Palette) =>
       color: Colors.text,
       fontSize: 16,
       fontWeight: '600',
-      flex: 1,
+      flexShrink: 1,
     },
     price: {
+      maxWidth: '42%',
+      textAlign: 'right',
       color: Colors.text,
       fontSize: 15,
       fontWeight: '700',
