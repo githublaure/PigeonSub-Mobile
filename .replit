@@ -24,7 +24,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm start -- --go --port 8081"
+args = "EXPO_PACKAGER_PROXY_URL=\"https://${REPLIT_EXPO_DEV_DOMAIN:?REPLIT_EXPO_DEV_DOMAIN manquant}\" npm start -- --go --port 8081"
 
 [workflows.workflow.metadata]
 outputType = "console"

@@ -30,11 +30,13 @@ Then scan the QR code with Expo Go (iOS/Android) or run on a simulator.
 
 ## Replit preview
 
-**Run** starts the native Expo server (8081), backend (8082), and web preview
-(8083). Open the link in **Start Web Preview**, on external port **3001**, to
-view the app in a browser. `npm run preview:web` also starts that preview from
-a Shell. See [blank preview troubleshooting](docs/PREVIEW-REPLIT-20261007.md)
-for retrieval, validation and the distinction from Replit's iPhone simulator.
+**Run** starts Expo directly in Expo Go mode (8081) and the backend (8082).
+The native workflow explicitly sets the HTTPS proxy from
+`REPLIT_EXPO_DEV_DOMAIN`; it stops with a clear message if that domain is absent.
+It no longer invokes `scripts/start-preview.cjs`, so it does not force headless
+mode or start the browser preview. The separate web workflow and external port
+3001 have been removed. See [native preview setup](docs/PREVIEW-REPLIT-20261007.md)
+for retrieval, the QR/Preview checks and the separate TestFlight verification.
 
 ## Mobile iOS build (separate from backend publishing)
 
@@ -118,6 +120,6 @@ Backend publishing remains unchanged: `.replit` installs with
 does not install Expo. The backend lockfile and hosting configuration are
 separate from the mobile build.
 
-The existing Start Expo / Start Backend workflows and `scripts/post-merge.sh`
-remain unchanged. Do not replace the Expo development proxy configuration with
-mobile archive/build commands.
+Start Expo and Start Backend remain the default development workflows;
+`scripts/post-merge.sh` is preserved. Do not replace the Expo development proxy
+configuration with mobile archive/build commands.
