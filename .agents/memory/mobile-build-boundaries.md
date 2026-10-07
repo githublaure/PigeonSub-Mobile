@@ -16,3 +16,14 @@ cloud root cause. Do not interpret backend-only publishing as the mobile build
 pipeline, or assume that adding a package script makes Launch run it. Successful
 Linux prebuild/export is not proof of macOS compilation, signing or acceptance;
 obtain user approval before a cloud publishing retry.
+
+When investigating unavailable App Store publishing, repair only confirmed
+registration, directory, or command mismatches and preserve the existing app
+identity.
+
+**Why:** The user explicitly required this scope; creating a replacement mobile
+app is not equivalent to repairing access to the existing publishing flow.
+
+**How to apply:** Check the live artifact registry separately from files on disk.
+Do not invent a new Expo/EAS project or change bundle identifiers to make
+publishing appear. Seek approval before a structural migration.
