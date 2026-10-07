@@ -27,6 +27,14 @@ for free/Plus limits, backups, validation and the exact publishing boundary.
 
 Then scan the QR code with Expo Go (iOS/Android) or run on a simulator.
 
+## Replit preview
+
+**Run** starts the native Expo server (8081), backend (8082), and web preview
+(8083). Open the link in **Start Web Preview**, on external port **3001**, to
+view the app in a browser. `npm run preview:web` also starts that preview from
+a Shell. See [blank preview troubleshooting](docs/PREVIEW-REPLIT-20261007.md)
+for retrieval, validation and the distinction from Replit's iPhone simulator.
+
 ## Mobile iOS build (separate from backend publishing)
 
 Use Node 22.13+ or Node 24 and npm. The mobile project is the repository root
