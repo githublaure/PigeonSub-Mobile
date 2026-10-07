@@ -27,6 +27,7 @@ import {
 export type SessionMode = 'none' | 'guest' | 'demo' | 'account';
 let scope = 'none';
 let mode: SessionMode = 'none';
+let guidePreview = false;
 const listeners = new Set<() => void>();
 export const dataChanged = () => listeners.forEach((fn) => fn());
 export function onDataChanged(fn: () => void) {
@@ -35,12 +36,14 @@ export function onDataChanged(fn: () => void) {
     listeners.delete(fn);
   };
 }
-export function setDataSession(nextMode: SessionMode, nextScope: string) {
+export function setDataSession(nextMode: SessionMode, nextScope: string, preview = false) {
+  guidePreview = preview;
   mode = nextMode;
   scope = nextScope;
   dataChanged();
 }
 export const getDataSession = () => ({ mode, scope });
+export const isGuidePreview = () => guidePreview;
 export const isLocalSession = () => mode === 'guest' || mode === 'demo';
 const key = (part: string, namespace = scope) =>
   `pigeonsub.v2.${namespace}.${part}`;

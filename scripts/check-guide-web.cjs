@@ -4,7 +4,7 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const repo = require('node:path').resolve(__dirname, '..');
 const origin = 'http://127.0.0.1:8108';
-const server = spawn(process.execPath, ['node_modules/expo/bin/cli', 'start', '--web', '--port', '8108'], { cwd: repo, env: { ...process.env, CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn(process.execPath, ['node_modules/expo/bin/cli', 'start', '--web', '--port', '8108'], { cwd: repo, env: { ...process.env, CI: '1', EXPO_PUBLIC_API_BASE_URL: origin + '/api' }, stdio: ['ignore', 'pipe', 'pipe'] });
 let logs = '', browser, page;
 for (const stream of [server.stdout, server.stderr]) stream.on('data', d => logs += d);
 const errors = [];
@@ -13,6 +13,7 @@ async function open(path) {
   await page.getByTestId('feather-reveal-overlay').waitFor({ state: 'hidden', timeout: 90000 });
 }
 async function snap(name, target) {
+  if (process.env.PIGEONSUB_SKIP_SCREENSHOTS) return;
   if (target) await target.scrollIntoViewIfNeeded();
   await page.waitForTimeout(350);
   await page.screenshot({ path: repo + '/docs/previews/guide-' + name + '.png' });
@@ -34,9 +35,11 @@ async function next(n) { await page.getByTestId('product-guide').getByRole('butt
   await step(1);
   await snap('first-step');
   await next(2); await next(3); await next(4); await next(5);
-  await page.getByTestId('guide-anchor-form-photos').waitFor();
+  await page.getByTestId('subscription-proof-preview').waitFor();
+  assert(!page.url().endsWith('/new'), 'tour uses existing demo proofs');
+  assert.equal(await page.evaluate(() => localStorage.getItem('pigeonsub.sessionMode')), 'guest');
   await next(6);
-  await page.getByTestId('guide-anchor-form-safety').waitFor();
+  await page.getByTestId('guide-anchor-subscription-safety').waitFor();
   await page.getByRole('button', { name: 'Terminer le guide plus tard', exact: true }).click();
   await open('/');
   await page.getByRole('button', { name: 'Reprendre le guide', exact: true }).click();
@@ -46,7 +49,7 @@ async function next(n) { await page.getByTestId('product-guide').getByRole('butt
     if (i === 8) await page.getByRole('button', { name: 'Ajouter un essai gratuit', exact: true }).waitFor();
     if (i === 9) await page.getByRole('button', { name: '+ Ajouter une offre', exact: true }).waitFor();
     if (i === 11) {
-      await page.getByTestId('product-guide').getByRole('button', { name: 'Découvrir cette option Premium', exact: true }).click();
+      await page.getByTestId('product-guide').getByRole('button', { name: 'Découvrir Premium, option disponible en démo', exact: true }).click();
       await page.getByTestId('premium-feature-context').waitFor();
       assert((await page.getByTestId('premium-feature-context').innerText()).includes('vue combinée'));
       await page.getByRole('button', { name: 'Reprendre le guide', exact: true }).click();
@@ -54,9 +57,11 @@ async function next(n) { await page.getByTestId('product-guide').getByRole('butt
     }
   }
   await page.getByTestId('product-guide').getByRole('button', { name: 'Terminer', exact: true }).click();
-  assert.equal(await page.getByTestId('product-guide').count(), 0);
+  await page.getByTestId('product-guide').waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Explorer la démo', exact: true }).waitFor();
   const guidedGuest = await page.evaluate(() => JSON.parse(localStorage.getItem('pigeonsub.v2.guest.data')));
-  assert(!guidedGuest || guidedGuest.subscriptions.length === 0, 'tour never creates a subscription');
+  assert(!guidedGuest || guidedGuest.subscriptions.length === 0, 'tour never creates a personal subscription');
+  assert.equal(await page.evaluate(() => localStorage.getItem('pigeonsub.sessionMode')), 'guest');
   await open('/profile');
   assert.equal(await page.getByTestId('guide-welcome').count(), 0, 'completed tour stays completed');
   await page.getByRole('button', { name: 'Explorer la démo', exact: true }).click();
@@ -157,6 +162,66 @@ async function next(n) { await page.getByTestId('product-guide').getByRole('butt
   await page.getByRole('button', { name: 'Plus de photos avec Plus', exact: true }).click();
   await page.getByTestId('premium-feature-context').waitFor();
   assert((await page.getByTestId('premium-feature-context').innerText()).includes('5 photos'));
+  // Replaying from a filled personal space must return to exactly that space.
+  const personalSnapshot = () => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k.includes('.guest.')).sort().map(k => [k, localStorage.getItem(k)])));
+  const beforePersonal = await personalSnapshot();
+  await open('/profile');
+  await page.getByRole('button', { name: 'Revoir le guide pas à pas', exact: true }).click();
+  await step(1);
+  await next(2);
+  await page.getByRole('button', { name: 'Modifier le budget', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Budget mensuel en euros', exact: true }).fill('999');
+  await page.getByRole('button', { name: 'Enregistrer le budget', exact: true }).click();
+  await page.getByRole('button', { name: 'Terminer le guide plus tard', exact: true }).click();
+  await page.getByTestId('product-guide').waitFor({ state: 'hidden' });
+  assert.deepEqual(await personalSnapshot(), beforePersonal, 'tour changes stay in demo');
+
+  // A locally mocked signed-in account verifies session restoration without
+  // contacting an actual backend or using any real credentials.
+  const accountRequests = [];
+  const accountSub = { ...seed.subscriptions[0], id: 77, userId: 42, name: 'Abonnement personnel' };
+  await page.route(origin + '/api/**', route => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname.replace('/api', '');
+    accountRequests.push({ method: req.method(), path });
+    let json;
+    if (path === '/auth/me') json = { id: 42, name: 'Compte test', email: 'test@example.invalid' };
+    else if (path === '/subscriptions') json = [accountSub];
+    else if (path === '/settings') json = { budgetCap: '75', monthlyOverrides: null };
+    else if (path.startsWith('/subscriptions/')) json = accountSub;
+    else throw new Error('Unexpected mocked account request: ' + path);
+    return route.fulfill({ json });
+  });
+  await page.evaluate(() => {
+    sessionStorage.setItem('pigeonsub_jwt', 'guide-local-test-token');
+    localStorage.setItem('pigeonsub.sessionMode', 'account');
+    localStorage.setItem('pigeonsub.lastAccountScope', 'account:42');
+    localStorage.setItem('pigeonsub.guide.v1', JSON.stringify({ status: 'done', index: 12 }));
+  });
+  await open('/profile');
+  await page.getByText('Compte test', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Revoir le guide pas à pas', exact: true }).click();
+  await step(1);
+  await page.getByText('Bonjour Camille', { exact: true }).waitFor();
+  const requestCount = accountRequests.length;
+  for (let i = 2; i <= 13; i++) await next(i);
+  assert.equal(accountRequests.length, requestCount, 'tour only reads demo data');
+  await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+  await page.getByText('Compte test', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('pigeonsub_jwt')), 'guide-local-test-token');
+  assert.equal(await page.evaluate(() => localStorage.getItem('pigeonsub.sessionMode')), 'account');
+  assert(accountRequests.every(r => r.method === 'GET'), 'tour never writes to personal account');
+
+  // Reload mid-tour returns to the original account; resume opens demo again.
+  await page.getByRole('button', { name: 'Revoir le guide pas à pas', exact: true }).click();
+  await step(1); await next(2);
+  await open('/');
+  await page.getByText('Bonjour Compte test', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Reprendre le guide', exact: true }).click();
+  await step(2);
+  await page.getByText('Bonjour Camille', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Terminer le guide plus tard', exact: true }).click();
+  await page.getByText('Bonjour Compte test', { exact: true }).waitFor();
   assert.equal(errors.length, 0, errors.join('\n'));
-  console.log('PASS: first-run guide, empty-account form, pause/resume, 13-step replay with demo proofs/history, feather/paywall/resume, budget persistence, carousel, views, charts and free limits.');
+  console.log('PASS: first-run guide on populated demo, unchanged guest session, pause/resume, 13-step replay with demo proofs/history, feather/paywall/resume, budget persistence, carousel, views, charts, free limits, filled guest isolation and signed-in account restoration.');
 })().catch(async e => { console.error(e); if (page) { console.error(await page.locator('body').innerText().catch(() => '')); await page.screenshot({ path: '/tmp/guide-stats-failure.png' }).catch(() => {}); } console.error(logs.slice(-2500)); process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); server.kill(); fs.writeFileSync('/tmp/guide-stats-metro.log', logs); });
