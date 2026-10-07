@@ -1,5 +1,6 @@
 # PigeonSub Mobile
 
+Latest UI update: [Home, shared categories and Alerts](docs/ACCUEIL-CATEGORIES-ALERTES-20261007.md).
 Standalone Expo (React Native) app for PigeonSub.
 
 Latest release: [free trials, current/future costs, free export and Replit retrieval](docs/ESSAIS-GRATUITS-20261006.md). This guide supersedes earlier quota/cost descriptions.

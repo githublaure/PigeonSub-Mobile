@@ -1,7 +1,9 @@
+import { normalizeCategory } from './categories';
 import { addDays, dayKey, parseDay } from './subscription-math';
 
 export interface SavedOffer {
   id: string;
+  category?: string;
   provider: string;
   title: string;
   code: string;
@@ -13,6 +15,7 @@ export interface SavedOffer {
 }
 export type OfferDraft = Omit<SavedOffer, 'id' | 'used' | 'demo'>;
 export const emptyOffer = (): OfferDraft => ({
+  category: 'other',
   provider: '',
   title: '',
   code: '',
@@ -27,6 +30,7 @@ export function validateOffer(draft: OfferDraft): OfferDraft {
       String(draft[key as keyof OfferDraft] ?? '').trim(),
     ]),
   ) as unknown as OfferDraft;
+  next.category = normalizeCategory(next.category);
   if (!next.provider || !next.title)
     throw new Error('Indiquez le service et la description de l’offre.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(next.expiresOn) || !parseDay(next.expiresOn))
@@ -82,6 +86,6 @@ export function demoOffers(now = new Date()): SavedOffer[] {
   ] as const;
   return examples.map(([id, provider, title, code, days, used, notes]) => ({
     id, provider, title, code, url: '', expiresOn: dayKey(addDays(now, days)),
-    notes, used, demo: true,
+    notes, used, demo: true, category: ({ 'demo-voice': 'productivity', 'demo-design': 'design', 'demo-sport': 'health', 'demo-books': 'entertainment', 'demo-cloud': 'cloud', 'demo-learn': 'education', 'demo-used': 'music', 'demo-expired': 'news' } as Record<string, string>)[id],
   }));
 }

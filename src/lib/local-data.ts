@@ -1,3 +1,4 @@
+import { validCategoryIcons, type Category, type CategoryIconName, type CategoryIconPreferences } from './categories';
 import roadmapFeatures from '../../shared/roadmap.json';
 import { clearSubscriptionIcons } from './subscription-icon-store';
 import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
@@ -67,6 +68,17 @@ function transaction<T>(fn: () => Promise<T>): Promise<T> {
   queue = result.catch(() => undefined);
   return result;
 }
+export const getCategoryIcons = async (namespace = scope) => validCategoryIcons(await readJSON<CategoryIconPreferences>(key('category-icons', namespace), {}));
+export function saveCategoryIcon(category: Category, icon: CategoryIconName | null): Promise<void> {
+  const namespace = scope;
+  if (namespace === 'none') return Promise.reject(new Error('Ouvrez votre espace avant de modifier une icône.'));
+  return transaction(async () => {
+    const all = await getCategoryIcons(namespace);
+    if (icon === null) delete all[category]; else all[category] = icon;
+    await AsyncStorage.setItem(key('category-icons', namespace), JSON.stringify(validCategoryIcons(all)));
+    if (namespace === scope) dataChanged();
+  });
+}
 export const getFollowUps = (namespace = scope) =>
   readJSON<FollowUps>(key('followups', namespace), {});
 export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
@@ -95,6 +107,7 @@ export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
 export async function clearAccountFollowUps(namespace: string) {
   await clearPhotos(namespace);
   await clearSubscriptionIcons(namespace);
+  await AsyncStorage.removeItem(key('category-icons', namespace));
   await AsyncStorage.removeItem(key('followups', namespace));
   await AsyncStorage.removeItem(key('offers', namespace));
   await AsyncStorage.removeItem(key('roadmap', namespace));
@@ -180,6 +193,7 @@ export async function seedDemo() {
   const now = new Date();
   await replaceDemoPhotos(demoProofs);
   await clearSubscriptionIcons('demo');
+  await AsyncStorage.removeItem(key('category-icons', 'demo'));
   await AsyncStorage.removeItem(key('roadmap', 'demo'));
   await AsyncStorage.setItem(
     key('offers', 'demo'),

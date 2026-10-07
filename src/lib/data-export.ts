@@ -1,19 +1,20 @@
 import { getSubscriptionIcon } from './subscription-icon-store';
 import { Platform } from 'react-native';
 import { subscriptions, settings, roadmapVotes } from './api';
-import { getDataSession, getFollowUps, getSavedOffers } from './local-data';
+import { getDataSession, getFollowUps, getSavedOffers, getCategoryIcons } from './local-data';
 import { getPhotos } from './subscription-photos';
 
 export async function exportMyData(includePhotos = false): Promise<string> {
   const session = getDataSession();
   if (session.mode === 'none')
     throw new Error('Ouvrez votre espace avant d’exporter.');
-  const [rows, follow, offers, preferences, votes] = await Promise.all([
+  const [rows, follow, offers, preferences, votes, categoryIcons] = await Promise.all([
     subscriptions.list(true),
     getFollowUps(session.scope),
     getSavedOffers(session.scope),
     settings.get(),
     roadmapVotes.get(),
+    getCategoryIcons(session.scope),
   ]);
   const photos: Record<string, Awaited<ReturnType<typeof getPhotos>>> = {};
   const icons: Record<string, string> = {};
@@ -46,6 +47,7 @@ export async function exportMyData(includePhotos = false): Promise<string> {
       offers,
       roadmapVotes: votes,
       settings: preferences,
+      categoryIcons,
       photosIncluded: includePhotos,
       ...(includePhotos ? { photos, icons } : {}),
       notes:

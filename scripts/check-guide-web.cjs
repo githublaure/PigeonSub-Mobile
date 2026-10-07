@@ -78,7 +78,7 @@ async function next(n) { await page.getByTestId('product-guide').getByRole('butt
   await snap('review-carousel', carousel);
   await page.getByRole('button', { name: 'Me le rappeler', exact: true }).click();
   await page.getByTestId('guide-anchor-subscription-safety').waitFor();
-  await page.waitForTimeout(450);
+  await page.waitForFunction(() => { const box = document.querySelector('[data-testid="guide-anchor-subscription-safety"]')?.getBoundingClientRect(); return box && box.y >= 0 && box.y < 400; });
   const safetyBox = await page.getByTestId('guide-anchor-subscription-safety').boundingBox();
   assert(safetyBox.y >= 0 && safetyBox.y < 400, 'reminder opens at safety settings');
   await open('/subscriptions');

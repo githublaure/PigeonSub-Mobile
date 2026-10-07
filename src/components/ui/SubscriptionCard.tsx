@@ -1,7 +1,7 @@
 import { SubscriptionIcon } from './SubscriptionIcon';
 import { useTheme, useThemedStyles } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
-import { categoryLabels } from '../../lib/labels';
+import { CategoryBadge } from '../CategoryFilters';
 import {
   euro,
   frequencyLabels,
@@ -108,9 +108,7 @@ export function SubscriptionCard({
         {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
         {showSafety && !archived && <SafetyDateBadge date={safetyDate} />}
         <View style={styles.footer}>
-          <Text style={[styles.category, archived && styles.archivedText]}>
-            {categoryLabels[subscription.category] ?? subscription.category}
-          </Text>
+          <CategoryBadge category={subscription.category} />
           {archived && (
             <View style={styles.archivedBadge}>
               <Ionicons

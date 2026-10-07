@@ -1,5 +1,8 @@
 import { PlusBadge } from './ui/PlusBadge';
-import React from 'react';
+import React, { useState } from 'react';
+import { CategoryBadge, CategoryFilters } from './CategoryFilters';
+import { normalizeCategory } from '../lib/categories';
+import { SubscriptionIcon } from './ui/SubscriptionIcon';
 import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSubscriptionData } from '../hooks/useSubscriptionData';
@@ -21,6 +24,7 @@ export function TrialsList() {
   const router = useRouter();
   const { canUsePlus } = useBilling();
   const { data, follow, loading, error, reload } = useSubscriptionData();
+  const [category, setCategory] = useState('all');
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const trials = data
@@ -40,15 +44,18 @@ export function TrialsList() {
           )
         }
       />
+      <CategoryFilters value={category} onChange={setCategory} categories={trials.map(s => s.category)} />
+      {!!trials.length && !trials.some(s => category === 'all' || normalizeCategory(s.category) === category) && <Text style={ui.body}>Aucun essai dans cette catégorie.</Text>}
       {!trials.length && (
         <Text style={ui.body}>
           Aucun essai à suivre. Ajoutez sa date de fin et le tarif prévu après
           la période gratuite.
         </Text>
       )}
-      {trials.map((sub) => (
+      {trials.filter(s => category === 'all' || normalizeCategory(s.category) === category).map((sub) => (
         <View key={sub.id} style={ui.card}>
-          <Text style={ui.heading}>{sub.name}</Text>
+          <View style={ui.row}><SubscriptionIcon id={sub.id} name={sub.name} /><Text style={[ui.heading, { flex: 1 }]}>{sub.name}</Text></View>
+          <CategoryBadge category={sub.category} />
           <TrialStatus sub={sub} follow={follow[sub.id]} />
           <Text style={ui.small}>
             Date de sûreté : {shortDate(deadlines(sub, follow[sub.id]).safety)}
