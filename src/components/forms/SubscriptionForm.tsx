@@ -32,6 +32,8 @@ import { StyledTextInput } from '../ui/StyledTextInput';
 import { ColorPicker } from './ColorPicker';
 import { DatePickerField } from './DatePickerField';
 import { FormPhotos } from './FormPhotos';
+import { FormIcon } from './FormIcon';
+import type { IconDraft } from '../../lib/subscription-icons';
 import { PlusBadge } from '../ui/PlusBadge';
 import type { Subscription } from '../../lib/api';
 import type { PendingPhoto } from '../../lib/subscription-photos';
@@ -228,7 +230,7 @@ function ToggleRow({
 interface SubscriptionFormProps {
   title: string;
   defaultValues?: Partial<SubscriptionFormValues>;
-  onSubmit: (values: SubscriptionFormValues, photos: PendingPhoto[]) => Promise<void>;
+  onSubmit: (values: SubscriptionFormValues, photos: PendingPhoto[], icon: IconDraft) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
   safetyEditable?: boolean;
@@ -254,6 +256,8 @@ export function SubscriptionForm({
   const [apiError, setApiError] = useState('');
   const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [iconBusy, setIconBusy] = useState(false);
+  const [icon, setIcon] = useState<IconDraft>(undefined);
 
   const {
     control,
@@ -314,11 +318,15 @@ export function SubscriptionForm({
   const handleSubmitWrapped = handleSubmit(async (values) => {
     setApiError('');
     try {
-      if (photoBusy) return;
+      if (photoBusy || iconBusy) return;
       if (!values.isActive && photos.length)
         throw new Error('Retirez les nouvelles photos avant d’archiver cet abonnement.');
-      await onSubmit({ ...values, price: values.price.replace(',', '.') }, photos);
+      await onSubmit({ ...values, price: values.price.replace(',', '.') }, photos, icon);
     } catch (e: unknown) {
+      if (e instanceof Error && e.message.startsWith('PLUS_ICON:')) {
+        router.push('/(tabs)/premium?reason=icons');
+        return;
+      }
       if (e instanceof Error && e.message.startsWith('PLUS_LIMIT:')) {
         router.push('/(tabs)/premium?reason=limit');
         return;
@@ -370,6 +378,8 @@ export function SubscriptionForm({
                 />
               )}
             />
+
+            <FormIcon id={photoSub?.id} name={watch('name')} draft={icon} onChange={setIcon} disabled={isSubmitting || photoBusy} onBusy={setIconBusy} />
 
             {/* ── Trial ── */}
             <SectionTitle>Période d’essai</SectionTitle>
@@ -550,7 +560,7 @@ export function SubscriptionForm({
               onChange={setPhotos}
               allowed={safetyEditable && watch('isActive')}
               premiumSlot={premiumCustomization}
-              disabled={isSubmitting}
+              disabled={isSubmitting || iconBusy}
               onBusy={setPhotoBusy}
             /></GuideAnchor>
 
@@ -650,7 +660,7 @@ export function SubscriptionForm({
               title={submitLabel}
               onPress={handleSubmitWrapped}
               loading={isSubmitting}
-              disabled={photoBusy}
+              disabled={photoBusy || iconBusy}
               fullWidth
               size="lg"
             />

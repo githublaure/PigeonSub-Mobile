@@ -107,7 +107,7 @@ export default function PremiumScreen() {
         <View style={ui.row}><PlusBadge /><Text style={ui.heading}>Avec PigeonSub Plus</Text></View>
         <Text style={ui.body}>
           ✓ Abonnements et essais suivis illimités{'\n'}✓ Dates de sûreté pour
-          tous vos abonnements{'\n'}✓ Davantage de photos par abonnement{'\n'}✓
+          tous vos abonnements{'\n'}✓ Icônes personnalisées avec vos photos{'\n'}✓ Davantage de photos par abonnement{'\n'}✓
           Historique de vos décisions et résiliations{'\n'}✓ Simulations selon
           vos notes, votre utilisation et une vue combinée
         </Text>

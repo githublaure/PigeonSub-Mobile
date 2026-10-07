@@ -1,3 +1,4 @@
+import { clearSubscriptionIcons } from './subscription-icon-store';
 import { clearPhotos } from './subscription-photos';
 import { Platform } from 'react-native';
 import {
@@ -366,6 +367,7 @@ export const subscriptions = {
     const scope = getDataSession().scope;
     await apiFetch<void>(`/subscriptions/${id}`, { method: 'DELETE' });
     await clearPhotos(scope, id);
+    await clearSubscriptionIcons(scope, id);
   },
 
   upcoming: (days: number) =>

@@ -1,3 +1,4 @@
+import { assertIconChangeAllowed, saveSubscriptionIcon, type IconDraft } from '../../../../src/lib/subscription-icons';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { saveFormPhotos } from '../../../../src/lib/form-photos';
 import type { PendingPhoto } from '../../../../src/lib/subscription-photos';
@@ -21,6 +22,7 @@ export default function EditSubscriptionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { scope } = useAuth();
+  const close = () => router.canGoBack() ? router.back() : router.replace(`/(tabs)/subscriptions/${id}`);
   const { canUsePlus } = useBilling();
   const { data, follow } = useSubscriptionData();
   const [sub, setSub] = useState<Subscription | null>(null);
@@ -39,8 +41,9 @@ export default function EditSubscriptionScreen() {
     load();
   }, [load]);
 
-  const handleSubmit = async (values: SubscriptionFormValues, photos: PendingPhoto[]) => {
+  const handleSubmit = async (values: SubscriptionFormValues, photos: PendingPhoto[], icon: IconDraft) => {
     if (getDataSession().scope !== scope) throw new Error('La session a changé.');
+    assertIconChangeAllowed(scope, icon);
     const updated = await subscriptions.update(Number(id), {
       name: values.name,
       price: values.price,
@@ -61,8 +64,10 @@ export default function EditSubscriptionScreen() {
       isActive: values.isActive,
       isFlagged: values.isFlagged,
     });
+    try { await saveSubscriptionIcon(scope, updated.id, icon); }
+    catch (e) { throw new Error(`Abonnement enregistré, icône non enregistrée. ${e instanceof Error ? e.message : 'Réessayez.'} Vous pouvez réessayer ici.`); }
     await saveFormPhotos(scope, updated, photos);
-    router.back();
+    close();
   };
 
   if (loadError) return <ErrorState message={loadError} onRetry={load} />;
@@ -99,7 +104,7 @@ export default function EditSubscriptionScreen() {
       premiumCustomization={!canCustomizeSubscription(sub, data, false, follow)}
       safetyEditable={canCustomizeSubscription(sub, data, canUsePlus, follow)}
       onSubmit={handleSubmit}
-      onCancel={() => router.back()}
+      onCancel={close}
     />
   );
 }

@@ -1,3 +1,4 @@
+import { SubscriptionIcon } from '../../../src/components/ui/SubscriptionIcon';
 import { GuideAnchor } from '../../../src/components/guide/GuideScrollView';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
@@ -66,6 +67,7 @@ export default function SubscriptionScreen() {
   return (
     <Page
       title={sub.name}
+      headerAccessory={<SubscriptionIcon id={sub.id} name={sub.name} size={54} />}
       subtitle={`${categoryLabels[sub.category] ?? sub.category} · ${usageLabels[sub.usageFrequency] ?? sub.usageFrequency}`}
     >
       <Button title="Retour" variant="ghost" onPress={() => router.back()} />

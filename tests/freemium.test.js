@@ -1146,3 +1146,46 @@ test('safety sorting prioritizes long notice periods and overdue trials without 
   for (const id of [5, 6, 7, 8]) assert.equal(subscriptionSafetyDate(items.find(s => s.id === id), follow, now), null);
   assert.equal(sortBySafetyDate(items.slice().reverse(), follow, now).findIndex(s => s.id === 1) < sortBySafetyDate(items.slice().reverse(), follow, now).findIndex(s => s.id === 9), true, 'ties remain stable regardless of API order');
 });
+
+test('custom icons require Plus, keep existing images on downgrade and allow removal', async () => {
+  const h = harness(), local = h.load('local-data'), icons = h.load('subscription-icons'), billing = h.load('entitlements-state');
+  const uri = 'data:image/jpeg;base64,QUJD';
+  local.setDataSession('guest', 'guest');
+  await assert.rejects(icons.saveSubscriptionIcon('guest', 1, uri), /PLUS_ICON/);
+  assert.equal(await icons.getSubscriptionIcon('guest', 1), null);
+  billing.setPlusAccess(true, 'guest');
+  await icons.saveSubscriptionIcon('guest', 1, uri);
+  billing.setPlusAccess(false, 'guest');
+  assert.equal(await icons.getSubscriptionIcon('guest', 1), uri);
+  await icons.saveSubscriptionIcon('guest', 1, undefined);
+  await assert.rejects(icons.saveSubscriptionIcon('guest', 1, uri + 'AA'), /PLUS_ICON/);
+  assert.equal(await icons.getSubscriptionIcon('guest', 1), uri);
+  await icons.saveSubscriptionIcon('guest', 1, null);
+  assert.equal(await icons.getSubscriptionIcon('guest', 1), null);
+});
+
+test('custom icons isolate accounts and demo, reject stale sessions and invalid images', async () => {
+  const h = harness(), local = h.load('local-data'), icons = h.load('subscription-icons'), billing = h.load('entitlements-state');
+  const uri = 'data:image/jpeg;base64,QUJD';
+  local.setDataSession('account', 'account:1'); billing.setPlusAccess(true, 'account:1');
+  await icons.saveSubscriptionIcon('account:1', 1, uri);
+  local.setDataSession('account', 'account:2');
+  await assert.rejects(icons.saveSubscriptionIcon('account:1', 1, null), /session/);
+  await assert.rejects(icons.saveSubscriptionIcon('account:2', 1, uri), /PLUS_ICON/);
+  assert.equal(await icons.getSubscriptionIcon('account:2', 1), null);
+  local.setDataSession('demo', 'demo');
+  await icons.saveSubscriptionIcon('demo', 1, uri);
+  for (const value of ['file:///tmp/photo.jpg', 'https://example.com/p.jpg', 'data:image/svg+xml;base64,QUJD', uri + 'A'.repeat(icons.MAX_ICON_LENGTH)])
+    await assert.rejects(icons.saveSubscriptionIcon('demo', 1, value), /icône/);
+  assert.equal(await icons.getSubscriptionIcon('demo', 1), uri);
+  const write = h.storage.setItem;
+  h.storage.setItem = async () => { throw new Error('Disk full'); };
+  await assert.rejects(icons.saveSubscriptionIcon('demo', 1, uri + 'AA'), /Disk full/);
+  assert.equal(await icons.getSubscriptionIcon('demo', 1), uri);
+  h.storage.setItem = write;
+  await local.seedDemo();
+  assert.equal(await icons.getSubscriptionIcon('demo', 1), null);
+  assert.equal(await icons.getSubscriptionIcon('account:1', 1), uri);
+  await local.clearAccountFollowUps('account:1');
+  assert.equal(await icons.getSubscriptionIcon('account:1', 1), null);
+});
