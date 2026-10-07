@@ -1,3 +1,4 @@
+import { HomeSavingsCard } from '../../src/components/HomeSavingsCard';
 import { AddSubscriptionButton } from '../../src/components/ui/AddSubscriptionButton';
 import { PlusBadge } from '../../src/components/ui/PlusBadge';
 import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
@@ -9,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -32,7 +32,6 @@ import {
 } from '../../src/lib/subscription-math';
 
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const ui = useUI();
@@ -43,9 +42,6 @@ export default function HomeScreen() {
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const total = overview(data, follow);
-  const pending = data.filter(
-    (s) => s.isActive && follow[s.id]?.decision === 'cancel_requested',
-  ).length;
   const renewals = upcomingRenewals(data, follow);
   const upcoming = renewals.slice(0, 5);
   // A later renewal may need attention earlier. Keep that safety date visible
@@ -94,61 +90,12 @@ export default function HomeScreen() {
         ) : undefined
       }
     >
-      <View style={styles.savingsCard} testID="home-summary">
-        <View style={styles.heroAccent} />
-        <View style={styles.spendingBlock}>
-          <Text style={styles.costLabel}>CE QUE VOUS DÉPENSEZ</Text>
-          <View style={styles.amountRow}>
-            <Text style={styles.costAmount}>{euro(total.monthly)}</Text>
-            <Text style={styles.costPeriod}>/ mois</Text>
-          </View>
-          <Text style={styles.annualCost}>
-            {euro(total.annual)} / an · hors essais
-          </Text>
-        </View>
-        <View style={ui.row}>
-          <Ionicons
-            name="sparkles-outline"
-            size={20}
-            color={colors.savingsText}
-          />
-          <Text style={styles.savingsLabel}>ÉCONOMIES POTENTIELLES</Text>
-        </View>
-        <View style={styles.amountRow}>
-          <Text
-            style={[
-              styles.savingsAmount,
-              width < 360 && { fontSize: 36, lineHeight: 44 },
-            ]}
-          >
-            {euro(total.potentialAnnual)}
-          </Text>
-          <Text style={styles.savingsPeriod}>/ an</Text>
-        </View>
-        <Text style={styles.savingsHint}>
-          {pending
-            ? `${euro(total.potentialAnnual / 12)} / mois · ${pending} démarche${pending > 1 ? 's' : ''} à terminer`
-            : 'Sélectionnez les abonnements à résilier.'}
-        </Text>
-        {total.confirmedAnnual > 0 && (
-          <View style={styles.confirmedRow}>
-            <View style={styles.confirmedLabel}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={16}
-                color={colors.savingsText}
-              />
-              <Text style={styles.savingsHint}>Résiliations confirmées</Text>
-            </View>
-            <Text style={styles.confirmedAmount}>
-              {euro(total.confirmedAnnual)} / an
-            </Text>
-          </View>
-        )}
-        {(pending > 0 || total.confirmedAnnual > 0) && (
-          <Text style={styles.savingsNote}>Estimation après résiliation.</Text>
-        )}
-      </View>
+      <HomeSavingsCard
+        monthly={total.monthly}
+        potentialAnnual={total.potentialAnnual}
+        confirmedAnnual={total.confirmedAnnual}
+        onDetails={() => router.push('/(tabs)/stats')}
+      />
 
       {total.trialCount > 0 && (
         <Pressable
@@ -275,11 +222,6 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/calendar')}
         />
       )}
-      <Button
-        title="Voir mes stats et mes économies"
-        variant="secondary"
-        onPress={() => router.push('/(tabs)/stats')}
-      />
       {!!data.length && !isPlus && (
         <View
           style={[
@@ -319,95 +261,6 @@ const createStyles = (c: Palette) =>
       backgroundColor: c.surfaceRaised,
     },
     demoText: { color: c.textSecondary, fontSize: 12, fontWeight: '600' },
-    heroAccent: {
-      position: 'absolute',
-      height: 4,
-      left: 22,
-      right: 22,
-      top: 0,
-      backgroundColor: c.goldBorder,
-      borderBottomLeftRadius: 6,
-      borderBottomRightRadius: 6,
-    },
-    savingsCard: {
-      padding: 18,
-      gap: 8,
-      borderRadius: 26,
-      overflow: 'hidden',
-      boxShadow: '0 7px 22px rgba(151, 113, 35, 0.09)',
-      backgroundColor: c.savingsBackground,
-      borderWidth: 1,
-      borderColor: c.savingsBorder,
-    },
-    savingsLabel: {
-      color: c.savingsText,
-      fontSize: 12,
-      fontWeight: '800',
-      letterSpacing: 0.8,
-      flexShrink: 1,
-    },
-    amountRow: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      flexWrap: 'wrap',
-      columnGap: 7,
-    },
-    savingsAmount: {
-      color: c.savingsText,
-      fontSize: 42,
-      lineHeight: 50,
-      fontWeight: '800',
-      letterSpacing: -1.6,
-      fontVariant: ['tabular-nums'],
-    },
-    savingsPeriod: { color: c.savingsText, fontSize: 20, fontWeight: '600' },
-    savingsHint: {
-      color: c.savingsText,
-      fontSize: 13,
-      lineHeight: 18,
-      flexShrink: 1,
-    },
-    confirmedRow: {
-      borderTopWidth: 1,
-      borderTopColor: c.savingsBorder,
-      paddingTop: 12,
-      marginTop: 4,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 6,
-    },
-    confirmedLabel: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      flexShrink: 1,
-    },
-    confirmedAmount: {
-      color: c.savingsText,
-      fontSize: 15,
-      fontWeight: '700',
-      fontVariant: ['tabular-nums'],
-    },
-    savingsNote: { color: c.savingsText, fontSize: 11, lineHeight: 15 },
-    spendingBlock: {
-      gap: 4,
-      paddingBottom: 14,
-      marginBottom: 4,
-      borderBottomWidth: 1,
-      borderBottomColor: c.savingsBorder,
-    },
-    costLabel: { color: c.text, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
-    costAmount: {
-      color: c.text,
-      fontSize: 32,
-      fontWeight: '800',
-      lineHeight: 38,
-      fontVariant: ['tabular-nums'],
-    },
-    costPeriod: { color: c.text, fontSize: 16, fontWeight: '500' },
-    annualCost: { color: c.textSecondary, fontSize: 13, fontWeight: '500' },
     trialLink: {
       flexDirection: 'row',
       alignItems: 'center',
