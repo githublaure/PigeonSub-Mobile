@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { subscriptions } from './api';
-import { getDataSession, getFollowUps } from './local-data';
+import { getDataSession, getFollowUps, isGuidePreview } from './local-data';
 import { hasPlusAccess } from './entitlements-state';
 import { reminderPlan } from './reminder-plan';
 const supported = () =>
@@ -33,7 +33,7 @@ export function syncReminders(): Promise<void> {
   queue = queue
     .catch(() => undefined)
     .then(async () => {
-      if (!supported()) return;
+      if (!supported() || isGuidePreview()) return;
       const N = notifications();
       const session = getDataSession();
       const clearOwned = async () => {
@@ -65,7 +65,7 @@ export function syncReminders(): Promise<void> {
       await clearOwned();
       for (const item of plan) {
         if (getDataSession().scope !== session.scope) {
-          await clearOwned();
+          if (!isGuidePreview()) await clearOwned();
           return;
         }
         await N.scheduleNotificationAsync({

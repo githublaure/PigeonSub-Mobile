@@ -20,6 +20,6 @@ export function PremiumSettings() {
       <Text style={ui.body}>Abonnements illimités, simulations avancées et historique de vos décisions.</Text>
       <Button title={isPlus ? 'Gérer mon offre Premium' : 'Passer à Premium'} onPress={() => router.push('/(tabs)/premium?reason=settings')} />
     </View>
-    <Button title="Revoir le guide pas à pas" variant="secondary" onPress={() => guide?.start()} />
+    <Button title="Revoir le guide pas à pas" accessibilityHint="Visite d’un compte démo prérempli, puis retour à votre espace." variant="secondary" onPress={() => guide?.start()} />
   </View></GuideAnchor>;
 }

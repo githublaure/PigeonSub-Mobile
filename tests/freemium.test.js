@@ -1075,14 +1075,50 @@ test('shared calendar events include safety dates before a later renewal and exc
   assert(earlier.some(e => e.id === 2 && e.day === '2026-10-06' && e.kind === 'Date de sûreté'));
 });
 
-test('guide progress is recoverable, bounded and has a path for empty and populated accounts', () => {
+test('guide progress is recoverable and every step targets a populated demonstration', () => {
   const { guideSteps, readGuideProgress } = load('product-guide');
   assert.deepEqual(readGuideProgress(null), { status: 'new', index: 0 });
   assert.deepEqual(readGuideProgress('{bad'), { status: 'new', index: 0 });
   assert.deepEqual(readGuideProgress('{"status":"paused","index":99}'), { status: 'new', index: 0 });
   assert.deepEqual(readGuideProgress('{"status":"paused","index":4}'), { status: 'paused', index: 4 });
   assert.equal(new Set(guideSteps().map(s => s.id)).size, guideSteps().length);
-  assert.equal(guideSteps().find(s => s.id === 'photos').route, '/(tabs)/subscriptions/new');
+  assert.equal(guideSteps().find(s => s.id === 'photos').route, '/(tabs)/subscriptions/1');
+  assert(guideSteps().every(s => !s.route.endsWith('/new')));
   assert.equal(guideSteps(42).find(s => s.id === 'photos').route, '/(tabs)/subscriptions/42');
   assert(guideSteps().every(s => s.plus && s.reason && s.anchor));
+});
+
+
+test('temporary guided demo preserves scheduled personal reminders and resumes syncing on return', async () => {
+  const h = harness();
+  const local = h.load('local-data');
+  const calls = [];
+  const filename = path.resolve(__dirname, '../src/lib/notifications.ts');
+  const module = { exports: {} };
+  const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
+  }).outputText;
+  const stubs = {
+    'expo-constants': { executionEnvironment: 'standalone' },
+    'react-native': { Platform: { OS: 'ios' } },
+    './api': { subscriptions: { list: async () => [] } },
+    './local-data': local,
+    './entitlements-state': { hasPlusAccess: () => false },
+    './reminder-plan': { reminderPlan: () => [] },
+    'expo-notifications': {
+      getAllScheduledNotificationsAsync: async () => [{ identifier: 'personal', content: { data: { pigeonsub: true } } }],
+      cancelScheduledNotificationAsync: async id => calls.push(id),
+      getPermissionsAsync: async () => ({ granted: false }),
+    },
+  };
+  vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })(name => {
+    assert(name in stubs, name);
+    return stubs[name];
+  }, module, module.exports);
+  local.setDataSession('demo', 'demo', true);
+  await module.exports.syncReminders();
+  assert.deepEqual(calls, [], 'tour must neither cancel nor schedule reminders');
+  local.setDataSession('account', 'account:42');
+  await module.exports.syncReminders();
+  assert.deepEqual(calls, ['personal'], 'normal synchronization resumes after leaving tour');
 });

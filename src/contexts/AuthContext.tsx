@@ -10,6 +10,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -70,6 +71,9 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  isGuideDemo: boolean;
+  beginGuideDemo: () => Promise<void>;
+  endGuideDemo: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   demoLogin: () => Promise<void>;
@@ -85,6 +89,8 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isGuideDemo, setIsGuideDemo] = useState(false);
+  const guideDemo = useRef(false);
   const [state, setState] = useState<AuthState>({
     mode: 'none',
     scope: 'none',
@@ -178,6 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ['pigeonsub.lastAccountScope', scope],
     ]);
     setDataSession('account', scope);
+    guideDemo.current = false;
+    setIsGuideDemo(false);
     setState({
       user,
       token,
@@ -208,6 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (mode === 'demo') await seedDemo();
     await AsyncStorage.setItem('pigeonsub.sessionMode', mode);
     setDataSession(mode, mode);
+    guideDemo.current = false;
+    setIsGuideDemo(false);
     setState({
       user: null,
       token: null,
@@ -217,8 +227,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: true,
     });
   }, []);
-  const demoLogin = useCallback(() => startLocal('demo'), [startLocal]);
-  const startGuest = useCallback(() => startLocal('guest'), [startLocal]);
+  // Keep the real session (including its token and persisted mode) intact during
+  // the tour. A reload restores that session and offers to resume the tour.
+  const beginGuideDemo = useCallback(async () => {
+    await seedDemo();
+    setDataSession('demo', 'demo', true);
+    guideDemo.current = true;
+    setIsGuideDemo(true);
+  }, []);
+  const endGuideDemo = useCallback(() => {
+    if (!guideDemo.current) return;
+    setDataSession(state.mode, state.scope);
+    guideDemo.current = false;
+    setIsGuideDemo(false);
+  }, [state.mode, state.scope]);
+  const demoLogin = useCallback(() => guideDemo.current ? seedDemo() : startLocal('demo'), [startLocal]);
+  const startGuest = useCallback(async () => {
+    if (guideDemo.current) endGuideDemo();
+    else await startLocal('guest');
+  }, [startLocal, endGuideDemo]);
 
   const logout = useCallback(async () => {
     await clearStoredToken();
@@ -241,6 +268,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         ...state,
+        ...(isGuideDemo ? { mode: 'demo', scope: 'demo', user: null, token: null } as const : {}),
+        isGuideDemo,
+        beginGuideDemo,
+        endGuideDemo,
         login,
         register,
         demoLogin,

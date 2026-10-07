@@ -3,7 +3,6 @@ import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Image, ImageSourcePropType } from 'react-native';
-import { GuideProvider } from '../../src/contexts/GuideContext';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type PigeonTabIconPair = {
@@ -51,7 +50,7 @@ export default function TabsLayout() {
   const { colors: Colors } = useTheme();
 
   return (
-    <GuideProvider><Tabs
+    <Tabs
       backBehavior="history"
       screenOptions={{
         headerShown: false,
@@ -125,6 +124,6 @@ export default function TabsLayout() {
         name="privacy"
         options={{ href: null, title: 'Confidentialité' }}
       />
-    </Tabs></GuideProvider>
+    </Tabs>
   );
 }

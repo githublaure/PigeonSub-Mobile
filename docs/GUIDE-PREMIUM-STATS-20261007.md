@@ -3,7 +3,7 @@
 ## Livraison
 
 - **Guide en 13 étapes** proposé à la première entrée dans l’application, après l’onboarding. Il navigue vers les vrais écrans, fait défiler la zone concernée et la souligne. Précédent, Suivant, Fermer, reprise après interruption et relance depuis **Profil → Revoir le guide pas à pas**.
-- La progression reste sur cet appareil. Le guide terminé n’est pas réimposé à chaque connexion. Il fonctionne avec un espace vide ou la démo et ne crée aucun abonnement à votre place.
+- La progression reste sur cet appareil. Le guide terminé n’est pas réimposé à chaque connexion. La visite ouvre désormais toujours une démo préremplie (16 abonnements dont 4 essais, 8 coupons et 8 justificatifs fictifs). Fermer ou terminer restaure l’espace d’origine, y compris une session connectée, sans ajouter d’exemples aux données personnelles. Un rechargement restaure également cette session, puis propose de reprendre la visite en démo. Les options Plus restent explorables avec leurs plumes dorées. Les rappels personnels programmés ne sont pas effacés à l’entrée dans cette visite temporaire.
 - Chaque étape précise le gratuit et le supplément Plus. Les **plumes dorées** ouvrent une présentation de l’option concernée. Quitter le paywall retourne à l’écran précédent ; le guide peut reprendre après consultation de l’offre.
 - Carte **Passer à Premium** placée en haut du profil, avant l’apparence et les réglages ordinaires. « Plus » reste le nom de l’offre Premium.
 - **Jauge de budget** dans l’accueil et les statistiques : budget modifiable, comparaison avec le coût actuel ou simulé, dépassement explicite. Les écarts utilisent les montants arrondis au centime affichés à l’écran.
@@ -49,15 +49,15 @@ Les rappels vocaux IA ont encore un écran technique et des routes dédiées, ma
 
 ## Vérifications de cette livraison
 
-- `npm test` : **59 tests réussis**. Les cas ajoutés couvrent filtres/suggestions, budget nul ou dépassé, événements de calendrier avec préavis et progression du guide.
+- `npm test` : **60 tests réussis**. Les cas ajoutés couvrent filtres/suggestions, budget nul ou dépassé, événements de calendrier avec préavis progression du guide et maintien des rappels personnels pendant la visite temporaire.
 - `npx tsc --noEmit` : réussi.
 - `npm run mobile:export:ios` : réussi, Expo SDK 57 ; inclut la mascotte RGBA.
-- Parcours Web mobile : invitation initiale, 13 étapes avec compte vide, formulaires sans création, interruption/reprise, consultation d’un paywall et reprise, guide complet en démo, historique/proofs, carrousel, vues, jauge persistante, sixième abonnement bloqué en gratuit, vues avancées bloquées, historique gratuit verrouillé, cinq photos gratuites puis accès au paywall.
+- Parcours Web mobile : invitation initiale, démarrage depuis un compte vide vers une démo remplie, justificatifs existants, interruption/reprise, consultation d’un paywall et reprise, guide complet en démo, historique/proofs, carrousel, vues, jauge persistante, sixième abonnement bloqué en gratuit, vues avancées bloquées, historique gratuit verrouillé, cinq photos gratuites puis accès au paywall.
 - Vérification du retour à l’écran d’origine depuis une plume, absence d’action parasite sur le choix d’une vue et absence d’avertissement de boutons imbriqués.
 - Inspection visuelle en clair à 390 px et en sombre à 320 px ; montants non tronqués et absence de débordement horizontal.
 - **Aucun achat réel, build TestFlight ou envoi Apple n’a été effectué.** L’export JavaScript/ressources iOS ne remplace pas ces validations.
 
-Le script optionnel `scripts/check-guide-web.cjs` rejoue le parcours navigateur dans un contexte isolé. Il utilise Playwright et Chromium installés séparément ; `PIGEONSUB_PLAYWRIGHT` et `PIGEONSUB_CHROMIUM` permettent d’en fournir les chemins. Il écrit ses captures dans `docs/previews/` et n’utilise aucun compte ni achat réel.
+Le script optionnel `scripts/check-guide-web.cjs` rejoue le parcours navigateur dans un contexte isolé. Il utilise Playwright et Chromium installés séparément ; `PIGEONSUB_PLAYWRIGHT` et `PIGEONSUB_CHROMIUM` permettent d’en fournir les chemins. Il écrit ses captures dans `docs/previews/` (désactivable avec `PIGEONSUB_SKIP_SCREENSHOTS=1`) et n’utilise aucun compte ni achat réel. La restauration d’une session connectée est vérifiée avec une API locale simulée ; les modifications pendant le guide restent dans la démo.
 
 ## Aperçus
 

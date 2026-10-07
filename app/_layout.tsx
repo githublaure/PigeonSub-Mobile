@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { GuideProvider } from '../src/contexts/GuideContext';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -59,7 +60,7 @@ function RootNavigator({ onReady }: { onReady: () => void }) {
       }}
     >
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack
+      <GuideProvider><Stack
         key={scope}
         screenOptions={{
           headerShown: false,
@@ -69,7 +70,7 @@ function RootNavigator({ onReady }: { onReady: () => void }) {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
-      </Stack>
+      </Stack></GuideProvider>
     </NavigationThemeProvider>
   );
 }
