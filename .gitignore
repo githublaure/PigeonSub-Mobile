@@ -12,3 +12,13 @@ web-build/
 
 expo-env.d.ts
 # @end expo-clizipFile.zip
+
+# Native projects are generated from app.json by EAS Build.
+/ios/
+/android/
+
+# Apple signing material must stay outside Git.
+credentials.json
+*.p12
+*.p8
+*.mobileprovision

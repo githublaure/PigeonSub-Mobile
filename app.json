@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pigeonsub.app"
+      "bundleIdentifier": "app.replit.pigeonsub"
     },
     "android": {
       "package": "com.pigeonsub.app",
@@ -67,6 +67,7 @@
     },
     "extra": {
       "apiBaseUrl": "REPLACE_WITH_YOUR_BACKEND_URL"
-    }
+    },
+    "owner": "githublaure"
   }
 }
