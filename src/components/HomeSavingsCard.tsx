@@ -4,10 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { euro } from '../lib/subscription-math';
 
-export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, onDetails }: {
+export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pendingNames, onDetails }: {
   monthly: number;
   potentialAnnual: number;
   confirmedAnnual: number;
+  pendingNames: string[];
   onDetails: () => void;
 }) {
   const { colors: c, scheme } = useTheme();
@@ -30,7 +31,8 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, onD
 
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
-          <Text style={[styles.title, { color: c.text }]}>Économies possibles</Text>
+          <Text style={[styles.title, { color: c.text }]}>Si vous résiliez</Text>
+          <Text numberOfLines={1} style={[styles.caption, { color: c.textSecondary }]}>{pendingNames.length === 1 ? pendingNames[0] : pendingNames.length ? `${pendingNames.length} abonnements sélectionnés` : 'Aucun abonnement sélectionné'}</Text>
           <Text
             testID="home-potential-amount"
             numberOfLines={1}
@@ -41,8 +43,11 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, onD
             {euro(potentialAnnual)}
           </Text>
           <Text style={[styles.caption, { color: c.textSecondary }]}>
-            {potentialAnnual > 0 ? 'par an après résiliation' : 'Choisissez quoi résilier'}
+            {potentialAnnual > 0 ? 'par an économisables' : 'Choisissez quoi résilier'}
           </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Voir le calcul des économies" onPress={onDetails} style={{ minHeight: 36, justifyContent: 'center' }}>
+            <Text style={{ color: costColor, fontSize: 12, fontWeight: '600' }}>Voir le calcul →</Text>
+          </Pressable>
         </View>
         {fontScale < 1.5 && <Image
           source={require('../../assets/mascots/pigeon-calculator.png')}

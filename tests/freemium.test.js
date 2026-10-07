@@ -290,7 +290,7 @@ test('guest and demo persist independently; entering demo never alters guest or 
   local.setDataSession('demo', 'demo');
   assert.equal(
     (await local.localRequest('/subscriptions?includeArchived=true')).length,
-    6,
+    16,
   );
   await local.localRequest('/subscriptions/1', { method: 'DELETE' });
   local.setDataSession('guest', 'guest');
@@ -610,7 +610,8 @@ test('photo persistence is isolated between guest/demo/accounts; deletion clears
   assert.equal((await photos.getPhotos('account:1', item)).length, 0);
   assert.equal((await photos.getPhotos('account:2', item)).length, 1);
   await local.seedDemo();
-  assert.equal((await photos.getPhotos('demo', item)).length, 0);
+  assert.equal((await photos.getPhotos('demo', item)).length, 2);
+  assert.ok((await photos.getPhotos('demo', item)).every(p => p.label.startsWith('Démo ·')));
   assert.equal((await photos.getPhotos('guest', item)).length, 1);
   await photos.clearPhotos('guest', item.id);
   assert.equal((await photos.getPhotos('guest', item)).length, 0);
@@ -950,4 +951,78 @@ test('form photo batch rolls back a partial write and retries without duplicate 
   assert.equal((await photos.getPhotos('guest', item)).length, 4);
   await assert.rejects(photos.addPhotos('guest', item, [item], {}, false, drafts), /5 photos/);
   assert.equal((await photos.getPhotos('guest', item)).length, 4);
+});
+
+
+test('rich demo seeds coherent subscriptions, trials, offers and offline proof images without personal data changes', async () => {
+  const h = harness();
+  const local = h.load('local-data');
+  const photos = h.load('subscription-photos');
+  const offers = h.load('offers');
+  const breakdown = h.load('savings-breakdown');
+  h.memory.set('pigeonsub.v2.guest.data', 'personal-data');
+  h.memory.set('pigeonsub.photos.account%3A9.saved', 'private-image');
+  await local.seedDemo();
+  local.setDataSession('demo', 'demo');
+  const rows = await local.localRequest('/subscriptions?includeArchived=true');
+  const follow = await local.getFollowUps();
+  const overview = math.overview(rows, follow);
+  assert.equal(rows.length, 16);
+  assert.equal(overview.trialCount, 4);
+  assert.equal(overview.expiredTrials, 1);
+  assert.equal(overview.potentialAnnual.toFixed(2), '161.88');
+  assert.equal(overview.confirmedAnnual.toFixed(2), '206.79');
+  assert.equal(overview.monthly.toFixed(2), '130.66');
+  assert.equal((await local.localRequest('/settings')).budgetCap, '120');
+  assert.deepEqual(breakdown.savingsBreakdown(rows, follow).pending.map(r => r.sub.name), ['Netflix']);
+  const saved = await local.getSavedOffers();
+  assert.equal(saved.length, 8);
+  assert(saved.every(o => o.demo && o.url === ''));
+  assert(saved.some(o => offers.offerDays(o) === 0));
+  assert(saved.some(o => offers.offerDays(o) < 0));
+  assert(saved.some(o => o.used));
+  saved.forEach(o => offers.validateOffer(o));
+  const gallery = (await Promise.all(rows.map(s => photos.getPhotos('demo', s)))).flat();
+  assert.equal(gallery.length, 8);
+  for (const p of gallery) {
+    assert(p.label.startsWith('Démo ·'));
+    assert(p.uri.length < photos.MAX_PHOTO_LENGTH);
+    assert.equal(Buffer.from(p.uri.split(',')[1], 'base64').subarray(0, 3).toString('hex'), 'ffd8ff');
+  }
+  await photos.removePhoto('demo', 1, (await photos.getPhotos('demo', rows[0]))[0].id);
+  await local.seedDemo();
+  assert.equal((await photos.getPhotos('demo', rows[0])).length, 2);
+  assert.equal([...h.memory.keys()].filter(k => k.startsWith('pigeonsub.photos.demo.')).length, 9);
+  assert.equal(h.memory.get('pigeonsub.v2.guest.data'), 'personal-data');
+  assert.equal(h.memory.get('pigeonsub.photos.account%3A9.saved'), 'private-image');
+  const created = await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'New example', price: '1', frequency: 'monthly', category: 'other' }) });
+  assert.equal(created.id, 17);
+});
+
+test('savings explanation follows actual billing periods and matches overview across statuses', () => {
+  const { annualSavingsCalculation, savingsBreakdown } = load('savings-breakdown');
+  for (const [frequency, price, expected] of [['monthly', '13.49', '12 mois'], ['yearly', '109.99', '1 an'], ['weekly', '4', '52 semaines'], ['quarterly', '30', '4 trimestres'], ['semiannual', '50', '2 semestres']]) {
+    assert(annualSavingsCalculation(sub({ frequency, price })).includes(expected));
+  }
+  const rows = [sub(), sub({ id: 2, isActive: false }), sub({ id: 3, isTrial: true }), sub({ id: 4, frequency: 'yearly', price: '99.99', isActive: false }), sub({ id: 5, rating: 1, usageFrequency: 'rarely_used' })];
+  const follow = { 1: { decision: 'cancel_requested' }, 2: { decision: 'cancel_requested' }, 3: { decision: 'cancel_requested' }, 4: { decision: 'cancel_confirmed' } };
+  const result = savingsBreakdown(rows, follow), summary = math.overview(rows, follow);
+  assert.deepEqual(result.pending.map(r => r.sub.id), [1, 3]);
+  assert.equal(result.pending.reduce((s, r) => s + r.annual, 0), summary.potentialAnnual);
+  assert.equal(result.confirmed.reduce((s, r) => s + r.annual, 0), summary.confirmedAnnual);
+});
+
+test('demo photo refresh failure retains previous gallery and never touches personal photos', async () => {
+  const h = harness(), photos = h.load('subscription-photos');
+  const examples = [{ id: 'a', subscriptionId: 1, uri: 'data:image/jpeg;base64,YWJj', label: 'Original demo' }];
+  await photos.replaceDemoPhotos(examples);
+  const before = new Map(h.memory);
+  const set = h.storage.setItem;
+  h.storage.setItem = async (key, value) => {
+    if (key === 'pigeonsub.photos.demo.index') throw new Error('Full');
+    return set(key, value);
+  };
+  await assert.rejects(photos.replaceDemoPhotos([{ ...examples[0], label: 'Changed' }]), /Full/);
+  assert.deepEqual(h.memory, before);
+  assert.equal((await photos.getPhotos('demo', sub()))[0].label, 'Original demo');
 });

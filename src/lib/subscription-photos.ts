@@ -140,3 +140,31 @@ export function clearPhotos(scope: string, subId?: number): Promise<void> {
       await AsyncStorage.removeItem(`${prefix(scope)}${row.id}`);
   });
 }
+
+/** Replace only the disposable demo gallery; personal/account scopes are unreachable. */
+export function replaceDemoPhotos(examples: (Photo & { subscriptionId: number })[]): Promise<void> {
+  return serial(async () => {
+    const oldIndex = await readIndex('demo');
+    const index: Index = {};
+    const written: string[] = [];
+    const batch = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    try {
+      for (const example of examples) {
+        if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(example.uri) || example.uri.length > MAX_PHOTO_LENGTH)
+          throw new Error('Justificatif de démonstration invalide.');
+        const id = `example-${batch}-${example.id}`;
+        const blobKey = `${prefix('demo')}${id}`;
+        written.push(blobKey);
+        await AsyncStorage.setItem(blobKey, example.uri);
+        (index[example.subscriptionId] ??= []).push({ id, label: example.label });
+      }
+      await AsyncStorage.setItem(indexKey('demo'), JSON.stringify(index));
+    } catch (error) {
+      await Promise.all(written.map((key) => AsyncStorage.removeItem(key).catch(() => undefined)));
+      throw error;
+    }
+    // Committed examples stay usable even if stale-blob cleanup fails.
+    for (const row of Object.values(oldIndex).flat())
+      await AsyncStorage.removeItem(`${prefix('demo')}${row.id}`).catch(() => undefined);
+  });
+}

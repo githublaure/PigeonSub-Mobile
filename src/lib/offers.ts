@@ -70,29 +70,18 @@ export function offerLabel(offer: SavedOffer, now = new Date()): string {
       : `Encore ${days} j`;
 }
 export function demoOffers(now = new Date()): SavedOffer[] {
-  return [
-    {
-      id: 'demo-voice',
-      provider: 'ElevenLabs',
-      title: 'Offre temporaire à suivre',
-      code: '',
-      url: '',
-      expiresOn: dayKey(addDays(now, 6)),
-      notes:
-        'Exemple fictif. Dates, formule éligible et tarif après l’offre à vérifier chez le fournisseur.',
-      used: false,
-      demo: true,
-    },
-    {
-      id: 'demo-design',
-      provider: 'Studio créatif',
-      title: '30 % sur la première année',
-      code: 'EXEMPLE30',
-      url: '',
-      expiresOn: dayKey(addDays(now, 14)),
-      notes: 'Coupon fictif pour découvrir le suivi.',
-      used: false,
-      demo: true,
-    },
-  ];
+  const examples = [
+    ['demo-voice', 'Voix IA', 'Un mois de découverte', '', 6, false, 'Essai fictif : puis 5 € / mois si conservé.'],
+    ['demo-design', 'Studio créatif', '30 % sur la première année', 'DEMO30', 14, false, 'Exemple : 84 € au lieu de 120 €, puis tarif annuel normal.'],
+    ['demo-sport', 'Salle de sport', 'Frais d’inscription offerts', 'DEMOSPORT', 0, false, 'Dernier jour fictif. Ne modifie pas le prix mensuel.'],
+    ['demo-books', 'Livres audio', 'Deux mois à moitié prix', 'DEMOLIRE', 3, false, 'Exemple : 4,98 € / mois pendant deux mois, puis 9,95 €.'],
+    ['demo-cloud', 'Stockage photo', 'Trois mois offerts', 'DEMONUAGE', 21, false, 'Offre fictive pour les nouveaux comptes uniquement.'],
+    ['demo-learn', 'Atelier langues', 'Deux semaines d’essai', '', 5, false, 'Essai à activer ; pensez à enregistrer sa date de fin une fois commencé.'],
+    ['demo-used', 'Musique', 'Premier mois à prix réduit', 'DEMOMUSIC', 10, true, 'Exemple déjà marqué utilisé dans le carnet.'],
+    ['demo-expired', 'Presse numérique', '20 % sur un abonnement annuel', 'DEMOPRESSE', -3, false, 'Exemple expiré, conservé dans Toutes.'],
+  ] as const;
+  return examples.map(([id, provider, title, code, days, used, notes]) => ({
+    id, provider, title, code, url: '', expiresOn: dayKey(addDays(now, days)),
+    notes, used, demo: true,
+  }));
 }
