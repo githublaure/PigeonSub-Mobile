@@ -25,6 +25,7 @@ export const DarkColors = {
   archiveText: '#B6B6C0',
   archiveBorder: '#414148',
   warningSurface: '#2D2000',
+  calendarSafety: '#F59E0B',
   success: '#10B981', // emerald-500
   warning: '#F59E0B', // amber-500
   danger: '#EF4444', // red-500
