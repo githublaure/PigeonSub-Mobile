@@ -19,6 +19,7 @@ app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/voice', require('./routes/voice'));
+app.use('/api/roadmap', require('./routes/roadmap'));
 
 // 404
 app.use((req, res) => res.status(404).json({ error: `No route: ${req.method} ${req.path}` }));
@@ -38,6 +39,13 @@ async function start() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS roadmap_votes (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        feature_id VARCHAR(60) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, feature_id)
       );
 
       CREATE TABLE IF NOT EXISTS subscriptions (

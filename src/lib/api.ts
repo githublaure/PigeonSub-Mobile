@@ -73,6 +73,7 @@ async function apiFetch<T>(
     );
   }
 
+  const requestScope = getDataSession().scope;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -83,6 +84,7 @@ async function apiFetch<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
+  if (requireAuth && getDataSession().scope !== requestScope) throw new Error('La session a changé.');
   const requestUrl = buildApiUrl(API_BASE_URL, path);
   const method = options.method ?? 'GET';
   const diagnosticUrl = stripQueryForLog(requestUrl);
@@ -308,6 +310,7 @@ export const subscriptions = {
   },
 
   create: async (data: InsertSubscription) => {
+    const expectedScope = getDataSession().scope;
     const all = await subscriptions.list(true);
     if (
       data.isActive !== false &&
@@ -316,6 +319,7 @@ export const subscriptions = {
       throw new Error(
         'PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.',
       );
+    if (getDataSession().scope !== expectedScope) throw new Error('La session a changé.');
     return apiFetch<Subscription>('/subscriptions', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -444,4 +448,9 @@ export const voice = {
     apiFetch<VoiceReminder[]>(`/voice/reminders/${subscriptionId}`),
 
   getAllReminders: () => apiFetch<VoiceReminder[]>('/voice/reminders'),
+};
+
+export const roadmapVotes = {
+  get: () => apiFetch<string[]>('/roadmap'),
+  set: (feature: string, interested: boolean) => apiFetch<{ interested: boolean }>(`/roadmap/${encodeURIComponent(feature)}`, { method: 'PUT', body: JSON.stringify({ interested }) }),
 };

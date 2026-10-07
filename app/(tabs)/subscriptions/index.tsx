@@ -35,6 +35,7 @@ export default function SubscriptionsScreen() {
     .sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'price' ? monthlyCost(b) - monthlyCost(a) : (nextRenewal(a)?.getTime() ?? Infinity) - (nextRenewal(b)?.getTime() ?? Infinity));
   const filtered = safetyView === 'sorted' ? sortBySafetyDate(matching, follow) : matching;
   return <Page title="Abonnements" headerAccessory={<AddSubscriptionButton onPress={() => router.push(canAddSubscription(data, canUsePlus, follow) ? '/(tabs)/subscriptions/new' : '/(tabs)/premium?reason=limit')} premium={!canAddSubscription(data, false, follow)} />}>
+    <Button title="Importer un CSV · prototype" variant="ghost" onPress={() => router.push('/(tabs)/subscriptions/import')} />
     <GuideAnchor id="subscription-views"><View style={{ gap: 12 }}>
       <View style={[ui.row, { justifyContent: 'space-between' }]}><Text style={ui.label}>VUE DES ABONNEMENTS</Text><Text style={ui.small}>{filtered.length} résultat{filtered.length > 1 ? 's' : ''}</Text></View>
       <View style={[ui.row, { gap: 6 }]} testID="subscription-view-tags">

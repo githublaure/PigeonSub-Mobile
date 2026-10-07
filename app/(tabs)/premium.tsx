@@ -253,6 +253,7 @@ export default function PremiumScreen() {
           }
         />
       </View>
+      <Button title="Les prochaines évolutions · donner mon avis" variant="ghost" onPress={() => router.push('/(tabs)/roadmap')} />
       <Button
         title="Revenir à mes abonnements"
         variant="secondary"

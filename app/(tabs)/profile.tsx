@@ -1,3 +1,4 @@
+import { ProductTools } from '../../src/components/ProductTools';
 import { PremiumSettings } from '../../src/components/PremiumSettings';
 import { GuideScrollView } from '../../src/components/guide/GuideScrollView';
 import { ThemeControls } from '../../src/components/ThemeControls';
@@ -191,6 +192,7 @@ export default function ProfileScreen() {
         }
       >
         <PremiumSettings />
+        <ProductTools />
         <View style={ui.card}><ThemeControls /></View>
         {mode === 'demo' ? (
           <View style={{ gap: 10 }}>
@@ -269,7 +271,7 @@ export default function ProfileScreen() {
             <Text style={styles.avatarEmail}>{user?.email}</Text>
           </View>
 
-          <View style={{ marginHorizontal: 24, marginTop: 16 }}><PremiumSettings /></View>
+          <View style={{ marginHorizontal: 24, marginTop: 16 }}><PremiumSettings /><View style={{ marginTop: 16 }}><ProductTools /></View></View>
           {/* Account settings */}
           <Text style={styles.sectionLabel}>Compte</Text>
           <Card style={styles.card}>

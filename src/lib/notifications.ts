@@ -36,9 +36,9 @@ export function syncReminders(): Promise<void> {
       if (!supported() || isGuidePreview()) return;
       const N = notifications();
       const session = getDataSession();
-      const clearOwned = async () => {
+      const clearOwned = async (includeTests = false) => {
         for (const request of await N.getAllScheduledNotificationsAsync()) {
-          if (request.content.data?.pigeonsub === true)
+          if (request.content.data?.pigeonsub === true && (includeTests || !request.content.data?.diagnostic))
             await N.cancelScheduledNotificationAsync(request.identifier);
         }
       };
@@ -47,7 +47,7 @@ export function syncReminders(): Promise<void> {
         session.mode === 'demo' ||
         session.mode === 'none'
       ) {
-        await clearOwned();
+        await clearOwned(true);
         scheduledScope = session.scope;
       }
       if (
@@ -81,6 +81,7 @@ export function syncReminders(): Promise<void> {
               pigeonsub: true,
               scope: session.scope,
               subscriptionId: item.subscriptionId,
+              scheduledAt: item.at.toISOString(),
             },
           },
           trigger: {
@@ -92,4 +93,28 @@ export function syncReminders(): Promise<void> {
       }
     });
   return queue;
+}
+
+export async function getReminderStatus() {
+  const session = getDataSession();
+  if (session.mode === 'demo') return { state: 'demo' as const, count: 0, nextAt: null };
+  if (!supported()) return { state: 'unsupported' as const, count: 0, nextAt: null };
+  const N = notifications();
+  if (!(await N.getPermissionsAsync()).granted) return { state: 'denied' as const, count: 0, nextAt: null };
+  const requests = (await N.getAllScheduledNotificationsAsync()).filter(r => r.content.data?.pigeonsub === true && r.content.data?.scope === session.scope && !r.content.data?.diagnostic);
+  const next = requests.map(r => r.content.data?.scheduledAt).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now()).sort()[0];
+  return { state: 'ready' as const, count: requests.length, nextAt: next ?? null };
+}
+
+export async function sendTestReminder() {
+  const session = getDataSession();
+  if (session.mode === 'demo' || session.mode === 'none' || isGuidePreview()) throw new Error('Le test nécessite votre espace personnel, hors démo.');
+  if (!(await askReminderPermission())) throw new Error('Autorisez les notifications dans les réglages du téléphone.');
+  if (getDataSession().scope !== session.scope) throw new Error('La session a changé.');
+  const N = notifications();
+  await N.scheduleNotificationAsync({
+    identifier: `pigeonsub-test-${session.scope}`,
+    content: { title: 'PigeonSub · notification test', body: 'Ce test permet de vérifier la réception sur ce téléphone.', sound: true, data: { pigeonsub: true, scope: session.scope, diagnostic: true } },
+    trigger: { type: N.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 10, channelId: 'renewals' },
+  });
 }

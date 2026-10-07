@@ -1,3 +1,4 @@
+import roadmapFeatures from '../../shared/roadmap.json';
 import { clearSubscriptionIcons } from './subscription-icon-store';
 import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
 import { demoProofs } from './demo-proofs';
@@ -96,6 +97,7 @@ export async function clearAccountFollowUps(namespace: string) {
   await clearSubscriptionIcons(namespace);
   await AsyncStorage.removeItem(key('followups', namespace));
   await AsyncStorage.removeItem(key('offers', namespace));
+  await AsyncStorage.removeItem(key('roadmap', namespace));
 }
 interface LocalData {
   subscriptions: Subscription[];
@@ -178,6 +180,7 @@ export async function seedDemo() {
   const now = new Date();
   await replaceDemoPhotos(demoProofs);
   await clearSubscriptionIcons('demo');
+  await AsyncStorage.removeItem(key('roadmap', 'demo'));
   await AsyncStorage.setItem(
     key('offers', 'demo'),
     JSON.stringify(demoOffers(now)),
@@ -281,6 +284,15 @@ export async function localRequest<T>(
     const method = options.method ?? 'GET';
     const body = options.body ? JSON.parse(String(options.body)) : {};
     let result: unknown;
+    if (route === '/roadmap' || route.startsWith('/roadmap/')) {
+      const votes = await readJSON<string[]>(key('roadmap', namespace), []);
+      if (route === '/roadmap' && method === 'GET') return votes as T;
+      const id = route.slice('/roadmap/'.length);
+      if (method !== 'PUT' || !roadmapFeatures.some(f => f.id === id) || typeof body.interested !== 'boolean') throw new Error('Vote invalide.');
+      const next = body.interested ? [...new Set([...votes, id])] : votes.filter(v => v !== id);
+      await AsyncStorage.setItem(key('roadmap', namespace), JSON.stringify(next));
+      return { interested: body.interested } as T;
+    }
     if (route === '/subscriptions' && method === 'GET')
       result = data.subscriptions.filter(
         (s) => url.searchParams.get('includeArchived') === 'true' || s.isActive,
