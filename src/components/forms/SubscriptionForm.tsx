@@ -1,3 +1,4 @@
+import { GuideAnchor, GuideScrollView } from '../guide/GuideScrollView';
 import { useThemedStyles, useTheme } from '../../contexts/ThemeContext';
 import type { Palette } from '../../theme/colors';
 import { useRouter } from 'expo-router';
@@ -13,7 +14,6 @@ import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -336,7 +336,7 @@ export function SubscriptionForm({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView
+        <GuideScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -498,10 +498,10 @@ export function SubscriptionForm({
             />
 
             {frequency !== 'lifetime' && (
-              <>
+              <GuideAnchor id="form-safety">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <SectionTitle>Date de sûreté</SectionTitle>
-                  {premiumCustomization && <PlusBadge />}
+                  {premiumCustomization && <PlusBadge reason="safety" />}
                 </View>
                 {safetyEditable ? (
                   <>
@@ -540,10 +540,10 @@ export function SubscriptionForm({
                     personnaliser tous vos abonnements.
                   </Text>
                 )}
-              </>
+              </GuideAnchor>
             )}
 
-            <FormPhotos
+            <GuideAnchor id="form-photos"><FormPhotos
               sub={photoSub}
               drafts={photos}
               onChange={setPhotos}
@@ -551,7 +551,7 @@ export function SubscriptionForm({
               premiumSlot={premiumCustomization}
               disabled={isSubmitting}
               onBusy={setPhotoBusy}
-            />
+            /></GuideAnchor>
 
             {/* ── Usage ── */}
             <SectionTitle>Utilisation</SectionTitle>
@@ -654,7 +654,7 @@ export function SubscriptionForm({
               size="lg"
             />
           </View>
-        </ScrollView>
+        </GuideScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

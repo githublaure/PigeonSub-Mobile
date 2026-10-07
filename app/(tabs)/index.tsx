@@ -1,3 +1,6 @@
+import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
+import { BudgetPanel } from '../../src/components/BudgetPanel';
+import { ReviewCarousel } from '../../src/components/ReviewCarousel';
 import { HomeSavingsCard } from '../../src/components/HomeSavingsCard';
 import { AddSubscriptionButton } from '../../src/components/ui/AddSubscriptionButton';
 import { PlusBadge } from '../../src/components/ui/PlusBadge';
@@ -90,13 +93,15 @@ export default function HomeScreen() {
         ) : undefined
       }
     >
-      <HomeSavingsCard
+      <GuideAnchor id="home-summary"><HomeSavingsCard
         monthly={total.monthly}
         potentialAnnual={total.potentialAnnual}
         confirmedAnnual={total.confirmedAnnual}
         pendingNames={data.filter((s) => s.isActive && follow[s.id]?.decision === 'cancel_requested').map((s) => s.name)}
         onDetails={() => router.push('/(tabs)/savings')}
-      />
+        budget={<GuideAnchor id="home-budget"><BudgetPanel current={total.monthly} compact embedded /></GuideAnchor>}
+      /></GuideAnchor>
+      <GuideAnchor id="home-review"><ReviewCarousel data={data} follow={follow} /></GuideAnchor>
 
       {total.trialCount > 0 && (
         <Pressable

@@ -4,13 +4,14 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { settings } from '../lib/api';
 import { getDataSession } from '../lib/local-data';
 import { parseMonthlyBudget } from '../lib/stats-views';
+import { budgetUsage } from '../lib/subscription-views';
 import { euro } from '../lib/subscription-math';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/Button';
 import { useUI } from './ui/Page';
 
-export function BudgetPanel({ current, simulated }: { current: number; simulated?: number }) {
+export function BudgetPanel({ current, simulated, compact = false, embedded = false }: { current: number; simulated?: number; compact?: boolean; embedded?: boolean }) {
   const ui = useUI();
   const { colors: c } = useTheme();
   const { scope } = useAuth();
@@ -47,26 +48,29 @@ export function BudgetPanel({ current, simulated }: { current: number; simulated
     } catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   };
-  const comparison = (label: string, amount: number, color: string) => (
+  const comparison = (label: string, amount: number, color: string) => {
+    const difference = budget === null ? 0 : (Math.round(budget * 100) - Math.round(amount * 100)) / 100;
+    return (
     <View style={{ gap: 5 }} key={label}>
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={ui.body}>{label}</Text><Text style={[ui.heading, { fontSize: 16 }]}>{euro(amount)} / mois</Text>
+        {!compact && <Text style={ui.body}>{label}</Text>}<Text style={[ui.heading, { fontSize: compact ? 12 : 16, color }]}>{euro(amount)}{budget !== null ? ` sur ${euro(budget)}` : ' / mois'}</Text>
       </View>
-      <View style={{ height: 7, borderRadius: 6, backgroundColor: c.surfaceRaised, overflow: 'hidden' }}>
-        <View style={{ height: 7, width: `${Math.min(100, amount / Math.max(1, budget ?? 0, current, simulated ?? 0) * 100)}%`, backgroundColor: color }} />
+      <View accessibilityRole="progressbar" accessibilityLabel={`${label} : ${euro(amount)}${budget !== null ? ` sur un budget de ${euro(budget)}` : ', budget non défini'}`} accessibilityValue={{ min: 0, max: 100, now: budgetUsage(amount, budget).percent }} style={{ height: 12, borderRadius: 10, backgroundColor: c.surfaceRaised, overflow: 'hidden' }}>
+        <View style={{ height: 12, borderRadius: 10, width: `${budgetUsage(amount, budget).percent}%`, backgroundColor: color }} />
       </View>
-      {budget !== null && <Text style={[ui.small, { color: amount > budget ? c.danger : c.success }]}>
-        {amount > budget ? `${euro(amount - budget)} au-dessus du budget` : `${euro(budget - amount)} disponibles`}
+      {budget !== null && <Text style={[ui.small, { color: difference < 0 ? c.danger : c.success }]}>
+        {difference < 0 ? `${euro(-difference)} au-dessus du budget` : `${euro(difference)} disponibles`}
       </Text>}
     </View>
   );
+  };
   return (
-    <View style={ui.card} testID="budget-panel">
+    <View style={embedded ? { gap: 5, paddingVertical: 6 } : ui.card} testID="budget-panel">
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={ui.heading}>Mon budget mensuel</Text>
-        {loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary, fontWeight: '700' }}>{budget === null ? 'Définir' : euro(budget)}</Text></Pressable>}
+        <Text style={[ui.heading, compact && { fontSize: 13 }]}>Budget abonnements</Text>
+        {loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary, fontWeight: '700' }}>{budget === null ? 'Définir' : 'Modifier'}</Text></Pressable>}
       </View>
-      {loaded && (editing || budget === null) && <View style={{ gap: 10 }}>
+      {loaded && editing && <View style={{ gap: 10 }}>
         <TextInput accessibilityLabel="Budget mensuel en euros" placeholder="Ex. 80" placeholderTextColor={c.textMuted} value={draft} onChangeText={setDraft} keyboardType="decimal-pad" style={ui.input} maxLength={12} editable={!busy} />
         <Button title="Enregistrer le budget" loading={busy} onPress={() => void save()} />
       </View>}

@@ -1026,3 +1026,63 @@ test('demo photo refresh failure retains previous gallery and never touches pers
   assert.deepEqual(h.memory, before);
   assert.equal((await photos.getPhotos('demo', sub()))[0].label, 'Original demo');
 });
+
+test('subscription views and review suggestions separate trials, archives, kept decisions and billing intervals', () => {
+  const { filterSubscriptions, reviewCandidates } = load('subscription-views');
+  const now = date('2026-10-07');
+  const items = [
+    sub({ id: 1, usageFrequency: 'rarely_used', rating: 2, nextRenewal: '2026-10-10' }),
+    sub({ id: 2, usageFrequency: 'rarely_used', rating: 1, nextRenewal: '2026-10-09' }),
+    sub({ id: 3, isTrial: true, trialEndsAt: '2026-10-06', rating: null, usageFrequency: 'used' }),
+    sub({ id: 4, isActive: false, rating: 1 }),
+    sub({ id: 5, frequency: 'lifetime', rating: 1, usageFrequency: 'rarely_used' }),
+    sub({ id: 6, rating: 2, nextRenewal: '2026-10-20' }),
+    sub({ id: 7, rating: null, usageFrequency: 'used', nextRenewal: '2026-11-20' }),
+  ];
+  const follow = { 1: { decision: 'cancel_requested' }, 2: { decision: 'keep' }, 6: { decision: 'cancel_confirmed', effectiveOn: '2026-10-20' } };
+  const ids = rows => rows.map(s => s.id);
+  assert.deepEqual(ids(filterSubscriptions(items, follow, 'archived', now)), [4]);
+  assert.deepEqual(ids(filterSubscriptions(items, follow, 'trials', now)), [3]);
+  assert.deepEqual(ids(filterSubscriptions(items, follow, 'soon', now)), [1, 2, 3]);
+  assert.deepEqual(ids(filterSubscriptions(items, follow, 'cancelling', now)), [1]);
+  assert.deepEqual(ids(reviewCandidates(items, follow, now)), [1]);
+  assert.equal(filterSubscriptions(items, follow, 'low_rated', now).some(s => s.id === 7), false);
+  assert.equal(filterSubscriptions(items, follow, 'active', date('2026-10-21')).some(s => s.id === 6), false);
+});
+
+test('budget gauges cap the fill while preserving overruns and handle a zero or absent budget', () => {
+  const { budgetUsage } = load('subscription-views');
+  assert.deepEqual(budgetUsage(87, 100), { percent: 87, over: 0 });
+  assert.deepEqual(budgetUsage(130, 120), { percent: 100, over: 10 });
+  assert.deepEqual(budgetUsage(20, 0), { percent: 100, over: 20 });
+  assert.deepEqual(budgetUsage(0, 0), { percent: 0, over: 0 });
+  assert.deepEqual(budgetUsage(20, null), { percent: 0, over: 0 });
+});
+
+test('shared calendar events include safety dates before a later renewal and exclude ended subscriptions', () => {
+  const { calendarEvents } = load('calendar-events');
+  const now = date('2026-10-07');
+  const items = [
+    sub({ id: 1, nextRenewal: '2026-10-10', useSafetyDate: true, safetyDate: '2026-10-08' }),
+    sub({ id: 2, nextRenewal: '2026-11-06' }),
+    sub({ id: 3, nextRenewal: '2026-10-10', isActive: false }),
+  ];
+  const events = calendarEvents(items, { 2: { noticeDays: 30, leadDays: 1 } }, now, date('2026-10-13'), now);
+  assert(events.some(e => e.id === 1 && e.day === '2026-10-08' && e.kind === 'Date de sûreté'));
+  assert(events.some(e => e.id === 1 && e.day === '2026-10-10' && e.kind === 'Prélèvement'));
+  assert.equal(events.some(e => e.id === 3), false);
+  const earlier = calendarEvents(items, { 2: { noticeDays: 30, leadDays: 1 } }, date('2026-10-01'), date('2026-10-07'), date('2026-10-01'));
+  assert(earlier.some(e => e.id === 2 && e.day === '2026-10-06' && e.kind === 'Date de sûreté'));
+});
+
+test('guide progress is recoverable, bounded and has a path for empty and populated accounts', () => {
+  const { guideSteps, readGuideProgress } = load('product-guide');
+  assert.deepEqual(readGuideProgress(null), { status: 'new', index: 0 });
+  assert.deepEqual(readGuideProgress('{bad'), { status: 'new', index: 0 });
+  assert.deepEqual(readGuideProgress('{"status":"paused","index":99}'), { status: 'new', index: 0 });
+  assert.deepEqual(readGuideProgress('{"status":"paused","index":4}'), { status: 'paused', index: 4 });
+  assert.equal(new Set(guideSteps().map(s => s.id)).size, guideSteps().length);
+  assert.equal(guideSteps().find(s => s.id === 'photos').route, '/(tabs)/subscriptions/new');
+  assert.equal(guideSteps(42).find(s => s.id === 'photos').route, '/(tabs)/subscriptions/42');
+  assert(guideSteps().every(s => s.plus && s.reason && s.anchor));
+});

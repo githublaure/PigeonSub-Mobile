@@ -62,7 +62,7 @@ export function FormPhotos({ sub, drafts, onChange, allowed, disabled, onBusy, p
     <View style={[ui.card, { gap: 12 }]} testID="form-photos">
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
         <Text style={ui.heading}>Photos et justificatifs</Text>
-        {premiumSlot && <PlusBadge />}
+        {premiumSlot && <PlusBadge reason="photos" />}
       </View>
       <Text style={ui.small}>{canUsePlus ? `${total} photo${total > 1 ? 's' : ''}` : `${total} / 5 photos`}</Text>
       <View style={ui.row}>
@@ -74,9 +74,9 @@ export function FormPhotos({ sub, drafts, onChange, allowed, disabled, onBusy, p
       </View>
       <View style={ui.row}>
         <Button title="Ajouter une photo" variant="secondary" style={{ flex: 1 }} loading={busy} disabled={disabled || loading || !allowed || total >= photoLimit(canUsePlus)} onPress={() => void pick()} />
-        {total >= 5 && canUsePlus && <PlusBadge compact />}
+        {total >= 5 && canUsePlus && <PlusBadge compact reason="photos" />}
       </View>
-      {!canUsePlus && total >= 5 && <Pressable accessibilityRole="button" accessibilityLabel="Plus de photos avec Plus" onPress={() => router.push('/(tabs)/premium?reason=photos')} style={[ui.row, { minHeight: 44 }]}><PlusBadge /><Text style={{ color: c.gold, fontWeight: '700' }}>Plus de photos</Text></Pressable>}
+      {!canUsePlus && total >= 5 && <Pressable accessibilityRole="button" accessibilityLabel="Plus de photos avec Plus" onPress={() => router.push('/(tabs)/premium?reason=photos')} style={[ui.row, { minHeight: 44 }]}><PlusBadge reason="photos" interactive={false} /><Text style={{ color: c.gold, fontWeight: '700' }}>Plus de photos</Text></Pressable>}
       {Platform.OS !== 'web' && <Button title="Prendre une photo" variant="ghost" disabled={busy || disabled || loading || !allowed || total >= photoLimit(canUsePlus)} onPress={() => void pick(true)} />}
       {drafts.length > 0 && <Text style={ui.small}>Les nouvelles photos seront enregistrées avec l’abonnement.</Text>}
       {total >= photoLimit(canUsePlus) && <Text style={ui.small}>{canUsePlus ? 'Retirez une photo pour en ajouter une autre.' : '5 photos incluses. Plus permet d’en ajouter davantage.'}</Text>}

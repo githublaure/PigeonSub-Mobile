@@ -8,6 +8,7 @@ import { useBilling } from '../../src/contexts/BillingContext';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Button } from '../../src/components/ui/Button';
 import { Page, useUI } from '../../src/components/ui/Page';
+import { premiumCopy } from '../../src/lib/premium-copy';
 const PLANS = [
   {
     type: 'ANNUAL',
@@ -37,7 +38,7 @@ export default function PremiumScreen() {
 
   const router = useRouter();
   const { reason } = useLocalSearchParams<{ reason?: string }>();
-  const { mode } = useAuth();
+  const { mode, startGuest } = useAuth();
   const billing = useBilling();
   const [selected, setSelected] = useState('ANNUAL');
   const [busy, setBusy] = useState(false);
@@ -46,6 +47,7 @@ export default function PremiumScreen() {
   const trial = hasSevenDayTrial(item, billing.trialEligible);
   const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL;
   const validPrivacyUrl = !!privacyUrl && /^https:\/\//.test(privacyUrl);
+  const context = premiumCopy(reason);
   const action = async (restore = false) => {
     setBusy(true);
     setMessage('');
@@ -73,15 +75,11 @@ export default function PremiumScreen() {
       setBusy(false);
     }
   };
-  const exit = () => router.back();
+  const exit = () => router.canGoBack() ? router.back() : router.replace('/(tabs)');
   return (
     <Page
-      title="Gardez la main avant le jour J."
-      subtitle={
-        reason === 'limit'
-          ? 'Vos 5 abonnements gratuits restent accessibles. Passez à Plus pour en suivre davantage.'
-          : reason === 'stats' ? 'Comparez vos dépenses selon vos notes et votre utilisation.' : 'Vos scénarios de budget et tous vos abonnements.'
-      }
+      title={context.title}
+      subtitle="Premium · PigeonSub Plus"
     >
       <Button
         title="Continuer gratuitement"
@@ -90,10 +88,17 @@ export default function PremiumScreen() {
         disabled={busy}
       />
       {mode === 'demo' && (
-        <Text style={[ui.body, ui.warning]}>
-          Aperçu des offres. Aucun achat n’est possible en démo.
-        </Text>
+        <View style={{ gap: 10 }}><Text style={[ui.body, ui.warning]}>Aperçu des offres. Aucun achat n’est possible en démo.</Text>
+          <Button title="Quitter la démo pour voir les offres" variant="secondary" onPress={() => {
+            setBusy(true);
+            void startGuest().then(() => router.replace({ pathname: '/(tabs)/premium', params: { reason: reason ?? 'features' } })).catch(() => setMessage('Impossible de quitter la démo. Réessayez.')).finally(() => setBusy(false));
+          }} disabled={busy} />
+        </View>
       )}
+      <View style={[ui.card, { borderColor: Colors.goldBorder, backgroundColor: Colors.goldSurface }]} testID="premium-feature-context">
+        <Text style={ui.body}>{context.free}</Text>
+        <Text style={[ui.heading, { fontSize: 18, color: Colors.gold }]}>{context.plus}</Text>
+      </View>
       <View style={ui.card}>
         <Text style={ui.heading}>Gratuit · 0 €</Text>
         <Text style={ui.body}>

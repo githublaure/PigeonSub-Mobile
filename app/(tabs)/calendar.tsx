@@ -1,3 +1,5 @@
+import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
+import { calendarEvents } from '../../src/lib/calendar-events';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -26,53 +28,7 @@ export default function CalendarScreen() {
   const [selected, setSelected] = useState(dayKey(new Date()));
   const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);
   const last = new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
-  const events: {
-    day: string;
-    kind: string;
-    name: string;
-    id: number;
-    price: string;
-  }[] = [];
-  for (const sub of data) {
-    if (isEnded(sub, follow[sub.id])) continue;
-    let cursor = new Date(
-      Math.max(first.getTime(), new Date().setHours(0, 0, 0, 0)),
-    );
-    const horizon = addDays(
-      last,
-      Math.max(
-        366,
-        (follow[sub.id]?.noticeDays ?? 0) + (follow[sub.id]?.leadDays ?? 1),
-      ),
-    );
-    for (let cycle = 0; cycle < 160; cycle++) {
-      const d = deadlines(sub, follow[sub.id], cursor);
-      if (!d.renewal || d.renewal > horizon) break;
-      for (const [date, kind] of [
-        [d.renewal, sub.isTrial ? 'Fin de l’essai' : 'Prélèvement'],
-        [
-          sub.isTrial &&
-          firstPayment(sub) &&
-          dayKey(firstPayment(sub)!) !== dayKey(parseDay(sub.trialEndsAt)!)
-            ? firstPayment(sub)
-            : null,
-          'Premier prélèvement prévu',
-        ],
-        [d.safety, 'Date de sûreté'],
-      ] as const) {
-        if (date && date >= first && date <= last)
-          events.push({
-            day: dayKey(date),
-            kind,
-            name: sub.name,
-            id: sub.id,
-            price: sub.price,
-          });
-      }
-      if (sub.isTrial) break;
-      cursor = addDays(d.renewal, 1);
-    }
-  }
+  const events = calendarEvents(data, follow, first, last);
   const selectedEvents = events.filter((e) => e.day === selected);
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -91,7 +47,7 @@ export default function CalendarScreen() {
       title="Votre calendrier"
       subtitle="Anticipez le prélèvement. Gardez une marge pour agir."
     >
-      <View style={ui.card}>
+      <GuideAnchor id="calendar-month"><View style={ui.card}>
         <View style={[ui.row, { justifyContent: 'space-between' }]}>
           <Button
             title="‹"
@@ -197,6 +153,7 @@ export default function CalendarScreen() {
           ● Prélèvement ou fin d’essai · ● Orange : date de sûreté
         </Text>
       </View>
+      </GuideAnchor>
       <Text style={ui.heading}>{selected.split('-').reverse().join('/')}</Text>
       {!selectedEvents.length && (
         <Text style={ui.body}>Aucune échéance prévue ce jour.</Text>
