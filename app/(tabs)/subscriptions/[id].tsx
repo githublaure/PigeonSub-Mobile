@@ -21,6 +21,7 @@ import { Button } from '../../../src/components/ui/Button';
 import { LoadingScreen } from '../../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../../src/components/ui/ErrorState';
 import { useBilling } from '../../../src/contexts/BillingContext';
+import { SubscriptionProofPreview } from '../../../src/components/SubscriptionProofPreview';
 export default function SubscriptionScreen() {
   const ui = useUI();
 
@@ -80,6 +81,7 @@ export default function SubscriptionScreen() {
         <TrialStatus key={sub.id} sub={sub} follow={follow[sub.id]} detail />
         <DecisionActions inDetail sub={sub} follow={follow[sub.id]} />
       </View>
+      <SubscriptionProofPreview sub={sub} />
       <CancellationPanel sub={sub} follow={follow[sub.id]} />
       <SafetyPanel
         key={sub.id}
@@ -98,11 +100,6 @@ export default function SubscriptionScreen() {
         title="Modifier l’abonnement"
         variant="secondary"
         onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/edit`)}
-      />
-      <Button
-        title="Photos et justificatifs"
-        variant="secondary"
-        onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}/receipts`)}
       />
       <Button title="Supprimer l’abonnement" variant="ghost" onPress={remove} />
     </Page>

@@ -94,7 +94,8 @@ export default function HomeScreen() {
         monthly={total.monthly}
         potentialAnnual={total.potentialAnnual}
         confirmedAnnual={total.confirmedAnnual}
-        onDetails={() => router.push('/(tabs)/stats')}
+        pendingNames={data.filter((s) => s.isActive && follow[s.id]?.decision === 'cancel_requested').map((s) => s.name)}
+        onDetails={() => router.push('/(tabs)/savings')}
       />
 
       {total.trialCount > 0 && (

@@ -118,6 +118,7 @@ export default function TabsLayout() {
         options={{ href: null, title: 'Voice Reminders' }}
       />
       <Tabs.Screen name="premium" options={{ href: null, title: 'Premium' }} />
+      <Tabs.Screen name="savings" options={{ href: null, title: 'Calcul des économies' }} />
       <Tabs.Screen
         name="privacy"
         options={{ href: null, title: 'Confidentialité' }}

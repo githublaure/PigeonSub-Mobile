@@ -1,4 +1,5 @@
-import { clearPhotos } from './subscription-photos';
+import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
+import { demoProofs } from './demo-proofs';
 import {
   demoOffers,
   validateOffer,
@@ -169,23 +170,34 @@ export function changeOffer(
   });
 }
 export async function seedDemo() {
-  await clearPhotos('demo');
   const now = new Date();
+  await replaceDemoPhotos(demoProofs);
   await AsyncStorage.setItem(
     key('offers', 'demo'),
     JSON.stringify(demoOffers(now)),
   );
   const rows = [
-    ['Netflix', '13.49', 'monthly', 'entertainment', 3, 'rarely_used'],
-    ['Spotify', '11.99', 'monthly', 'entertainment', 6, 'very_used'],
-    ['Salle de sport', '29.90', 'monthly', 'health', 32, 'rarely_used'],
-    ['iCloud+', '2.99', 'monthly', 'utilities', 12, 'used'],
-    ['Canva Pro', '109.99', 'yearly', 'productivity', 18, 'used'],
-    ['Magazine', '8.90', 'monthly', 'news', 9, 'rarely_used'],
+    // name, illustrative price, frequency, category, renewal offset, usage, rating, trial end offset, active
+    ['Netflix', '13.49', 'monthly', 'entertainment', 3, 'rarely_used', 2, null, true],
+    ['Spotify', '11.99', 'monthly', 'music', 6, 'very_used', 5, null, true],
+    ['Salle de sport', '29.90', 'monthly', 'health', 32, 'rarely_used', 1, null, true],
+    ['iCloud+', '2.99', 'monthly', 'cloud', 12, 'used', 4, null, true],
+    ['Canva Pro', '109.99', 'yearly', 'design', 4, 'used', 4, 4, true],
+    ['Magazine', '8.90', 'monthly', 'news', 9, 'rarely_used', 2, null, false],
+    ['YouTube Premium', '12.99', 'monthly', 'entertainment', 2, 'very_used', 4, null, true],
+    ['Notion Plus', '9.50', 'monthly', 'productivity', 7, 'used', 4, null, true],
+    ['Adobe Photo', '11.99', 'monthly', 'design', 8, 'rarely_used', 2, null, true],
+    ['Amazon Prime', '69.90', 'yearly', 'entertainment', 60, 'used', 3, null, true],
+    ['Box Internet', '29.99', 'monthly', 'utilities', 10, 'very_used', 5, null, true],
+    ['Méditation', '59.99', 'yearly', 'health', 7, 'used', null, 7, true],
+    ['Livres audio', '9.95', 'monthly', 'entertainment', 2, 'used', null, 2, true],
+    ['Cours de langues', '89.99', 'yearly', 'education', -1, 'rarely_used', 2, -1, true],
+    ['Microsoft 365', '99.99', 'yearly', 'productivity', 30, 'rarely_used', 3, null, false],
+    ['Stockage photo', '1.99', 'monthly', 'cloud', 15, 'used', 3, null, true],
   ] as const;
   const data: LocalData = {
-    nextId: 7,
-    settings: { budgetCap: '50', monthlyOverrides: null },
+    nextId: rows.length + 1,
+    settings: { budgetCap: '120', monthlyOverrides: null },
     subscriptions: rows.map((r, i) =>
       subscription(
         {
@@ -195,11 +207,18 @@ export async function seedDemo() {
           category: r[3],
           nextRenewal: dayKey(addDays(now, r[4])),
           usageFrequency: r[5],
-          rating: [2, 5, 1, 4, 4, 2][i],
-          isTrial: i === 4,
-          trialEndsAt: i === 4 ? dayKey(addDays(now, 4)) : null,
-          note: 'Exemple fictif pour découvrir PigeonSub.',
-          isActive: i !== 5,
+          rating: r[6],
+          isTrial: r[7] !== null,
+          trialEndsAt: r[7] !== null ? dayKey(addDays(now, r[7])) : null,
+          useSafetyDate: [0, 4, 7, 10, 11, 12].includes(i),
+          safetyDate: [0, 4, 7, 10, 11, 12].includes(i) ? dayKey(addDays(now, r[4] - 2)) : null,
+          purchaseDate: dayKey(addDays(now, r[7] !== null ? -7 : -90)),
+          note: i === 0
+            ? 'Démo · résiliation en cours : 13,49 € × 12 mois = 161,88 € par an possibles. Reçu et demande envoyée dans les justificatifs.'
+            : i === 13
+              ? 'Démo · essai terminé : vérifiez le passage payant avant de l’inclure dans vos dépenses.'
+              : 'Exemple de démonstration. Tarif et documents fictifs.',
+          isActive: r[8],
         },
         i + 1,
       ),
@@ -214,6 +233,7 @@ export async function seedDemo() {
         decidedAt: now.toISOString(),
         noticeDays: 0,
         leadDays: 2,
+        history: [{ decision: 'cancel_requested', at: addDays(now, -1).toISOString() }],
       },
       2: { decision: 'keep', decidedAt: now.toISOString() },
       3: { noticeDays: 30, leadDays: 1 },
@@ -222,6 +242,22 @@ export async function seedDemo() {
         decidedAt: addDays(now, -10).toISOString(),
         effectiveOn: dayKey(addDays(now, -2)),
         confirmationNote: 'Confirmation fictive reçue par e-mail.',
+        history: [
+          { decision: 'cancel_requested', at: addDays(now, -12).toISOString() },
+          { decision: 'cancel_confirmed', at: addDays(now, -10).toISOString(), effectiveOn: dayKey(addDays(now, -2)) },
+        ],
+      },
+      7: { decision: 'keep', decidedAt: now.toISOString() },
+      11: { decision: 'keep', noticeDays: 0, leadDays: 2 },
+      15: {
+        decision: 'cancel_confirmed',
+        decidedAt: addDays(now, -35).toISOString(),
+        effectiveOn: dayKey(addDays(now, -30)),
+        confirmationNote: 'Exemple : renouvellement annuel désactivé, confirmation conservée.',
+        history: [
+          { decision: 'cancel_requested', at: addDays(now, -40).toISOString() },
+          { decision: 'cancel_confirmed', at: addDays(now, -35).toISOString(), effectiveOn: dayKey(addDays(now, -30)) },
+        ],
       },
     }),
   );

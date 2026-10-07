@@ -321,7 +321,7 @@ export default function CouponsScreen() {
                 </View>
                 {offer.demo && (
                   <Text style={[ui.small, { color: c.primary }]}>
-                    Démo · offre non vérifiée
+                    Démo · offre fictive
                   </Text>
                 )}
                 <Text style={ui.body}>{offer.title}</Text>

@@ -99,6 +99,9 @@ export default function ProfileScreen() {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwError, setPwError] = useState('');
+  const [resetDemo, setResetDemo] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoError, setDemoError] = useState('');
 
   const {
     control,
@@ -197,10 +200,26 @@ export default function ProfileScreen() {
           />
         </View>
         {mode === 'demo' ? (
-          <Button
+          <View style={{ gap: 10 }}>
+            <Button title="Réinitialiser les exemples de démo" variant="secondary" disabled={demoBusy} onPress={() => setResetDemo(true)} />
+            {resetDemo && <View style={ui.card}>
+              <Text style={ui.body}>Vos modifications dans la démo seront remplacées par les exemples. Vos données personnelles restent conservées.</Text>
+              <Button title="Charger les exemples" loading={demoBusy} onPress={() => {
+                setDemoBusy(true); setDemoError('');
+                void demoLogin().then(() => {
+                  setResetDemo(false);
+                  router.replace('/(tabs)');
+                }).catch(e => setDemoError(e instanceof Error ? e.message : 'Chargement impossible.')).finally(() => setDemoBusy(false));
+              }} />
+              <Button title="Garder ma démo actuelle" variant="ghost" disabled={demoBusy} onPress={() => setResetDemo(false)} />
+              {!!demoError && <Text style={ui.error}>{demoError}</Text>}
+            </View>}
+            <Button
             title="Quitter la démo et retrouver mes données"
+            disabled={demoBusy}
             onPress={() => void startGuest()}
           />
+          </View>
         ) : (
           <Button
             title="Explorer la démo"
