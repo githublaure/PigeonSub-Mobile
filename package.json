@@ -12,7 +12,8 @@
     "mobile:prepare:ios": "node scripts/mobile-build.js prepare",
     "mobile:export:ios": "node scripts/mobile-build.js export",
     "test": "node --test tests/*.test.js",
-    "preview:web": "expo start --web --port 8083"
+    "preview:web": "node scripts/start-preview.cjs web",
+    "preview:native": "node scripts/start-preview.cjs native"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
