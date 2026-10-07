@@ -1,5 +1,16 @@
 import type { Subscription } from './api';
-import { addDays, dayKey, isEnded, monthlyCost, nextRenewal, type FollowUps } from './subscription-math';
+import { addDays, dayKey, deadlines, isEnded, monthlyCost, nextRenewal, type FollowUps } from './subscription-math';
+
+export type SafetyView = 'hidden' | 'visible' | 'sorted';
+export const nextSafetyView = (view: SafetyView): SafetyView => view === 'hidden' ? 'visible' : view === 'visible' ? 'sorted' : 'hidden';
+export function subscriptionSafetyDate(sub: Subscription, follow: FollowUps, now = new Date()) {
+  return follow[sub.id]?.decision === 'cancel_confirmed' ? null : deadlines(sub, follow[sub.id], now).safety;
+}
+export function sortBySafetyDate(subs: Subscription[], follow: FollowUps, now = new Date()) {
+  return subs.map(sub => ({ sub, safety: subscriptionSafetyDate(sub, follow, now)?.getTime() ?? Infinity, renewal: nextRenewal(sub, now)?.getTime() ?? Infinity }))
+    .sort((a, b) => a.safety - b.safety || a.renewal - b.renewal || a.sub.id - b.sub.id)
+    .map(item => item.sub);
+}
 
 export const SUBSCRIPTION_VIEWS = [
   { id: 'active', label: 'Actifs' }, { id: 'soon', label: 'Sous 7 jours' },

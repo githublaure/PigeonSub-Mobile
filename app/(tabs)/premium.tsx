@@ -1,5 +1,6 @@
 import { PlusBadge } from '../../src/components/ui/PlusBadge';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import { FreePlanBenefits } from '../../src/components/FreePlanBenefits';
 import { hasSevenDayTrial } from '../../src/lib/billing-policy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -96,18 +97,12 @@ export default function PremiumScreen() {
         </View>
       )}
       <View style={[ui.card, { borderColor: Colors.goldBorder, backgroundColor: Colors.goldSurface }]} testID="premium-feature-context">
+        <Text style={[ui.label, { color: Colors.success }]}>INCLUS GRATUITEMENT</Text>
         <Text style={ui.body}>{context.free}</Text>
+        <Text style={[ui.label, { color: Colors.gold }]}>EN PLUS AVEC PREMIUM</Text>
         <Text style={[ui.heading, { fontSize: 18, color: Colors.gold }]}>{context.plus}</Text>
       </View>
-      <View style={ui.card}>
-        <Text style={ui.heading}>Gratuit · 0 €</Text>
-        <Text style={ui.body}>
-          5 abonnements actifs, essais gratuits compris · date de sûreté
-          personnalisée et un rappel par abonnement · 5 photos par abonnement ·
-          totaux mensuel et annuel · calendrier · économies estimées et export
-          de vos données.
-        </Text>
-      </View>
+      <FreePlanBenefits />
       <View style={ui.card}>
         <View style={ui.row}><PlusBadge /><Text style={ui.heading}>Avec PigeonSub Plus</Text></View>
         <Text style={ui.body}>

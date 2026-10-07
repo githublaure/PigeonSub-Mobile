@@ -1122,3 +1122,27 @@ test('temporary guided demo preserves scheduled personal reminders and resumes s
   await module.exports.syncReminders();
   assert.deepEqual(calls, ['personal'], 'normal synchronization resumes after leaving tour');
 });
+
+
+test('safety sorting prioritizes long notice periods and overdue trials without dropping undated or ended records', () => {
+  const { sortBySafetyDate, subscriptionSafetyDate } = load('subscription-views');
+  const now = date('2026-10-07');
+  const items = [
+    sub({ id: 1, nextRenewal: '2026-10-09' }),
+    sub({ id: 2, nextRenewal: '2026-11-08' }),
+    sub({ id: 3, isTrial: true, trialEndsAt: '2026-10-06' }),
+    sub({ id: 4, nextRenewal: '2026-10-15', useSafetyDate: true, safetyDate: '2026-10-07' }),
+    sub({ id: 5, nextRenewal: null }),
+    sub({ id: 6, nextRenewal: '2026-10-08' }),
+    sub({ id: 7, isActive: false }),
+    sub({ id: 8, frequency: 'lifetime' }),
+    sub({ id: 9, nextRenewal: '2026-10-09' }),
+  ];
+  const follow = { 2: { noticeDays: 32, leadDays: 1 }, 6: { decision: 'cancel_confirmed', effectiveOn: '2026-12-01' } };
+  const result = sortBySafetyDate(items, follow, now);
+  assert.deepEqual(result.slice(0, 5).map(s => s.id), [3, 2, 4, 1, 9]);
+  assert.equal(result.length, items.length, 'sorting must not remove subscriptions');
+  assert.deepEqual(items.map(s => s.id), [1, 2, 3, 4, 5, 6, 7, 8, 9], 'original order is preserved');
+  for (const id of [5, 6, 7, 8]) assert.equal(subscriptionSafetyDate(items.find(s => s.id === id), follow, now), null);
+  assert.equal(sortBySafetyDate(items.slice().reverse(), follow, now).findIndex(s => s.id === 1) < sortBySafetyDate(items.slice().reverse(), follow, now).findIndex(s => s.id === 9), true, 'ties remain stable regardless of API order');
+});
