@@ -503,6 +503,7 @@ export function SubscriptionForm({
                   <SectionTitle>Date de sûreté</SectionTitle>
                   {premiumCustomization && <PlusBadge reason="safety" />}
                 </View>
+                <Text style={{ color: premiumCustomization ? Colors.textSecondary : Colors.success, fontSize: 12, lineHeight: 18, fontWeight: '600' }}>{premiumCustomization ? 'Gratuit sur 5 abonnements actifs · sur tous avec Plus' : 'Inclus gratuitement pour vos 5 abonnements actifs'}</Text>
                 {safetyEditable ? (
                   <>
                     <Controller

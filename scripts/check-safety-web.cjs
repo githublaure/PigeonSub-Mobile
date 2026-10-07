@@ -1,0 +1,124 @@
+const { chromium } = require(process.env.PIGEONSUB_PLAYWRIGHT || 'playwright');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const assert = require('assert/strict');
+const repo = require('node:path').resolve(__dirname, '..');
+const origin = 'http://127.0.0.1:8109';
+const server = spawn(process.execPath, ['node_modules/expo/bin/cli', 'start', '--web', '--port', '8109'], { cwd: repo, env: { ...process.env, CI: '1', EXPO_PUBLIC_API_BASE_URL: origin + '/api' }, stdio: ['ignore', 'pipe', 'pipe'] });
+let logs = '', browser, page;
+for (const stream of [server.stdout, server.stderr]) stream.on('data', d => logs += d);
+const errors = [];
+async function open(path) {
+  await page.goto(origin + path);
+  await page.getByTestId('feather-reveal-overlay').waitFor({ state: 'hidden', timeout: 90000 });
+}
+async function snap(name, target) {
+  if (process.env.PIGEONSUB_SKIP_SCREENSHOTS) return;
+  if (target) await target.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: repo + '/docs/previews/safety-' + name + '.png' });
+}
+(async () => {
+  for (let i = 0; i < 120; i++) { try { if ((await fetch(origin + '/status')).ok) break; } catch {} await new Promise(r => setTimeout(r, 500)); }
+  browser = await chromium.launch({ executablePath: process.env.PIGEONSUB_CHROMIUM || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'], headless: true });
+  page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error' && /cannot contain|descendant|hydration|unique.*key|Invalid hook/i.test(m.text())) errors.push(m.text()); });
+  await open('/');
+  await page.getByRole('button', { name: 'Passer l’introduction', exact: true }).click();
+  await page.getByRole('button', { name: 'Plus tard', exact: true }).click();
+  await open('/profile');
+  await page.getByRole('button', { name: 'Explorer la démo', exact: true }).click();
+  await open('/');
+  await page.getByTestId('home-safety-toggle').waitFor();
+  const homeIds = () => page.locator('[data-testid^="home-renewal-"]').evaluateAll(nodes => nodes.map(n => Number(n.dataset.testid.replace('home-renewal-', ''))));
+  const homeDates = page.locator('[data-testid^="home-renewal-"] [data-testid="safety-date-badge"]');
+  const original = await homeIds();
+  assert.deepEqual(original, [14, 7, 13, 1, 5]);
+  assert.equal(await homeDates.count(), 0);
+  const homeToggle = page.getByTestId('home-safety-toggle');
+  await homeToggle.click();
+  assert.equal(await homeToggle.getAttribute('aria-label'), 'Sûreté visible');
+  assert.equal(await homeDates.count(), 5);
+  assert.deepEqual(await homeIds(), original, 'first click preserves renewal order');
+  await homeToggle.click();
+  assert.equal(await homeToggle.getAttribute('aria-label'), 'Tri par sûreté');
+  assert.deepEqual(await homeIds(), [14, 13, 7, 1, 3], 'sort all subscriptions before taking top five');
+  await snap('home-sorted', homeToggle);
+  await homeToggle.click();
+  assert.deepEqual(await homeIds(), original);
+  assert.equal(await homeDates.count(), 0);
+
+  await open('/subscriptions');
+  const results = page.getByTestId('subscription-results');
+  const listIds = () => results.locator('[data-testid^="subscription-card-"]').evaluateAll(nodes => nodes.map(n => Number(n.dataset.testid.replace('subscription-card-', ''))));
+  const listToggle = page.getByTestId('subscriptions-safety-toggle');
+  await listToggle.waitFor();
+  await page.getByRole('radio', { name: 'Trier par nom', exact: true }).click();
+  const alphabetical = await listIds();
+  await listToggle.click();
+  assert.deepEqual(await listIds(), alphabetical);
+  assert.equal(await results.getByTestId('safety-date-badge').count(), 14);
+  await listToggle.click();
+  assert.deepEqual((await listIds()).slice(0, 5), [14, 13, 7, 1, 3]);
+  assert.equal(await page.getByRole('radio', { name: 'Trier par nom', exact: true }).getAttribute('aria-checked'), 'false');
+  await snap('subscriptions-sorted', listToggle);
+  await listToggle.click();
+  assert.deepEqual(await listIds(), alphabetical, 'third click restores previous name sort');
+  assert.equal(await results.getByTestId('safety-date-badge').count(), 0);
+  await listToggle.click(); await listToggle.click();
+  await page.getByRole('radio', { name: 'Vue Peu utilisés', exact: true }).click();
+  assert.equal((await listIds()).length, 4, 'safety sort respects view filters');
+  await page.getByRole('textbox', { name: 'Rechercher un abonnement', exact: true }).fill('Netflix');
+  assert.deepEqual(await listIds(), [1]);
+  await page.getByRole('textbox', { name: 'Rechercher un abonnement', exact: true }).fill('');
+  await page.getByRole('radio', { name: 'Trier par coût mensuel', exact: true }).click();
+  assert.equal(await listToggle.getAttribute('aria-label'), 'Sûreté visible', 'explicit price sort exits safety sorting but keeps dates');
+  assert.equal((await listIds())[0], 3);
+  await page.getByRole('radio', { name: 'Vue Archives', exact: true }).click();
+  assert.equal((await listIds()).length, 2);
+  assert.equal(await results.getByTestId('safety-date-badge').count(), 0);
+
+  const seed = await page.evaluate(() => JSON.parse(localStorage.getItem('pigeonsub.v2.demo.data')));
+  await open('/profile');
+  await page.getByRole('button', { name: 'Quitter la démo et retrouver mes données', exact: true }).click();
+  await page.evaluate(seed => localStorage.setItem('pigeonsub.v2.guest.data', JSON.stringify({ ...seed, subscriptions: seed.subscriptions.slice(0, 5), nextId: 6 })), seed);
+  await open('/profile');
+  const free = page.getByTestId('free-plan-benefits');
+  await free.waitFor();
+  assert((await free.innerText()).includes('Date de sûreté et rappel pour chacun'));
+  await snap('free-benefits', free);
+  await open('/subscriptions');
+  await listToggle.click(); await listToggle.click();
+  assert.equal(await listToggle.getAttribute('aria-label'), 'Tri par sûreté', 'free accounts can use sorting');
+  assert(!page.url().includes('premium'));
+  await open('/subscriptions/1');
+  await page.getByText('Inclus gratuitement · date personnalisée et rappel', { exact: true }).waitFor();
+  assert(await page.getByRole('button', { name: 'Enregistrer ces dates', exact: true }).isEnabled());
+  await open('/subscriptions/1/edit');
+  await page.getByText('Inclus gratuitement pour vos 5 abonnements actifs', { exact: true }).waitFor();
+  const choose = page.getByRole('switch', { name: 'Choisir ma date de sûreté', exact: true });
+  assert(await choose.isEnabled());
+  await open('/premium?reason=safety');
+  const context = page.getByTestId('premium-feature-context');
+  await context.getByText('INCLUS GRATUITEMENT', { exact: true }).waitFor();
+  await context.getByText('EN PLUS AVEC PREMIUM', { exact: true }).waitFor();
+  assert((await context.innerText()).includes('5 abonnements gratuits'));
+
+  // A retained sixth subscription after downgrade stays readable but its
+  // customization remains Premium; the display/sort button does not unlock it.
+  await page.evaluate(seed => localStorage.setItem('pigeonsub.v2.guest.data', JSON.stringify({ ...seed, subscriptions: [...seed.subscriptions.slice(0, 5), seed.subscriptions[6]], nextId: 8 })), seed);
+  await open('/subscriptions/7');
+  assert(await page.getByRole('button', { name: 'Enregistrer ces dates', exact: true }).isDisabled());
+  await page.getByText('Gratuit sur 5 abonnements actifs · sur tous avec Plus', { exact: true }).waitFor();
+  await open('/profile');
+  await page.getByRole('radio', { name: 'Thème sombre', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await open('/subscriptions');
+  await listToggle.click(); await listToggle.click();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth) <= 320);
+  await snap('dark-narrow', listToggle);
+  assert.equal(errors.length, 0, errors.join('\n'));
+  console.log('PASS: three safety states on Home and Abos, full-set safety ordering, previous sort restoration, filters/search, free benefits and first-five customization limits, dark 320px layout.');
+})().catch(async e => { console.error(e); if (page) { console.error(await page.locator('body').innerText().catch(() => '')); await page.screenshot({ path: '/tmp/safety-view-failure.png' }).catch(() => {}); } console.error(logs.slice(-2500)); process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); server.kill(); fs.writeFileSync('/tmp/safety-view-metro.log', logs); });

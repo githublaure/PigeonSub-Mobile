@@ -114,6 +114,7 @@ export function SafetyPanel({
   return (
     <View style={ui.card}>
       <View style={ui.row}><Text style={ui.heading}>Votre date de sûreté</Text>{premium && <PlusBadge reason="safety" />}</View>
+      <Text style={[ui.small, { color: premium ? Colors.textSecondary : Colors.success, fontWeight: '600' }]}>{premium ? 'Gratuit sur 5 abonnements actifs · sur tous avec Plus' : 'Inclus gratuitement · date personnalisée et rappel'}</Text>
       <Text style={ui.body}>
         {sub.isTrial ? 'Fin de l’essai' : 'Prochain prélèvement'} :{' '}
         {shortDate(dates.renewal)}

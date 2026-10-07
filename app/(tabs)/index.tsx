@@ -8,7 +8,7 @@ import { useTheme, useThemedStyles } from '../../src/contexts/ThemeContext';
 import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -22,10 +22,12 @@ import { DecisionActions } from '../../src/components/DecisionActions';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
+import { SafetyViewToggle } from '../../src/components/SafetyViewToggle';
+import { SafetyDateBadge } from '../../src/components/ui/SafetyDateBadge';
+import { sortBySafetyDate, type SafetyView } from '../../src/lib/subscription-views';
 import { Page, useUI } from '../../src/components/ui/Page';
 import {
   canAddSubscription,
-  dayKey,
   euro,
   frequencyLabels,
   overview,
@@ -42,11 +44,15 @@ export default function HomeScreen() {
   const { mode, user } = useAuth();
   const { canUsePlus, isPlus } = useBilling();
   const { data, follow, loading, error, reload } = useSubscriptionData();
+  const [safetyView, setSafetyView] = useState<SafetyView>('hidden');
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const total = overview(data, follow);
   const renewals = upcomingRenewals(data, follow);
-  const upcoming = renewals.slice(0, 5);
+  const byId = new Map(renewals.map(item => [item.sub.id, item]));
+  const upcoming = (safetyView === 'sorted'
+    ? sortBySafetyDate(renewals.map(item => item.sub), follow).map(sub => byId.get(sub.id)!)
+    : renewals).slice(0, 5);
   // A later renewal may need attention earlier. Keep that safety date visible
   // even when the subscription is outside the five nearest renewals.
   const priority = renewals
@@ -129,11 +135,12 @@ export default function HomeScreen() {
 
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={ui.heading}>Prochaines échéances</Text>
+          <Text style={ui.heading}>{safetyView === 'sorted' ? 'Dates de sûreté prioritaires' : 'Prochaines échéances'}</Text>
         </View>
         <AddSubscriptionButton onPress={add} premium={!canAddSubscription(data, false, follow)} />
       </View>
-      {priority && priority.sub.id !== upcoming[0]?.sub.id && (
+      <SafetyViewToggle value={safetyView} onChange={setSafetyView} testID="home-safety-toggle" />
+      {safetyView !== 'hidden' && priority && priority.sub.id !== upcoming[0]?.sub.id && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Date de sûreté prioritaire : ${priority.sub.name}`}
@@ -198,21 +205,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             {sub.isTrial && <Text style={ui.small}>{trialLabel(sub)}</Text>}
-            {dates.safety && follow[sub.id]?.decision !== 'cancel_confirmed' && (
-              <View style={styles.deadline}>
-                <Ionicons
-                  name="time-outline"
-                  size={15}
-                  color={colors.warning}
-                />
-                <Text style={styles.deadlineText}>
-                  {dayKey(dates.safety) < dayKey(new Date())
-                    ? 'Sûreté dépassée · '
-                    : 'Sûreté · '}
-                  {shortDate(dates.safety)}
-                </Text>
-              </View>
-            )}
+            {safetyView !== 'hidden' && follow[sub.id]?.decision !== 'cancel_confirmed' && <SafetyDateBadge date={dates.safety} />}
           </Pressable>
           <DecisionActions
             sub={sub}

@@ -8,6 +8,7 @@ import { GuideAnchor } from './guide/GuideScrollView';
 import { Button } from './ui/Button';
 import { PlusBadge } from './ui/PlusBadge';
 import { useUI } from './ui/Page';
+import { FreePlanBenefits } from './FreePlanBenefits';
 export function PremiumSettings() {
   const { colors: c } = useTheme();
   const { isPlus } = useBilling();
@@ -20,6 +21,7 @@ export function PremiumSettings() {
       <Text style={ui.body}>Abonnements illimités, simulations avancées et historique de vos décisions.</Text>
       <Button title={isPlus ? 'Gérer mon offre Premium' : 'Passer à Premium'} onPress={() => router.push('/(tabs)/premium?reason=settings')} />
     </View>
+    <FreePlanBenefits />
     <Button title="Revoir le guide pas à pas" accessibilityHint="Visite d’un compte démo prérempli, puis retour à votre espace." variant="secondary" onPress={() => guide?.start()} />
   </View></GuideAnchor>;
 }

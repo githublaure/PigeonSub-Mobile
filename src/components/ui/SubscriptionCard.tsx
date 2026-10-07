@@ -13,11 +13,14 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { UsageBadge } from './UsageBadge';
 import { Subscription } from '../../lib/api';
+import { SafetyDateBadge } from './SafetyDateBadge';
 
 interface SubscriptionCardProps {
   subscription: Subscription;
   onPress: () => void;
   archived?: boolean;
+  showSafety?: boolean;
+  safetyDate?: Date | null;
 }
 
 function formatPrice(price: string, frequency: string): string {
@@ -38,6 +41,8 @@ export function SubscriptionCard({
   subscription,
   onPress,
   archived = !subscription.isActive,
+  showSafety = false,
+  safetyDate = null,
 }: SubscriptionCardProps) {
   const { colors: Colors } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -52,6 +57,7 @@ export function SubscriptionCard({
 
   return (
     <Pressable
+      testID={`subscription-card-${subscription.id}`}
       style={({ pressed }) => [
         styles.card,
         archived && styles.archivedCard,
@@ -59,7 +65,7 @@ export function SubscriptionCard({
       ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${subscription.name}${archived ? ', archivé' : ''}, ${formatPrice(subscription.price, subscription.frequency)}`}
+      accessibilityLabel={`${subscription.name}${archived ? ', archivé' : ''}, ${formatPrice(subscription.price, subscription.frequency)}${showSafety && !archived ? `, ${safetyDate ? `date de sûreté ${safetyDate.toLocaleDateString('fr-FR')}` : 'sans date de sûreté'}` : ''}`}
     >
       {/* Colour accent bar */}
       <View style={[styles.accent, { backgroundColor: accentColor }]} />
@@ -98,6 +104,7 @@ export function SubscriptionCard({
           <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
         )}
         {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
+        {showSafety && !archived && <SafetyDateBadge date={safetyDate} />}
         <View style={styles.footer}>
           <Text style={[styles.category, archived && styles.archivedText]}>
             {categoryLabels[subscription.category] ?? subscription.category}
