@@ -37,6 +37,7 @@ function harness() {
       },
     }).outputText;
     const requireLocal = (name) =>
+      name.endsWith('/shared/roadmap.json') ? require('../shared/roadmap.json') :
       name === '@react-native-async-storage/async-storage'
         ? storage
         : name.startsWith('./')
@@ -1188,4 +1189,60 @@ test('custom icons isolate accounts and demo, reject stale sessions and invalid 
   assert.equal(await icons.getSubscriptionIcon('account:1', 1), uri);
   await local.clearAccountFollowUps('account:1');
   assert.equal(await icons.getSubscriptionIcon('account:1', 1), null);
+});
+
+test('CSV parser handles BOM, separators, quoted cells, escaped quotes and rejects malformed/large input', () => {
+  const csv = load('csv-import');
+  const table = csv.parseCsv('\ufeffDate;Libellé;Montant\r\n01/06/2026;"Service; avec ""nom""\nlong";-9,99');
+  assert.equal(table.rows[0][1], 'Service; avec "nom"\nlong');
+  assert.equal(table.rows[0][2], '-9,99');
+  assert.equal(csv.parseCsv('Date,Description,Amount\n2026-06-01,"Service, Pro",-12.99').delimiter, ',');
+  assert.equal(csv.parseCsv('sep=;\nDate;Nom;Débit\n01/06/2026;A;9,99').delimiter, ';');
+  assert.throws(() => csv.parseCsv('Date;Nom;Montant\n01/06/2026;"A;-2'), /fermée/);
+  assert.throws(() => csv.parseCsv('Date;Nom;Montant\n01/06/2026;A'), /colonnes/);
+  assert.throws(() => csv.parseCsv('A'.repeat(csv.MAX_CSV_LENGTH + 1)), /500 Ko/);
+  assert.deepEqual(csv.suggestCsvMapping(['Date', 'Libellé', 'Débit']), { date: 0, label: 1, amount: 2, debits: 'positive' });
+  assert.equal(csv.parseTransactionDate('31/02/2026'), null);
+  assert.equal(csv.parseTransactionDate('2026-06-01'), '2026-06-01');
+  assert.equal(csv.parseTransactionAmount('-1 234,56 €'), -1234.56);
+  assert.equal(csv.parseTransactionAmount('(1.234,56)'), -1234.56);
+  assert.equal(csv.parseTransactionAmount('1,234.56'), 1234.56);
+  assert.equal(csv.parseTransactionAmount('12,345'), null);
+  assert.equal(csv.parseTransactionAmount('NaN'), null);
+});
+
+test('CSV analysis distinguishes recurring debits from credits, duplicates, invalid rows and isolated payments', () => {
+  const csv = load('csv-import');
+  const table = csv.parseCsv(csv.CSV_EXAMPLE + '\n01/05/2026;Musique exemple;-9,99\n31/02/2026;Invalid;-9\n01/01/2099;Future;-9');
+  const result = csv.analyzeCsv(table, csv.suggestCsvMapping(table.headers), date('2026-10-07'));
+  assert.equal(result.candidates.length, 2);
+  assert.equal(result.credits, 1); assert.equal(result.duplicates, 1); assert.equal(result.invalid, 2); assert.equal(result.notRecurring, 1);
+  assert.equal(result.candidates[0].nextRenewal, '2026-11-01');
+  assert.equal(result.candidates[1].price, '14.99'); assert.equal(result.candidates[1].variable, true);
+  assert.throws(() => csv.analyzeCsv(table, { date: 0, label: 0, amount: 2, debits: 'negative' }), /distinctes/);
+  const positive = csv.parseCsv('Date;Nom;Débit\n01/06/2026;A;9,99\n01/07/2026;A;9,99\n01/08/2026;A;-9,99');
+  assert.equal(csv.analyzeCsv(positive, csv.suggestCsvMapping(positive.headers), date('2026-10-07')).candidates.length, 1);
+  const foreign = csv.parseCsv('Date;Nom;Montant;Devise\n01/06/2026;A;-9,99;USD\n01/07/2026;A;-9,99;USD');
+  const ignored = csv.analyzeCsv(foreign, csv.suggestCsvMapping(foreign.headers), date('2026-10-07'));
+  assert.equal(ignored.candidates.length, 0); assert.equal(ignored.invalid, 2);
+  const item = result.candidates[0];
+  assert(csv.matchesExisting(item, [sub({ name: 'MUSIQUE   EXEMPLE', price: '9,99' })]));
+  assert.equal(csv.validateImportCandidate(item).useSafetyDate, false);
+  assert.throws(() => csv.validateImportCandidate({ ...item, price: '-2' }), /prix positif/);
+});
+
+test('roadmap votes persist without duplicates, remain scoped and demo reset preserves personal votes', async () => {
+  const h = harness(), local = h.load('local-data');
+  const vote = interested => local.localRequest('/roadmap/image-import', { method: 'PUT', body: JSON.stringify({ interested }) });
+  local.setDataSession('guest', 'guest');
+  await vote(true); await vote(true);
+  assert.deepEqual(await local.localRequest('/roadmap'), ['image-import']);
+  local.setDataSession('demo', 'demo');
+  assert.deepEqual(await local.localRequest('/roadmap'), []);
+  await vote(true); await local.seedDemo();
+  assert.deepEqual(await local.localRequest('/roadmap'), []);
+  local.setDataSession('guest', 'guest');
+  assert.deepEqual(await local.localRequest('/roadmap'), ['image-import']);
+  await vote(false); assert.deepEqual(await local.localRequest('/roadmap'), []);
+  await assert.rejects(local.localRequest('/roadmap/unknown', { method: 'PUT', body: '{"interested":true}' }), /invalide/);
 });

@@ -14,6 +14,7 @@ export default function SubscriptionsLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="new" />
+      <Stack.Screen name="import" />
       <Stack.Screen name="[id]" />
       <Stack.Screen name="[id]/edit" />
       <Stack.Screen name="[id]/receipts" />

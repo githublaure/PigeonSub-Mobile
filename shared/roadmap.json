@@ -1,0 +1,7 @@
+[
+  {"id":"csv-import","title":"Importer un relevé CSV","description":"Repérer des paiements récurrents, vérifier les suggestions et ajouter ses abonnements.","status":"Prototype disponible","premium":true},
+  {"id":"image-import","title":"Ajouter depuis une capture ou une photo","description":"Préremplir un abonnement à partir d’une image, puis vous laisser confirmer les informations.","status":"À l’étude","premium":true},
+  {"id":"voice-reminders","title":"Rappels vocaux personnalisés","description":"Écouter un rappel avant une échéance importante. Les notifications classiques sont déjà proposées.","status":"À l’étude","premium":true},
+  {"id":"community-deals","title":"Bons plans de la communauté","description":"Partager des offres utiles et retrouver celles qui correspondent à vos abonnements.","status":"À l’étude","premium":false},
+  {"id":"community-ratings","title":"Avis sur les abonnements","description":"Consulter et partager des retours d’expérience. Vos notes personnelles restent gratuites.","status":"À l’étude","premium":false}
+]

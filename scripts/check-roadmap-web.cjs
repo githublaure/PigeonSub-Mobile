@@ -1,0 +1,150 @@
+const { chromium } = require(process.env.PIGEONSUB_PLAYWRIGHT || 'playwright');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const assert = require('assert/strict');
+const repo = require('node:path').resolve(__dirname, '..');
+const origin = 'http://127.0.0.1:8112';
+const server = spawn(process.execPath, ['node_modules/expo/bin/cli', 'start', '--web', '--port', '8112'], { cwd: repo, env: { ...process.env, CI: '1', EXPO_PUBLIC_API_BASE_URL: origin + '/api' }, stdio: ['ignore', 'pipe', 'pipe'] });
+let logs = '', browser, page;
+for (const stream of [server.stdout, server.stderr]) stream.on('data', d => logs += d);
+const errors = [];
+async function open(path) {
+  await page.goto(origin + path);
+  await page.getByTestId('feather-reveal-overlay').waitFor({ state: 'hidden', timeout: 90000 });
+}
+async function snap(name, target) {
+  if (process.env.PIGEONSUB_SKIP_SCREENSHOTS) return;
+  if (target) await target.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: repo + '/docs/previews/roadmap-' + name + '.png' });
+}
+(async () => {
+  for (let i = 0; i < 120; i++) { try { if ((await fetch(origin + '/status')).ok) break; } catch {} await new Promise(r => setTimeout(r, 500)); }
+  browser = await chromium.launch({ executablePath: process.env.PIGEONSUB_CHROMIUM || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'], headless: true });
+  page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error' && /cannot contain|descendant|hydration|unique.*key|Invalid hook/i.test(m.text())) errors.push(m.text()); });
+  await open('/');
+  await page.getByRole('button', { name: 'Passer l’introduction', exact: true }).click();
+  await page.getByRole('button', { name: 'Plus tard', exact: true }).click();
+  await open('/profile');
+  await page.getByRole('button', { name: 'Les prochaines évolutions · donner mon avis', exact: true }).click();
+  const voice = page.getByRole('checkbox', { name: 'Cette option m’intéresse : Rappels vocaux personnalisés', exact: true });
+  await voice.click();
+  assert.equal(await voice.getAttribute('aria-checked'), 'true');
+  await open('/roadmap');
+  assert.equal(await voice.getAttribute('aria-checked'), 'true');
+  await snap('ideas', page.getByTestId('roadmap-image-import'));
+  await open('/reminders');
+  await page.getByText('Application installée requise', { exact: true }).waitFor();
+  assert(await page.getByRole('button', { name: 'Tester une notification', exact: true }).isDisabled());
+  await snap('notifications');
+  await open('/subscriptions/import');
+  const csv = 'Date;Libellé;Montant\n01/05/2026;Musique exemple;-9,99\n01/06/2026;Musique exemple;-9,99\n01/07/2026;Musique exemple;-9,99\n04/05/2026;Vidéo exemple;-12,99\n04/06/2026;Vidéo exemple;-12,99\n04/07/2026;Vidéo exemple;-14,99';
+  const chooseFile = async () => {
+    const picker = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Choisir un fichier CSV', exact: true }).click();
+    await (await picker).setFiles({ name: 'releve-fictif.csv', mimeType: 'text/csv', buffer: Buffer.from(csv.replaceAll('\\n', '\n')) });
+    await page.getByTestId('csv-mapping').waitFor();
+    await page.getByRole('button', { name: 'Analyser sur cet appareil', exact: true }).click();
+    await page.getByTestId('csv-preview').waitFor();
+  };
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('pigeonsub.v2.guest.data') || '{"subscriptions":[]}').subscriptions.length);
+  await chooseFile();
+  const music = page.getByRole('checkbox', { name: 'Sélectionner Musique exemple', exact: true });
+  const video = page.getByRole('checkbox', { name: 'Sélectionner Vidéo exemple', exact: true });
+  assert.equal(await count(), 0);
+  await snap('csv-preview', page.getByTestId('csv-preview'));
+  await music.click(); await video.click();
+  await page.getByRole('button', { name: 'Vérifier 2 ajouts', exact: true }).click();
+  await page.getByText('Ajoutez vos abonnements en une fois', { exact: true }).waitFor();
+  assert.equal(await count(), 0);
+  await page.getByRole('button', { name: 'Continuer gratuitement', exact: true }).click();
+  await video.waitFor();
+  await video.click();
+  await page.getByRole('button', { name: 'Vérifier 1 ajout', exact: true }).click();
+  await page.getByRole('button', { name: 'Revenir à la vérification', exact: true }).click();
+  assert.equal(await count(), 0);
+  await page.getByRole('button', { name: 'Vérifier 1 ajout', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmer l’import', exact: true }).click();
+  await page.getByText('1 abonnement(s) ajouté(s).', { exact: true }).waitFor();
+  assert.equal(await count(), 1);
+  const first = await page.evaluate(() => JSON.parse(localStorage.getItem('pigeonsub.v2.guest.data')).subscriptions[0]);
+  assert.equal(first.name, 'Musique exemple'); assert.equal(first.useSafetyDate, false);
+  await open('/subscriptions/import');
+  await chooseFile();
+  assert(await music.isDisabled(), 'existing subscription cannot be duplicated');
+  await video.click();
+  await page.getByRole('textbox', { name: 'Nom de video exemple', exact: true }).fill('Vidéo corrigée');
+  await page.getByRole('button', { name: 'Vérifier 1 ajout', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmer l’import', exact: true }).click();
+  await page.getByText('1 abonnement(s) ajouté(s).', { exact: true }).waitFor();
+  assert.equal(await count(), 2);
+  const personal = await page.evaluate(() => localStorage.getItem('pigeonsub.v2.guest.data'));
+  await open('/profile');
+  await page.getByRole('button', { name: 'Explorer la démo', exact: true }).click();
+  await open('/roadmap');
+  assert.equal(await voice.getAttribute('aria-checked'), 'false', 'demo votes separate from personal votes');
+  await voice.click();
+  await open('/reminders');
+  await page.getByText('Simulation en démo', { exact: true }).waitFor();
+  assert(await page.getByRole('button', { name: 'Tester une notification', exact: true }).isDisabled());
+  await open('/subscriptions/import');
+  await chooseFile(); await music.click(); await video.click();
+  await page.getByRole('button', { name: 'Vérifier 2 ajouts', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirmer l’import', exact: true }).click();
+  await page.getByText('2 abonnement(s) ajouté(s).', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('pigeonsub.v2.demo.data')).subscriptions.length), 18);
+  assert.equal(await page.evaluate(() => localStorage.getItem('pigeonsub.v2.guest.data')), personal);
+  await open('/profile');
+  await page.getByRole('radio', { name: 'Thème sombre', exact: true }).click();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await open('/roadmap'); await voice.waitFor();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth) <= 320);
+  await snap('dark', page.getByTestId('roadmap-voice-reminders'));
+  await open('/subscriptions/import'); await chooseFile();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth) <= 320);
+  // A signed-in session sends votes to the backend adapter, never to demo storage.
+  const serverVotes = new Set(); let failVote = false; const sent = [];
+  await page.route(origin + '/api/**', route => {
+    const request = route.request(), path = new URL(request.url()).pathname.replace('/api', '');
+    if (path === '/auth/me') return route.fulfill({ json: { id: 42, name: 'Compte test', email: 'test@example.invalid' } });
+    if (path === '/subscriptions') return route.fulfill({ json: [] });
+    if (path === '/settings') return route.fulfill({ json: { budgetCap: null, monthlyOverrides: null } });
+    if (path === '/roadmap') return route.fulfill({ json: [...serverVotes] });
+    if (path.startsWith('/roadmap/')) {
+      sent.push(request.headers().authorization);
+      if (failVote) return route.fulfill({ status: 500, json: { error: 'Vote non enregistré. Réessayez.' } });
+      const id = path.split('/').pop(), interested = request.postDataJSON().interested;
+      if (interested) serverVotes.add(id); else serverVotes.delete(id);
+      return route.fulfill({ json: { interested } });
+    }
+    throw new Error('Unexpected mocked request ' + path);
+  });
+  await page.evaluate(() => {
+    sessionStorage.setItem('pigeonsub_jwt', 'roadmap-local-test-token');
+    localStorage.setItem('pigeonsub.sessionMode', 'account');
+    localStorage.setItem('pigeonsub.lastAccountScope', 'account:42');
+  });
+  await open('/roadmap'); await voice.waitFor();
+  assert.equal(await voice.getAttribute('aria-checked'), 'false');
+  await voice.click();
+  await page.waitForFunction(() => document.querySelector('[aria-label="Cette option m’intéresse : Rappels vocaux personnalisés"]').getAttribute('aria-checked') === 'true');
+  assert(serverVotes.has('voice-reminders'));
+  assert(sent.every(value => value === 'Bearer roadmap-local-test-token'));
+  await open('/roadmap'); await voice.waitFor();
+  assert.equal(await voice.getAttribute('aria-checked'), 'true');
+  failVote = true; await voice.click();
+  await page.getByText('Vote non enregistré. Réessayez.', { exact: true }).waitFor();
+  assert.equal(await voice.getAttribute('aria-checked'), 'true', 'failed write retains previous vote');
+  failVote = false; await voice.click();
+  await page.waitForFunction(() => document.querySelector('[aria-label="Cette option m’intéresse : Rappels vocaux personnalisés"]').getAttribute('aria-checked') === 'false');
+  assert(!serverVotes.has('voice-reminders'));
+  for (const name of ['Accueil', 'Abos', 'Agenda', 'Stats', 'Coupons', 'Profil']) {
+    const link = page.getByRole('tab', { name, exact: false });
+    if (await link.count()) assert(await link.first().isVisible(), name + ' tab remains visible');
+  }
+  assert.equal(errors.length, 0, errors.join('\n'));
+  console.log('PASS: persistent/scoped roadmap votes; unsupported/demo reminder states; file upload, CSV preview/corrections/confirmation/cancel/free paywall/duplicates/demo batch; dark 320px layout.');
+})().catch(async e => { console.error(e); if (page) { console.error(await page.locator('body').innerText().catch(() => '')); await page.screenshot({ path: '/tmp/roadmap-failure.png' }).catch(() => {}); } console.error(logs.slice(-2200)); process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); server.kill(); fs.writeFileSync('/tmp/roadmap-metro.log', logs); });
