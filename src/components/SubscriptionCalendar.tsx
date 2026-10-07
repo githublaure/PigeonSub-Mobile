@@ -6,6 +6,7 @@ import { addDays, dayKey, shortDate, type FollowUps } from '../lib/subscription-
 import { calendarEvents } from '../lib/calendar-events';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUI } from './ui/Page';
+import { CalendarEventDot, CalendarLegend } from './CalendarLegend';
 export function SubscriptionCalendar({ data, follow, selected, onSelect }: { data: Subscription[]; follow: FollowUps; selected: string | null; onSelect: (day: string | null, ids: number[]) => void }) {
   const ui = useUI();
   const { colors: c } = useTheme();
@@ -25,15 +26,13 @@ export function SubscriptionCalendar({ data, follow, selected, onSelect }: { dat
           <Text style={{ color: picked ? c.white : c.textSecondary, fontSize: 10 }}>{date.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</Text>
           <Text style={{ color: picked ? c.white : c.text, fontWeight: '700' }}>{date.getDate()}</Text>
           <View style={{ height: 5, flexDirection: 'row', gap: 3 }}>
-            {matches.some(e => e.kind !== 'Date de sûreté') && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: picked ? c.white : c.primary }} />}
-            {matches.some(e => e.kind === 'Date de sûreté') && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: c.warning }} />}
+            {matches.some(e => e.kind !== 'Date de sûreté') && <CalendarEventDot selected={picked} />}
+            {matches.some(e => e.kind === 'Date de sûreté') && <CalendarEventDot safety />}
           </View>
         </Pressable>;
       })}
     </View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 4 }}>
-      <Text style={[ui.small, { color: c.primary }]}>● Échéance / essai</Text><Text style={[ui.small, { color: c.warning }]}>● Sûreté</Text>
-    </View>
+    <CalendarLegend />
     {selected && <Pressable accessibilityRole="button" accessibilityLabel="Afficher tous les jours" onPress={() => onSelect(null, [])} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary }}>Date : {selected.split('-').reverse().join('/')} · Effacer</Text></Pressable>}
   </View>;
 }

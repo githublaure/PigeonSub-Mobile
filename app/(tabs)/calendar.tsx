@@ -1,5 +1,6 @@
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
 import { calendarEvents } from '../../src/lib/calendar-events';
+import { CalendarEventDot, CalendarLegend } from '../../src/components/CalendarLegend';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -9,15 +10,7 @@ import { Page, useUI } from '../../src/components/ui/Page';
 import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
-import {
-  addDays,
-  dayKey,
-  deadlines,
-  euro,
-  isEnded,
-  firstPayment,
-  parseDay,
-} from '../../src/lib/subscription-math';
+import { dayKey, euro } from '../../src/lib/subscription-math';
 export default function CalendarScreen() {
   const { colors: Colors } = useTheme();
   const ui = useUI();
@@ -125,33 +118,17 @@ export default function CalendarScreen() {
                   }}
                 >
                   {matches.some((e) => e.kind !== 'Date de sûreté') && (
-                    <View
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: 3,
-                        backgroundColor: Colors.textSecondary,
-                      }}
-                    />
+                    <CalendarEventDot selected={selected === key} />
                   )}
                   {matches.some((e) => e.kind === 'Date de sûreté') && (
-                    <View
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: 3,
-                        backgroundColor: Colors.warning,
-                      }}
-                    />
+                    <CalendarEventDot safety />
                   )}
                 </View>
               </Pressable>
             );
           })}
         </View>
-        <Text style={ui.small}>
-          ● Prélèvement ou fin d’essai · ● Orange : date de sûreté
-        </Text>
+        <CalendarLegend />
       </View>
       </GuideAnchor>
       <Text style={ui.heading}>{selected.split('-').reverse().join('/')}</Text>
