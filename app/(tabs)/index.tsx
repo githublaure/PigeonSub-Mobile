@@ -1,3 +1,4 @@
+import { HomeQuickViews } from '../../src/components/HomeQuickViews';
 import { SubscriptionIcon } from '../../src/components/ui/SubscriptionIcon';
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
 import { BudgetPanel } from '../../src/components/BudgetPanel';
@@ -108,6 +109,8 @@ export default function HomeScreen() {
         onDetails={() => router.push('/(tabs)/savings')}
         budget={<GuideAnchor id="home-budget"><BudgetPanel current={total.monthly} compact embedded /></GuideAnchor>}
       /></GuideAnchor>
+      <HomeQuickViews data={data} follow={follow} savings={total.confirmedAnnual} />
+      <Text style={ui.heading}>À surveiller</Text>
       <GuideAnchor id="home-review"><ReviewCarousel data={data} follow={follow} /></GuideAnchor>
 
       {total.trialCount > 0 && (

@@ -1044,7 +1044,7 @@ test('subscription views and review suggestions separate trials, archives, kept 
   const ids = rows => rows.map(s => s.id);
   assert.deepEqual(ids(filterSubscriptions(items, follow, 'archived', now)), [4]);
   assert.deepEqual(ids(filterSubscriptions(items, follow, 'trials', now)), [3]);
-  assert.deepEqual(ids(filterSubscriptions(items, follow, 'soon', now)), [1, 2, 3]);
+  assert.deepEqual(ids(filterSubscriptions(items, follow, 'soon', now)), [1, 2], 'overdue trials stay in Essais, not upcoming');
   assert.deepEqual(ids(filterSubscriptions(items, follow, 'cancelling', now)), [1]);
   assert.deepEqual(ids(reviewCandidates(items, follow, now)), [1]);
   assert.equal(filterSubscriptions(items, follow, 'low_rated', now).some(s => s.id === 7), false);
@@ -1245,4 +1245,64 @@ test('roadmap votes persist without duplicates, remain scoped and demo reset pre
   assert.deepEqual(await local.localRequest('/roadmap'), ['image-import']);
   await vote(false); assert.deepEqual(await local.localRequest('/roadmap'), []);
   await assert.rejects(local.localRequest('/roadmap/unknown', { method: 'PUT', body: '{"interested":true}' }), /invalide/);
+});
+
+test('all subscriptions include archives and newest order uses timestamps with a stable id fallback', () => {
+  const views = load('subscription-views');
+  const rows = [sub({ id: 1, createdAt: '2026-10-05' }), sub({ id: 3, createdAt: '2026-10-06', isActive: false }), sub({ id: 4, createdAt: 'invalid' }), sub({ id: 2, createdAt: '2026-10-06', isTrial: true })];
+  assert.equal(views.filterSubscriptions(rows, {}, 'all').length, 4);
+  assert.deepEqual(views.sortNewestFirst(rows).map(s => s.id), [3, 2, 1, 4]);
+  assert.deepEqual(rows.map(s => s.id), [1, 3, 4, 2], 'sorting does not mutate source');
+});
+
+test('category preferences serialize concurrent changes, isolate sessions, reset and delete only their owner', async () => {
+  const h = harness(), local = h.load('local-data');
+  local.setDataSession('guest', 'guest');
+  await Promise.all([local.saveCategoryIcon('music', 'heart-outline'), local.saveCategoryIcon('health', 'leaf-outline')]);
+  assert.deepEqual(await local.getCategoryIcons(), { music: 'heart-outline', health: 'leaf-outline' });
+  local.setDataSession('demo', 'demo');
+  assert.deepEqual(await local.getCategoryIcons(), {});
+  await local.saveCategoryIcon('music', 'film-outline');
+  await local.seedDemo();
+  assert.deepEqual(await local.getCategoryIcons(), {});
+  assert.deepEqual(await local.getCategoryIcons('guest'), { music: 'heart-outline', health: 'leaf-outline' });
+  local.setDataSession('account', 'user:1');
+  const saving = local.saveCategoryIcon('music', 'camera-outline');
+  local.setDataSession('account', 'user:2');
+  await saving;
+  assert.deepEqual(await local.getCategoryIcons('user:1'), { music: 'camera-outline' });
+  assert.deepEqual(await local.getCategoryIcons(), {});
+  await local.clearAccountFollowUps('user:1');
+  assert.deepEqual(await local.getCategoryIcons('user:1'), {});
+  assert.equal((await local.getCategoryIcons('guest')).health, 'leaf-outline');
+});
+
+test('legacy offers fall back to Other and new category choices survive saving and editing', async () => {
+  const h = harness(), local = h.load('local-data'), categories = h.load('categories'), offers = h.load('offers');
+  assert.equal(categories.normalizeCategory(undefined), 'other');
+  assert.equal(categories.normalizeCategory('constructor'), 'other');
+  assert.deepEqual(categories.validCategoryIcons({ music: 'heart-outline', bad: 'heart-outline', health: 'unknown' }), { music: 'heart-outline' });
+  local.setDataSession('guest', 'guest');
+  const draft = { ...offers.emptyOffer(), provider: 'Test', title: 'Coupon', expiresOn: '2026-11-01', category: 'music' };
+  await local.saveOffer(draft);
+  const saved = (await local.getSavedOffers())[0];
+  assert.equal(saved.category, 'music');
+  await local.saveOffer({ ...draft, category: 'health' }, saved.id);
+  assert.equal((await local.getSavedOffers())[0].category, 'health');
+});
+
+test('alerts are chronological from the selected day with exclusive safety/deadline filters and confirmed endings', () => {
+  const { calendarEvents, filterCalendarEvents } = load('calendar-events');
+  const rows = [sub({ id: 1, nextRenewal: '2026-10-20' }), sub({ id: 2, isTrial: true, trialEndsAt: '2026-10-12', nextRenewal: '2026-10-15' }), sub({ id: 3, frequency: 'yearly', nextRenewal: '2027-05-01' })];
+  const events = calendarEvents(rows, { 1: { decision: 'cancel_confirmed', effectiveOn: '2026-11-01' } }, date('2026-10-10'), date('2027-10-10'), date('2026-10-07'));
+  assert(events.every(e => e.day >= '2026-10-10'));
+  assert.deepEqual(events.map(e => e.day), events.map(e => e.day).sort());
+  assert(events.some(e => e.id === 3 && e.day === '2027-05-01'));
+  assert.deepEqual(events.filter(e => e.id === 1).map(e => e.day), ['2026-10-20']);
+  assert(events.some(e => e.id === 2 && e.kind === 'Fin de l’essai'));
+  assert(events.some(e => e.id === 2 && e.kind === 'Premier prélèvement prévu'));
+  assert(filterCalendarEvents(events, 'safety').every(e => e.kind === 'Date de sûreté'));
+  assert(filterCalendarEvents(events, 'deadline').every(e => e.kind !== 'Date de sûreté'));
+  assert.equal(filterCalendarEvents(events, 'safety').length + filterCalendarEvents(events, 'deadline').length, events.length);
+  assert.equal(new Set(events.map(e => `${e.id}-${e.day}-${e.kind}`)).size, events.length);
 });

@@ -1,7 +1,7 @@
 import { useTheme } from '../../src/contexts/ThemeContext';
 import type { Palette } from '../../src/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Image, ImageSourcePropType } from 'react-native';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -48,6 +48,7 @@ function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
 
 export default function TabsLayout() {
   const { colors: Colors } = useTheme();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -76,6 +77,10 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="subscriptions"
+        listeners={{ tabPress: event => {
+          event.preventDefault();
+          router.navigate({ pathname: '/(tabs)/subscriptions', params: { view: 'all', reset: String(Date.now()) } });
+        } }}
         options={{
           title: 'Abos',
           tabBarIcon: ({ focused }) =>
@@ -85,7 +90,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Agenda',
+          title: 'Alertes',
           tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
         }}
       />

@@ -1,3 +1,5 @@
+import { CategoryBadge, CategoryFilters } from '../../src/components/CategoryFilters';
+import { normalizeCategory } from '../../src/lib/categories';
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
 import { DatePickerField } from '../../src/components/forms/DatePickerField';
 import { useLocalSearchParams } from 'expo-router';
@@ -37,6 +39,7 @@ export default function CouponsScreen() {
   useEffect(() => {
     if (view === 'trials' || view === 'coupons') setSection(view);
   }, [view]);
+  const [category, setCategory] = useState('all');
   const [filter, setFilter] = useState<Filter>('saved');
   const [draft, setDraft] = useState<OfferDraft | null>(null);
   const [editing, setEditing] = useState<string>();
@@ -70,6 +73,7 @@ export default function CouponsScreen() {
       offer
         ? {
             provider: offer.provider,
+            category: normalizeCategory(offer.category),
             title: offer.title,
             code: offer.code,
             url: offer.url,
@@ -85,6 +89,7 @@ export default function CouponsScreen() {
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const available = offers.filter((o) => !o.used && offerDays(o) >= 0);
   const rows = offers
+    .filter(o => category === 'all' || normalizeCategory(o.category) === category)
     .filter(
       (o) =>
         filter === 'all' ||
@@ -130,6 +135,8 @@ export default function CouponsScreen() {
         <TrialsList />
       ) : draft ? (
         <>
+          <Text style={ui.label}>CATÉGORIE DE L’OFFRE</Text>
+          <CategoryFilters value={normalizeCategory(draft.category)} onChange={category => setDraft({ ...draft, category })} allowAll={false} customizable={false} />
           {(
             [
               ['provider', 'Service', 'Ex. ElevenLabs'],
@@ -183,6 +190,7 @@ export default function CouponsScreen() {
             onPress={() =>
               void run(async () => {
                 await saveOffer(draft, editing);
+                setCategory(normalizeCategory(draft.category));
                 setDraft(null);
                 setFilter('all');
               }, 'Offre enregistrée.')
@@ -278,6 +286,7 @@ export default function CouponsScreen() {
               {failure}
             </Text>
           )}
+          <CategoryFilters value={category} onChange={setCategory} categories={offers.map(o => normalizeCategory(o.category))} />
           {!rows.length && (
             <View style={ui.card}>
               <Ionicons name="ticket-outline" size={30} color={c.primary} />
@@ -325,6 +334,7 @@ export default function CouponsScreen() {
                     Démo · offre fictive
                   </Text>
                 )}
+                <CategoryBadge category={offer.category} />
                 <Text style={ui.body}>{offer.title}</Text>
                 <Text style={ui.small}>
                   Fin de l’offre : {shortDate(parseDay(offer.expiresOn))}{' '}

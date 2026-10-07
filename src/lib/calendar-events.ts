@@ -1,7 +1,12 @@
 import type { Subscription } from './api';
 import { addDays, dayKey, deadlines, firstPayment, isEnded, parseDay, type FollowUps } from './subscription-math';
+export type CalendarEvent = { day: string; kind: string; name: string; id: number; price: string };
+export type CalendarFilter = 'all' | 'safety' | 'deadline';
+export function filterCalendarEvents(events: CalendarEvent[], filter: CalendarFilter) {
+  return events.filter(event => filter === 'all' || (filter === 'safety') === (event.kind === 'Date de sûreté'));
+}
 export function calendarEvents(subs: Subscription[], follow: FollowUps, first: Date, last: Date, now = new Date()) {
-  const events: { day: string; kind: string; name: string; id: number; price: string }[] = [];
+  const events: CalendarEvent[] = [];
   for (const sub of subs) {
     if (isEnded(sub, follow[sub.id], now)) continue;
     let cursor = new Date(Math.max(first.getTime(), new Date(now).setHours(0, 0, 0, 0)));
@@ -14,11 +19,13 @@ export function calendarEvents(subs: Subscription[], follow: FollowUps, first: D
         [sub.isTrial && firstPayment(sub) && parseDay(sub.trialEndsAt) && dayKey(firstPayment(sub)!) !== dayKey(parseDay(sub.trialEndsAt)!) ? firstPayment(sub) : null, 'Premier prélèvement prévu'],
         [d.safety, 'Date de sûreté'],
       ] as const) {
+        if (follow[sub.id]?.decision === 'cancel_confirmed' && (kind === 'Date de sûreté' || (date && follow[sub.id]?.effectiveOn && dayKey(date) >= follow[sub.id].effectiveOn!))) continue;
         if (date && dayKey(date) >= dayKey(first) && dayKey(date) <= dayKey(last)) events.push({ day: dayKey(date), kind, name: sub.name, id: sub.id, price: sub.price });
       }
       if (sub.isTrial) break;
       cursor = addDays(d.renewal, 1);
     }
   }
-  return events;
+  return [...new Map(events.map(event => [`${event.day}-${event.id}-${event.kind}`, event])).values()]
+    .sort((a, b) => a.day.localeCompare(b.day) || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name) || a.id - b.id);
 }

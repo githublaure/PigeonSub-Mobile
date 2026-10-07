@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -53,12 +54,13 @@ export function BudgetPanel({ current, simulated, compact = false, embedded = fa
     return (
     <View style={{ gap: 5 }} key={label}>
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        {!compact && <Text style={ui.body}>{label}</Text>}<Text style={[ui.heading, { fontSize: compact ? 12 : 16, color }]}>{euro(amount)}{budget !== null ? ` sur ${euro(budget)}` : ' / mois'}</Text>
+        {!compact && <Text style={ui.body}>{label}</Text>}<Text style={[ui.heading, { fontSize: compact ? 12 : 16, color }]}>{compact ? 'Budget · ' : ''}{euro(amount)}{budget !== null ? ` sur ${euro(budget)}` : ' / mois'}</Text>
+        {compact && loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="create-outline" size={20} color={c.primary} /></Pressable>}
       </View>
       <View accessibilityRole="progressbar" accessibilityLabel={`${label} : ${euro(amount)}${budget !== null ? ` sur un budget de ${euro(budget)}` : ', budget non défini'}`} accessibilityValue={{ min: 0, max: 100, now: budgetUsage(amount, budget).percent }} style={{ height: 12, borderRadius: 10, backgroundColor: c.surfaceRaised, overflow: 'hidden' }}>
         <View style={{ height: 12, borderRadius: 10, width: `${budgetUsage(amount, budget).percent}%`, backgroundColor: color }} />
       </View>
-      {budget !== null && <Text style={[ui.small, { color: difference < 0 ? c.danger : c.success }]}>
+      {budget !== null && (!compact || difference < 0) && <Text style={[ui.small, { color: difference < 0 ? c.danger : c.success }]}>
         {difference < 0 ? `${euro(-difference)} au-dessus du budget` : `${euro(difference)} disponibles`}
       </Text>}
     </View>
@@ -66,10 +68,10 @@ export function BudgetPanel({ current, simulated, compact = false, embedded = fa
   };
   return (
     <View style={embedded ? { gap: 5, paddingVertical: 6 } : ui.card} testID="budget-panel">
-      <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={[ui.heading, compact && { fontSize: 13 }]}>Budget abonnements</Text>
-        {loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.primary, fontWeight: '700' }}>{budget === null ? 'Définir' : 'Modifier'}</Text></Pressable>}
-      </View>
+      {!compact && <View style={[ui.row, { justifyContent: 'space-between' }]}>
+        <Text style={ui.heading}>Budget abonnements</Text>
+        {loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minHeight: 44, justifyContent: 'center', marginLeft: compact ? 'auto' : 0 }}><Text style={{ color: c.primary, fontWeight: '700', fontSize: compact ? 12 : 14 }}>{budget === null ? 'Définir mon budget' : compact ? 'Modifier mon budget' : 'Modifier'}</Text></Pressable>}
+      </View>}
       {loaded && editing && <View style={{ gap: 10 }}>
         <TextInput accessibilityLabel="Budget mensuel en euros" placeholder="Ex. 80" placeholderTextColor={c.textMuted} value={draft} onChangeText={setDraft} keyboardType="decimal-pad" style={ui.input} maxLength={12} editable={!busy} />
         <Button title="Enregistrer le budget" loading={busy} onPress={() => void save()} />
