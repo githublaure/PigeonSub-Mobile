@@ -8,6 +8,13 @@ export async function runCsvImport(scope: string, selected: ImportCandidate[], c
   if (selected.length > 1 && !hasPlusAccess()) throw new Error('PLUS_IMPORT: L’import groupé est inclus dans Plus.');
   // Validate the entire selection before the first write.
   const payloads = selected.map(validateImportCandidate);
+  if (getDataSession().scope !== scope || getDataSession().mode === 'none') throw new Error('La session a changé.');
+  if (selected.length > 1 && getDataSession().mode === 'account') {
+    const saved = await subscriptions.importBatch(payloads);
+    if (getDataSession().scope !== scope) throw new Error('La session a changé.');
+    saved.forEach((sub, index) => completed(selected[index].id, sub.id));
+    return;
+  }
   for (let index = 0; index < selected.length; index++) {
     const assertSession = () => {
       if (getDataSession().scope !== scope || getDataSession().mode === 'none') throw new Error('La session a changé. Relancez l’import depuis votre espace.');

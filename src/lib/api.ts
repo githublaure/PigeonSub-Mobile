@@ -53,6 +53,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -101,11 +102,13 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
+    let code: string | undefined;
     try {
       const body = await res.json();
       message = body?.error ?? body?.message ?? message;
+      code = body?.code;
     } catch {}
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, code);
   }
 
   if (method !== 'GET' && !path.startsWith('/auth')) dataChanged();
@@ -152,6 +155,7 @@ export interface Subscription {
   trialEndsAt: string | null;
   purchaseDate: string | null;
   createdAt: string;
+  cancelledEffectiveOn?: string | null;
 }
 
 export interface InsertSubscription {
@@ -176,6 +180,7 @@ export interface InsertSubscription {
   isTrial?: boolean;
   trialEndsAt?: string | null;
   purchaseDate?: string | null;
+  cancelledEffectiveOn?: string | null;
 }
 
 export interface VoiceReminder {
@@ -287,6 +292,8 @@ export const auth = {
 // Subscriptions API
 // ---------------------------------------------------------------------------
 export const subscriptions = {
+  importBatch: (items: InsertSubscription[]) =>
+    apiFetch<Subscription[]>('/subscriptions/import', { method: 'POST', body: JSON.stringify({ items }) }),
   list: (includeArchived = false) =>
     apiFetch<Subscription[]>(
       `/subscriptions?includeArchived=${includeArchived}`,
@@ -327,6 +334,7 @@ export const subscriptions = {
   },
 
   update: async (id: number, data: Partial<InsertSubscription>) => {
+    const expectedScope = getDataSession().scope;
     if ('safetyDate' in data || 'useSafetyDate' in data) {
       const all = await subscriptions.list(true);
       const previous = all.find((s) => s.id === id);
@@ -350,17 +358,20 @@ export const subscriptions = {
           'PLUS_LIMIT: Les dates de sûreté sont incluses pour vos 5 abonnements gratuits.',
         );
     }
-    if (data.isActive) {
+    if (data.isActive || 'cancelledEffectiveOn' in data) {
       const all = await subscriptions.list(true);
       const previous = all.find((s) => s.id === id);
       if (
-        !previous?.isActive &&
+        previous && isEnded(previous, (await getFollowUps())[id]) &&
+        (data.isActive ?? previous.isActive) &&
+        (!data.cancelledEffectiveOn || data.cancelledEffectiveOn > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' })) &&
         !canAddSubscription(all, hasPlusAccess(), await getFollowUps())
       )
         throw new Error(
           'PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.',
         );
     }
+    if (getDataSession().scope !== expectedScope) throw new Error('La session a changé.');
     return apiFetch<Subscription>(`/subscriptions/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -376,6 +387,10 @@ export const subscriptions = {
 
   upcoming: (days: number) =>
     apiFetch<Subscription[]>(`/subscriptions/upcoming/${days}`),
+};
+
+export const billingApi = {
+  entitlements: () => apiFetch<{ isPlus: boolean; expiresAt: string | null; freeLimit: number }>('/billing/entitlements'),
 };
 
 // ---------------------------------------------------------------------------

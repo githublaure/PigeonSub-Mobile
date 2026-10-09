@@ -8,13 +8,15 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pigeonsub.app"
+      "bundleIdentifier": "com.pigeonsub.app",
+      "icon": "./assets/branding/app-icon.png"
     },
     "android": {
       "package": "com.pigeonsub.app",
       "adaptiveIcon": {
         "backgroundColor": "#7C3AED"
-      }
+      },
+      "icon": "./assets/branding/app-icon.png"
     },
     "web": {
       "bundler": "metro",
@@ -67,6 +69,7 @@
     },
     "extra": {
       "apiBaseUrl": "REPLACE_WITH_YOUR_BACKEND_URL"
-    }
+    },
+    "icon": "./assets/branding/app-icon.png"
   }
 }

@@ -20,6 +20,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/voice', require('./routes/voice'));
 app.use('/api/roadmap', require('./routes/roadmap'));
+app.use('/api/billing', require('./routes/billing'));
 
 // 404
 app.use((req, res) => res.status(404).json({ error: `No route: ${req.method} ${req.path}` }));
@@ -74,6 +75,9 @@ async function start() {
         purchase_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancelled_effective_on DATE;
+      CREATE INDEX IF NOT EXISTS subscriptions_user_active_idx ON subscriptions (user_id, is_active);
 
       CREATE TABLE IF NOT EXISTS user_settings (
         id SERIAL PRIMARY KEY,

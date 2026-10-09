@@ -193,6 +193,7 @@ export default function ProfileScreen() {
       >
         <PremiumSettings />
         <ProductTools />
+        <Button title="Revoir l’introduction" variant="secondary" onPress={() => router.push('/introduction')} />
         <View style={ui.card}><ThemeControls /></View>
         {mode === 'demo' ? (
           <View style={{ gap: 10 }}>
@@ -354,6 +355,8 @@ export default function ProfileScreen() {
           {/* App settings */}
           <Text style={styles.sectionLabel}>Application</Text>
           <Card style={styles.card}>
+            <SettingsRow icon="play-circle-outline" label="Revoir l’introduction" value="Plume et présentation de PigeonSub" onPress={() => router.push('/introduction')} />
+            <View style={styles.rowDivider} />
             <SettingsRow
               icon="star-outline"
               label="Mon offre PigeonSub Plus"
