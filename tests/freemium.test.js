@@ -37,6 +37,7 @@ function harness() {
       },
     }).outputText;
     const requireLocal = (name) =>
+      name === './api' ? { subscriptions: { update: async () => ({}) } } :
       name.endsWith('/shared/roadmap.json') ? require('../shared/roadmap.json') :
       name === '@react-native-async-storage/async-storage'
         ? storage
@@ -1305,4 +1306,22 @@ test('alerts are chronological from the selected day with exclusive safety/deadl
   assert(filterCalendarEvents(events, 'deadline').every(e => e.kind !== 'Date de sûreté'));
   assert.equal(filterCalendarEvents(events, 'safety').length + filterCalendarEvents(events, 'deadline').length, events.length);
   assert.equal(new Set(events.map(e => `${e.id}-${e.day}-${e.kind}`)).size, events.length);
+});
+
+test('guest writes enforce the free quota inside serialized storage, including concurrent taps; demo remains isolated', async () => {
+  const h = harness(), local = h.load('local-data'), access = h.load('entitlements-state');
+  local.setDataSession('guest', 'guest');
+  const create = () => local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify(sub()) });
+  const results = await Promise.allSettled(Array.from({ length: 8 }, create));
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 5);
+  assert(results.filter(r => r.status === 'rejected').every(r => /PLUS_LIMIT/.test(r.reason.message)));
+  access.setPlusAccess(true, 'guest');
+  await create();
+  access.setPlusAccess(false, 'guest');
+  await assert.rejects(create(), /PLUS_LIMIT/);
+  local.setDataSession('demo', 'demo');
+  await local.seedDemo();
+  await create();
+  local.setDataSession('guest', 'guest');
+  assert.equal((await local.localRequest('/subscriptions')).length, 6);
 });

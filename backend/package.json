@@ -4,7 +4,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -12,5 +13,8 @@
     "express": "^4.22.3",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }
