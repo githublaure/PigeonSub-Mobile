@@ -22,6 +22,8 @@ interface SubscriptionCardProps {
   archived?: boolean;
   showSafety?: boolean;
   safetyDate?: Date | null;
+  remindersEnabled?: boolean;
+  onToggleReminder?: () => void;
 }
 
 function formatPrice(price: string, frequency: string): string {
@@ -44,6 +46,8 @@ export function SubscriptionCard({
   archived = !subscription.isActive,
   showSafety = false,
   safetyDate = null,
+  remindersEnabled = false,
+  onToggleReminder,
 }: SubscriptionCardProps) {
   const { colors: Colors } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -96,6 +100,16 @@ export function SubscriptionCard({
               </View>
             )}
           </View>
+          {!!onToggleReminder && !archived && (
+            <Pressable accessibilityRole="button"
+              accessibilityLabel={remindersEnabled ? `Désactiver les rappels de ${subscription.name}` : `Activer les rappels de ${subscription.name}`}
+              accessibilityState={{ checked: remindersEnabled }}
+              onPress={event => { event.stopPropagation(); onToggleReminder(); }}
+              style={{ minWidth: 40, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name={remindersEnabled ? 'notifications' : 'notifications-outline'}
+                size={19} color={remindersEnabled ? Colors.primary : Colors.textMuted} />
+            </Pressable>
+          )}
           <Text style={[styles.price, archived && styles.archivedText]}>
             {subscription.isTrial && !archived ? 'Après essai\n' : ''}
             {formatPrice(subscription.price, subscription.frequency)}
