@@ -230,20 +230,24 @@ export default function HomeScreen() {
           style={[
             ui.card,
             {
-              backgroundColor: colors.goldSurface,
-              borderColor: colors.goldBorder,
+              backgroundColor: colors.surfaceRaised,
+              borderColor: colors.border,
+              gap: 12,
             },
           ]}
         >
-          <View style={ui.row}><PlusBadge /><Text style={[ui.label, { color: colors.gold }]}>PIGEONSUB PLUS</Text></View>
-          <Text style={ui.heading}>Comparez vos budgets possibles.</Text>
+          <View style={[ui.row, { justifyContent: 'space-between' }]}>
+            <View style={[ui.row, { gap: 7 }]}><Ionicons name="feather-outline" size={21} color={colors.gold} /><Text style={[ui.label, { color: colors.gold }]}>PigeonSub Plus</Text></View>
+            <Ionicons name="sparkles-outline" size={19} color={colors.gold} />
+          </View>
+          <Text style={ui.heading}>Repérez vos économies cachées</Text>
           <Text style={ui.body}>
-            Vues avancées · abonnements et essais illimités.
+            Abonnements illimités, analyses personnalisées et historique de vos décisions.
           </Text>
           <Button
-            title="Découvrir PigeonSub Plus"
-            variant="secondary"
-            onPress={() => router.push('/(tabs)/premium?reason=limit')}
+            title="Découvrir Plus"
+            variant="primary"
+            onPress={() => router.push('/(tabs)/premium?reason=features')}
           />
         </View>
       )}

@@ -2,6 +2,7 @@
 const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { ACTIVE_SQL } = require('../services/subscription-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
   try {
     const q = includeArchived
       ? 'SELECT * FROM subscriptions WHERE user_id = $1'
-      : 'SELECT * FROM subscriptions WHERE user_id = $1 AND is_active = TRUE';
+      : `SELECT * FROM subscriptions WHERE user_id = $1 AND ${ACTIVE_SQL}`;
     const { rows: subs } = await pool.query(q, [req.user.id]);
 
     const { rows: settingsRows } = await pool.query(
@@ -80,7 +81,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       totalMonthlyCost: totalMonthlyCost.toFixed(2),
-      activeSubscriptions: subs.filter(s => s.is_active).length,
+      activeSubscriptions: subs.filter(s => s.is_active !== false && (!s.cancelled_effective_on || new Date(s.cancelled_effective_on).toISOString().slice(0, 10) > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }))).length,
       upcomingRenewals,
       trialsEnding,
       trialCount,

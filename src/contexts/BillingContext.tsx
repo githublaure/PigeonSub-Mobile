@@ -10,6 +10,8 @@ import React, {
 import { AppState, Platform } from 'react-native';
 import type { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
 import { useAuth } from './AuthContext';
+import { billingApi } from '../lib/api';
+import { resolvePlusAccess } from '../lib/billing-access';
 import { setPlusAccess } from '../lib/entitlements-state';
 import { getDataSession } from '../lib/local-data';
 
@@ -45,20 +47,33 @@ export function BillingProvider({ children }: { children: React.ReactNode }) {
     {},
   );
   const accept = useCallback(
-    (info: CustomerInfo) => {
+    async (info?: CustomerInfo) => {
       if (getDataSession().scope !== scope) return;
+      let verified: boolean;
+      try { verified = await resolvePlusAccess(mode, !!info && active(info), billingApi.entitlements); }
+      catch (error) {
+        if (getDataSession().scope === scope) {
+          setIsPlus(false);
+          setPlusAccess(false, scope);
+          setError('Vérification de Plus indisponible. Réessayez avant d’utiliser une fonction Plus.');
+        }
+        throw error;
+      }
+      if (getDataSession().scope !== scope) return false;
+      setError(current => current.startsWith('Vérification de Plus') ? '' : current);
       setAccessScope(scope);
-      setIsPlus(active(info));
-      setPlusAccess(active(info), scope);
+      setIsPlus(verified);
+      setPlusAccess(verified, scope);
+      return verified;
     },
-    [scope],
+    [scope, mode],
   );
   const refresh = useCallback(async () => {
-    if (!ready || mode === 'demo') return;
+    if (mode === 'demo' || (mode !== 'account' && !ready)) return;
     try {
-      accept(await sdk().getCustomerInfo());
+      await accept(ready ? await sdk().getCustomerInfo() : undefined);
     } catch {
-      /* Preserve verified SDK cache during transient outages. */
+      /* Account verification clears access on failure; server data stays readable. */
     }
   }, [ready, mode, accept]);
   useEffect(() => {
@@ -81,6 +96,7 @@ export function BillingProvider({ children }: { children: React.ReactNode }) {
       Constants.executionEnvironment === 'storeClient' ||
       !apiKey
     ) {
+      if (mode === 'account') void accept().catch(() => undefined);
       setError(
         'Les achats ne sont pas encore disponibles dans cette version. Vous pouvez continuer gratuitement.',
       );
@@ -112,12 +128,13 @@ export function BillingProvider({ children }: { children: React.ReactNode }) {
           );
         if (cancelled) return;
         const listener = (info: CustomerInfo) => {
-          if (!cancelled) accept(info);
+          if (!cancelled) void accept(info).catch(() => undefined);
         };
         Purchases.addCustomerInfoUpdateListener(listener);
         removeListener = () =>
           Purchases.removeCustomerInfoUpdateListener(listener);
-        accept(await Purchases.getCustomerInfo());
+        // Store restore remains available during a temporary server outage.
+        await accept(await Purchases.getCustomerInfo()).catch(() => undefined);
         if (!cancelled) setReady(true);
         const offerings = await Purchases.getOfferings();
         const available =
@@ -169,15 +186,14 @@ export function BillingProvider({ children }: { children: React.ReactNode }) {
     if (!ready || mode === 'demo' || getDataSession().scope !== scope)
       throw new Error('Achats indisponibles.');
     const result = await sdk().purchasePackage(item);
-    accept(result.customerInfo);
-    return active(result.customerInfo);
+    try { return !!(await accept(result.customerInfo)); }
+    catch { throw new Error('Achat reçu par la boutique. La vérification serveur est indisponible ; réessayez avec « Restaurer », sans racheter.'); }
   };
   const restore = async () => {
     if (!ready || mode === 'demo')
       throw new Error('Restauration indisponible dans cette version.');
     const info = await sdk().restorePurchases();
-    accept(info);
-    return active(info);
+    return !!(await accept(info));
   };
   return (
     <BillingContext.Provider

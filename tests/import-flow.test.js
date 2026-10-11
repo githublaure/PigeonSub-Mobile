@@ -77,3 +77,32 @@ test('notification diagnostics are scoped; tests require permission and avoid th
   assert.equal((await notifications.getReminderStatus()).state, 'demo');
   assert.equal(scheduled.length, 1);
 });
+
+test('connected batch uses the protected endpoint once and never falls back to individual writes', async () => {
+  let scope = 'account:1', calls = 0, fail = false;
+  const run = load('run-csv-import', {
+    './api': { subscriptions: { importBatch: async payloads => { calls++; if (fail) throw new Error('BILLING_UNAVAILABLE'); return payloads.map((p,i) => ({ ...p, id: i + 1 })); }, create: () => assert.fail('no POST fallback'), list: () => assert.fail('server handles retry') } },
+    './local-data': { getDataSession: () => ({ mode: 'account', scope }) },
+    './entitlements-state': { hasPlusAccess: () => true }, './csv-import': csv,
+  });
+  const completed = [];
+  await run.runCsvImport(scope, [sample('A'), sample('B')], (...args) => completed.push(args));
+  assert.equal(calls, 1); assert.equal(completed.length, 2);
+  fail = true;
+  await assert.rejects(run.runCsvImport(scope, [sample('C'), sample('D')], () => assert.fail()), /BILLING/);
+  assert.equal(calls, 2);
+  await assert.rejects(run.runCsvImport('account:2', [sample('A'), sample('B')], () => assert.fail()), /session/);
+  assert.equal(calls, 2);
+});
+test('connected Plus ignores SDK claims and fails closed on every server failure; guest/demo stay local', async () => {
+  const { resolvePlusAccess } = load('billing-access', {});
+  assert.equal(await resolvePlusAccess('account', true, async () => ({ isPlus: false })), false);
+  assert.equal(await resolvePlusAccess('account', false, async () => ({ isPlus: true })), true);
+  for (const status of [401, 403, 404, 500, 503]) {
+    await assert.rejects(resolvePlusAccess('account', true, async () => { throw new Error(String(status)); }), new RegExp(String(status)));
+  }
+  assert.equal(await resolvePlusAccess('guest', true, () => assert.fail()), true);
+  assert.equal(await resolvePlusAccess('guest', false, () => assert.fail()), false);
+  // Demo is granted by the explicit local mode, never reported as a paid account.
+  assert.equal(await resolvePlusAccess('demo', true, () => assert.fail()), false);
+});

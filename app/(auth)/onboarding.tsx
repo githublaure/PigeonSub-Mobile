@@ -43,10 +43,18 @@ const SLIDES = [
 ];
 
 export default function OnboardingScreen() {
+  const { startGuest, demoLogin } = useAuth();
+  return <OnboardingContent onFinish={startGuest} onDemo={demoLogin} />;
+}
+
+export function OnboardingContent({ onFinish, onDemo, replay = false }: {
+  onFinish: () => void | Promise<void>;
+  onDemo?: () => void | Promise<void>;
+  replay?: boolean;
+}) {
   const { width } = useWindowDimensions();
   const styles = useThemedStyles(createStyles);
 
-  const { startGuest, demoLogin } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -69,7 +77,7 @@ export default function OnboardingScreen() {
     if (busy) return;
     setBusy(true);
     try {
-      await (demo ? demoLogin() : startGuest());
+      await (demo && onDemo ? onDemo() : onFinish());
     } catch {
       Alert.alert('Impossible de démarrer', 'Réessayez dans un instant.');
     } finally {
@@ -161,13 +169,13 @@ export default function OnboardingScreen() {
         {/* CTA */}
         <View style={styles.actions}>
           <Button
-            title={isLast ? 'Commencer' : 'Suivant'}
+            title={isLast ? (replay ? 'Revenir à mon espace' : 'Commencer') : 'Suivant'}
             loading={busy}
             onPress={next}
             fullWidth
             size="lg"
           />
-          {isLast && (
+          {isLast && onDemo && (
             <Button
               title="Explorer la démo"
               variant="secondary"

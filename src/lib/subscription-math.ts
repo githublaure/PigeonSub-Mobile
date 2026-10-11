@@ -172,6 +172,7 @@ export function isEnded(
 ): boolean {
   return (
     !sub.isActive ||
+    (!!sub.cancelledEffectiveOn && sub.cancelledEffectiveOn.slice(0, 10) <= dayKey(now)) ||
     (follow.decision === 'cancel_confirmed' &&
       !!follow.effectiveOn &&
       follow.effectiveOn <= dayKey(now))
