@@ -51,7 +51,7 @@ export async function categoryMutation(action: 'create' | 'update' | 'delete',
         if (catalog.custom.length >= 60) throw new Error('Maximum 60 catégories.');
         if (catalog.custom.some(c => c.name.toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr')))
           throw new Error('Cette catégorie existe déjà.');
-        catalog.custom.push({ id: `custom_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        catalog.custom.push({ id: `custom_${Date.now()}-${Math.random().toString(36).slice(2)}`,
           name, icon: input.icon ?? 'grid-outline' });
       } else {
         if (!id || id === 'other' && action === 'delete') throw new Error('Catégorie non modifiable.');
