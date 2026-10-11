@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Pressable,
+  Image,
   StyleSheet,
   Text,
   View,
@@ -237,7 +238,7 @@ export default function HomeScreen() {
           ]}
         >
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
-            <View style={[ui.row, { gap: 7 }]}><Ionicons name="feather-outline" size={21} color={colors.gold} /><Text style={[ui.label, { color: colors.gold }]}>PigeonSub Plus</Text></View>
+            <View style={[ui.row, { gap: 7 }]}><Image source={require("../../assets/icons/navigation/plume-tab-filled.png")} style={{ width: 21, height: 21, tintColor: colors.gold }} accessible={false} /><Text style={[ui.label, { color: colors.gold }]}>PigeonSub Plus</Text></View>
             <Ionicons name="sparkles-outline" size={19} color={colors.gold} />
           </View>
           <Text style={ui.heading}>Repérez vos économies cachées</Text>

@@ -3,7 +3,9 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Subscription } from '../lib/api';
-import { categoryLabels, usageLabels } from '../lib/labels';
+import { usageLabels } from '../lib/labels';
+import { useCategoryCatalog } from '../hooks/useCategoryCatalog';
+import { categoryName } from '../lib/category-catalog';
 import { currentMonthlyCost, euro, parseDay, shortDate } from '../lib/subscription-math';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUI } from './ui/Page';
@@ -34,6 +36,7 @@ export function CategoryDrilldown({ groups, active, monthly, palette }: {
 }) {
   const { colors: c } = useTheme();
   const ui = useUI();
+  const catalog = useCategoryCatalog();
   const [selected, setSelected] = useState<string | null>(null);
   const category = groups.find(([key]) => key === selected);
   const subs = category ? active.filter(s => s.category === selected && currentMonthlyCost(s) > 0)
@@ -42,14 +45,14 @@ export function CategoryDrilldown({ groups, active, monthly, palette }: {
     <View testID="stats-category-details" style={{ flex: 1, gap: 5 }}>
       {groups.map(([key, cost], index) => (
         <Pressable key={key} accessibilityRole="button"
-          accessibilityLabel={`Voir les abonnements : ${categoryLabels[key] ?? key}`}
+          accessibilityLabel={`Voir les abonnements : ${categoryName(key, catalog)}`}
           accessibilityState={{ expanded: selected === key }}
           onHoverIn={() => setSelected(key)}
           onPress={() => setSelected(current => current === key ? null : key)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6,
             minHeight: 36, borderRadius: 10, backgroundColor: selected === key ? c.surfaceRaised : 'transparent' }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[index % palette.length] }} />
-          <Text style={[ui.small, { flex: 1 }]}>{categoryLabels[key] ?? key}</Text>
+          <Text style={[ui.small, { flex: 1 }]}>{categoryName(key, catalog)}</Text>
           <Text style={[ui.small, { color: c.text, fontWeight: '600' }]}>
             {monthly ? Math.round(cost / monthly * 100) : 0} %
           </Text>
@@ -61,7 +64,7 @@ export function CategoryDrilldown({ groups, active, monthly, palette }: {
           backgroundColor: c.surfaceRaised, borderColor: c.border, borderWidth: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ flex: 1 }}>
-              <Text style={[ui.heading, { fontSize: 14 }]}>{categoryLabels[category[0]] ?? category[0]} · {subs.length}</Text>
+              <Text style={[ui.heading, { fontSize: 14 }]}>{categoryName(category[0], catalog)} · {subs.length}</Text>
               <Text style={ui.small}>{euro(category[1])}/mois</Text>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails"
