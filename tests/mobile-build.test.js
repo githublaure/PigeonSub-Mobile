@@ -7,6 +7,10 @@ const { spawnSync } = require('node:child_process');
 const { checkLock, preflight, build } = require('../scripts/mobile-build');
 
 const root = path.resolve(__dirname, '..');
+// Release branches may use different SDK 57 patches: derive test fixtures from
+// the version actually pinned in the mobile lockfile, not a hardcoded patch.
+const lockedExpoVersion = require('../package-lock.json').packages['node_modules/expo'].version;
+const wrongPatchVersion = lockedExpoVersion.replace(/(\d+)$/, patch => String(Number(patch) + 1));
 function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mobile-build-test-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -15,7 +19,7 @@ function fixture(t) {
   }
   return dir;
 }
-function installExpo(dir, version = '57.0.26') {
+function installExpo(dir, version = lockedExpoVersion) {
   const expo = path.join(dir, 'node_modules/expo');
   fs.mkdirSync(path.join(expo, 'bin'), { recursive: true });
   fs.writeFileSync(path.join(expo, 'package.json'), JSON.stringify({ version }));
@@ -23,7 +27,8 @@ function installExpo(dir, version = '57.0.26') {
 }
 
 test('mobile lockfile pins SDK 57 and only public npm tarballs with integrity', () => {
-  assert.equal(checkLock(root), '57.0.26');
+  assert.match(lockedExpoVersion, /^57\.\d+\.\d+$/);
+  assert.equal(checkLock(root), lockedExpoVersion);
 });
 
 test('preflight rejects a clean checkout without installing or downloading Expo', (t) => {
@@ -34,7 +39,7 @@ test('preflight rejects a clean checkout without installing or downloading Expo'
 
 test('preflight rejects wrong SDK, wrong patch version, and incomplete CLI', (t) => {
   const dir = fixture(t);
-  for (const version of ['54.0.37', '57.0.25']) {
+  for (const version of ['54.0.37', wrongPatchVersion]) {
     installExpo(dir, version);
     assert.throws(() => preflight(dir), /does not match locked Expo/);
   }
