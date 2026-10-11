@@ -236,14 +236,14 @@ export default function HomeScreen() {
           ]}
         >
           <View style={ui.row}><PlusBadge /><Text style={[ui.label, { color: colors.gold }]}>PIGEONSUB PLUS</Text></View>
-          <Text style={ui.heading}>Comparez vos budgets possibles.</Text>
+          <Text style={ui.heading}>Repérez vos économies cachées</Text>
           <Text style={ui.body}>
-            Vues avancées · abonnements et essais illimités.
+            Abonnements illimités, analyses personnalisées et historique de vos décisions.
           </Text>
           <Button
-            title="Découvrir PigeonSub Plus"
+            title="Découvrir Plus"
             variant="secondary"
-            onPress={() => router.push('/(tabs)/premium?reason=limit')}
+            onPress={() => router.push('/(tabs)/premium?reason=features')}
           />
         </View>
       )}
