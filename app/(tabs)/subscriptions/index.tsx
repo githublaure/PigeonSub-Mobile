@@ -1,8 +1,11 @@
 import { CategoryFilters } from '../../../src/components/CategoryFilters';
 import { normalizeCategory } from '../../../src/lib/categories';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { getDataSession, updateFollowUp } from '../../../src/lib/local-data';
+import { askReminderPermission, syncReminders } from '../../../src/lib/notifications';
 import { FilterRail } from '../../../src/components/ui/FilterRail';
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../src/contexts/ThemeContext';
@@ -25,6 +28,8 @@ export default function SubscriptionsScreen() {
   const router = useRouter();
   const { data, follow, loading, error, reload } = useSubscriptionData();
   const { canUsePlus } = useBilling();
+  const { mode, scope } = useAuth();
+  const [reminderBusy, setReminderBusy] = useState<number | null>(null);
   const { view: routeView, reset, select } = useLocalSearchParams<{ view?: string; reset?: string; select?: string }>();
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
@@ -40,6 +45,31 @@ export default function SubscriptionsScreen() {
     .filter(s => `${s.name} ${s.category}`.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr')))
     .sort((a, b) => sort === 'newest' ? 0 : sort === 'name' ? a.name.localeCompare(b.name) : sort === 'price' ? monthlyCost(b) - monthlyCost(a) : (nextRenewal(a)?.getTime() ?? Infinity) - (nextRenewal(b)?.getTime() ?? Infinity));
   const filtered = safetyView === 'sorted' ? sortBySafetyDate(matching, follow) : matching;
+  const toggleReminder = async (subId: number) => {
+    if (reminderBusy !== null) return;
+    const sub = data.find(item => item.id === subId);
+    if (!sub) return;
+    const previous = !!follow[subId]?.reminderEnabled;
+    setReminderBusy(subId);
+    try {
+      if (!previous) {
+        if (sub.frequency === 'lifetime') throw new Error('Un achat à vie ne nécessite pas de rappel de renouvellement.');
+        if (!sub.nextRenewal && !sub.trialEndsAt) {
+          throw new Error('Ajoutez une date de renouvellement ou de fin d’essai avant d’activer une notification.');
+        }
+        if (mode !== 'demo' && !(await askReminderPermission())) {
+          throw new Error('Autorisez les notifications dans les réglages de votre téléphone.');
+        }
+      }
+      if (getDataSession().scope !== scope) throw new Error('La session a changé.');
+      await updateFollowUp(subId, { reminderEnabled: !previous });
+      if (mode !== 'demo') await syncReminders();
+    } catch (error) {
+      Alert.alert('Rappels PigeonSub', error instanceof Error ? error.message : 'Impossible de modifier ce rappel.');
+    } finally {
+      setReminderBusy(null);
+    }
+  };
   return <Page title="Abonnements" headerAccessory={<AddSubscriptionButton onPress={() => router.push(canAddSubscription(data, canUsePlus, follow) ? '/(tabs)/subscriptions/new' : '/(tabs)/premium?reason=limit')} premium={!canAddSubscription(data, false, follow)} />}>
     <Button title="Importer un CSV · prototype" variant="ghost" onPress={() => router.push('/(tabs)/subscriptions/import')} />
     <GuideAnchor id="subscription-views"><View style={{ gap: 12 }}>
@@ -53,7 +83,7 @@ export default function SubscriptionsScreen() {
       <SafetyViewToggle value={safetyView} onChange={setSafetyView} testID="subscriptions-safety-toggle" />
     </View></GuideAnchor>
     <View style={{ gap: 10 }} testID="subscription-results">
-      {filtered.map(sub => <SubscriptionCard key={sub.id} subscription={sub} archived={isEnded(sub, follow[sub.id])} showSafety={safetyView !== 'hidden'} safetyDate={subscriptionSafetyDate(sub, follow)} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} />)}
+      {filtered.map(sub => <SubscriptionCard key={sub.id} subscription={sub} archived={isEnded(sub, follow[sub.id])} showSafety={safetyView !== 'hidden'} safetyDate={subscriptionSafetyDate(sub, follow)} remindersEnabled={!!follow[sub.id]?.reminderEnabled} onToggleReminder={() => void toggleReminder(sub.id)} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} />)}
       {!filtered.length && <View style={ui.card}><Text style={ui.heading}>Aucun abonnement dans cette vue</Text><Text style={ui.body}>Changez de vue ou de recherche.</Text><Button title="Réinitialiser les filtres" variant="secondary" onPress={() => { setView('all'); setCategory('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); }} /></View>}
     </View>
   </Page>;

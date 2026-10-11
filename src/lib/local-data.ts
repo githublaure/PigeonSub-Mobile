@@ -2,6 +2,7 @@ import { validCategoryIcons, type Category, type CategoryIconName, type Category
 import roadmapFeatures from '../../shared/roadmap.json';
 import { clearSubscriptionIcons } from './subscription-icon-store';
 import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
+import { hasPlusAccess } from './entitlements-state';
 import { demoProofs } from './demo-proofs';
 import {
   demoOffers,
@@ -23,6 +24,8 @@ import {
   monthlyCost,
   currentMonthlyCost,
   overview,
+  canAddSubscription,
+  isEnded,
   type FollowUp,
   type FollowUps,
 } from './subscription-math';
@@ -83,10 +86,20 @@ export const getFollowUps = (namespace = scope) =>
   readJSON<FollowUps>(key('followups', namespace), {});
 export function updateFollowUp(id: number, patch: FollowUp): Promise<void> {
   const namespace = scope;
+  const account = mode === 'account';
   return transaction(async () => {
+    if (namespace !== scope) throw new Error('La session a changé.');
     const all = await getFollowUps(namespace);
     const before = all[id] ?? {};
     const next = { ...before, ...patch };
+    if (account && patch.decision) {
+      // Persist the effective cancellation on the server; undoing it is a
+      // reactivation and must pass the same quota as a new subscription.
+      const { subscriptions } = await import('./api');
+      if (namespace !== scope) throw new Error('La session a changé.');
+      await subscriptions.update(id, { cancelledEffectiveOn: next.decision === 'cancel_confirmed' ? next.effectiveOn ?? null : null });
+      if (namespace !== scope) throw new Error('La session a changé.');
+    }
     if (patch.decision)
       next.history = [
         ...(before.history ?? []),
@@ -292,6 +305,7 @@ export async function localRequest<T>(
   const namespace = scope;
   if (!isLocalSession()) throw new Error('Session locale indisponible.');
   return transaction(async () => {
+    if (namespace !== scope || !isLocalSession()) throw new Error('La session a changé.');
     const data = await readJSON<LocalData>(key('data', namespace), empty());
     const url = new URL(path, 'https://local.invalid');
     const route = url.pathname;
@@ -312,6 +326,8 @@ export async function localRequest<T>(
         (s) => url.searchParams.get('includeArchived') === 'true' || s.isActive,
       );
     else if (route === '/subscriptions' && method === 'POST') {
+      if (body.isActive !== false && !canAddSubscription(data.subscriptions, hasPlusAccess(), await getFollowUps(namespace)))
+        throw new Error('PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.');
       const item = subscription(body, data.nextId++);
       data.subscriptions.push(item);
       result = item;
@@ -328,6 +344,10 @@ export async function localRequest<T>(
       if (method === 'DELETE') {
         data.subscriptions.splice(index, 1);
       } else if (method === 'PUT') {
+        const before = data.subscriptions[index];
+        const follow = await getFollowUps(namespace);
+        if (body.isActive === true && isEnded(before, follow[id]) && !canAddSubscription(data.subscriptions, hasPlusAccess(), follow))
+          throw new Error('PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.');
         data.subscriptions[index] = { ...data.subscriptions[index], ...body };
         result = data.subscriptions[index];
       } else result = data.subscriptions[index];

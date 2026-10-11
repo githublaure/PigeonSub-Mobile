@@ -8,5 +8,5 @@ const COPY: Record<string, { title: string; free: string; plus: string }> = {
   stats: { title: 'Comparez vos budgets possibles', free: 'Budget, projection, catégories et vue après résiliations sont gratuits.', plus: 'Plus ajoute les vues sans les peu utilisés, sans les notes de 1 à 2 étoiles et la vue combinée.' },
 };
 export function premiumCopy(reason?: string) {
-  return COPY[reason ?? ''] ?? { title: 'Passez à PigeonSub Plus', free: 'Le suivi de 5 abonnements, le budget, les essais et les coupons restent gratuits.', plus: 'Abonnements illimités, simulations avancées, icônes photo, davantage de justificatifs et historique de vos décisions.' };
+  return COPY[reason ?? ''] ?? { title: 'Passez à PigeonSub Plus', free: 'Le suivi de 5 abonnements, le budget, les essais et les coupons restent gratuits.', plus: 'Abonnements illimités, analyses personnalisées et historique de vos décisions.' };
 }

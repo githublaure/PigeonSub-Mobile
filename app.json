@@ -8,7 +8,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.replit.pigeonsub"
+      "bundleIdentifier": "app.replit.pigeonsub",
+      "icon": "./assets/branding/app-icon.png"
     },
     "android": {
       "package": "com.pigeonsub.app",
@@ -18,7 +19,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "icon": "./assets/branding/app-icon.png"
     },
     "web": {
       "bundler": "metro",
@@ -76,6 +78,7 @@
         "projectId": "bffd77a0-5f4b-4443-a05e-4e38dce18ce8"
       }
     },
-    "owner": "githublaure"
+    "owner": "githublaure",
+    "icon": "./assets/branding/app-icon.png"
   }
 }
