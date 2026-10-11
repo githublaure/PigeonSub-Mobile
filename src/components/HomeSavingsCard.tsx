@@ -28,19 +28,19 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pen
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
           <Text testID="home-confirmed-amount" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.65} style={{ color: amountColor, fontSize: 48, fontWeight: '800', letterSpacing: -1.7 }}>{euro(confirmedAnnual)}</Text>
-          <Text style={{ color: c.text, fontSize: 16, fontWeight: '700' }}>économisés / an estimés</Text>
-          <Text style={{ color: c.textSecondary, fontSize: 11 }}>Résiliations confirmées</Text>
+          <Text style={{ color: c.text, fontSize: 16, fontWeight: '700' }}>/ an économisables</Text>
+          <Text style={{ color: c.textSecondary, fontSize: 11 }}>Résiliations confirmées · estimation</Text>
         </View>
         {fontScale < 1.5 && <Image source={require('../../assets/mascots/pigeon-calculator.png')} resizeMode="contain" accessible={false} style={{ width: 76, height: 104 }} />}
       </View>
       <View style={{ borderTopWidth: 1, borderColor: c.goldBorder, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text testID="home-potential-amount" style={{ color: c.gold, fontSize: 20, fontWeight: '800' }}>+ {euro(potentialAnnual)}<Text style={{ fontSize: 11, fontWeight: '500' }}> / an possibles</Text></Text>
-          <Text style={{ color: c.textSecondary, fontSize: 11 }}>{pendingNames.length ? `Si vous résiliez ${pendingNames.length === 1 ? pendingNames[0] : `les ${pendingNames.length} abonnements sélectionnés`}` : 'Sélectionnez un abonnement à résilier'}</Text>
+          <Text testID="home-potential-amount" style={{ color: c.gold, fontSize: 20, fontWeight: '800' }}>+ {euro(potentialAnnual)}<Text style={{ fontSize: 11, fontWeight: '500' }}> / an en plus</Text></Text>
+          <Text style={{ color: c.textSecondary, fontSize: 11 }}>{pendingNames.length ? `À résilier : ${pendingNames.length === 1 ? pendingNames[0] : `les ${pendingNames.length} abonnements sélectionnés`}` : 'Rien à résilier pour l’instant'}</Text>
         </View>
         <Ionicons name="chevron-forward" size={19} color={c.gold} />
       </View>
-      <Text style={{ color: c.gold, fontSize: 11, fontWeight: '600' }}>Voir le calcul →</Text>
+      <Text style={{ color: c.gold, fontSize: 11, fontWeight: '600' }}>Détail des économies →</Text>
     </Pressable>
   </View>;
 }
