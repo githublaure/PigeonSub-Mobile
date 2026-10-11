@@ -284,7 +284,7 @@ export function SubscriptionForm({
       note: '',
       frequency: 'monthly',
       usageFrequency: 'used',
-      category: 'entertainment',
+      category: 'other',
       isTrial: false,
       useSafetyDate: false,
       isActive: true,
