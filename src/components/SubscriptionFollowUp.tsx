@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Linking, Switch, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useBilling } from '../contexts/BillingContext';
 import { subscriptions, type Subscription } from '../lib/api';
@@ -131,7 +132,8 @@ export function SafetyPanel({
           si le prochain prélèvement peut encore être évité.
         </Text>
       )}
-      <Text style={ui.small}>Préavis du contrat · jours</Text>
+      <Text style={ui.small}>Préavis de résiliation (en jours)</Text>
+      <Text style={ui.small}>Délai imposé par le fournisseur pour demander l'arrêt avant le renouvellement. S'il n'y en a pas, indiquez 0. Vérifiez ses conditions.</Text>
       <TextInput
         accessibilityLabel="Préavis en jours"
         value={notice}
@@ -179,7 +181,10 @@ export function SafetyPanel({
         onPress={() => void save()}
       />
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        <Text style={ui.body}>Rappel à 9 h</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="notifications-outline" color={Colors.primary} size={20} />
+          <Text style={ui.body}>Rappel à 9 h</Text>
+        </View>
         <Switch
           accessibilityLabel="Recevoir un rappel pour cet abonnement"
           value={follow.reminderEnabled ?? false}
