@@ -17,6 +17,7 @@ import { euro, isEnded, currentMonthlyCost, overview } from '../../src/lib/subsc
 import { costProjection } from '../../src/lib/stats-projection';
 import { STATS_VIEWS, availableStatsView, statsScenario, type StatsView } from '../../src/lib/stats-views';
 import { categoryLabels } from '../../src/lib/labels';
+import { CategoryDrilldown, OtherStats } from '../../src/components/StatsBreakdownDetails';
 
 export default function StatsScreen() {
   const { width } = useWindowDimensions();
@@ -144,7 +145,7 @@ export default function StatsScreen() {
               })}
             </Svg>
           </View>
-          <View style={{ flex: 1, gap: 8 }}>{groups.map(([key, cost], i) => <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: palette[i % palette.length] }} /><Text style={[ui.small, { flex: 1 }]}>{categoryLabels[key] ?? key}</Text><Text style={[ui.small, { color: c.text }]}>{Math.round(cost / scenario.monthly * 100)} %</Text></View>)}</View>
+          <CategoryDrilldown groups={groups} active={active} monthly={scenario.monthly} palette={palette} />
         </View> : <Text style={ui.body}>Aucune dépense récurrente dans cette vue.</Text>}
       </View>
       {topCategory && topSubscription && <View style={[ui.card, wide && { flex: 1 }]} testID="stats-category-insight">
@@ -154,6 +155,7 @@ export default function StatsScreen() {
         <Text style={ui.body}>{topSubscription.name} représente <Text style={{ color: c.primary, fontWeight: '700' }}>{Math.round(currentMonthlyCost(topSubscription) / topCategory[1] * 100)} %</Text> de cette catégorie.</Text>
       </View>}
     </View>
+    <OtherStats active={data.filter(sub => !isEnded(sub, follow[sub.id]))} wide={wide} />
     <View style={ui.card}>
       <Text style={ui.heading}>Ce que vous payez sans vraiment l’utiliser</Text>
       {underused.length ? <>
