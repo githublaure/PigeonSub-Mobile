@@ -471,6 +471,7 @@ export function SubscriptionForm({
             <Button title="Gérer mes catégories · créer, renommer, supprimer" variant="ghost"
               onPress={() => setCategoriesOpen(true)} />
             <ManageCategories visible={categoriesOpen} onClose={() => setCategoriesOpen(false)}
+              referenced={[watch('category'), photoSub?.category ?? '']}
               onDeleted={id => { if (watch('category') === id) setValue('category', 'other'); }} />
             <Controller
               control={control}
