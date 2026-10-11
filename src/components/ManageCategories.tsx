@@ -12,8 +12,8 @@ import { categoryMutation } from '../lib/category-api';
 import { subscriptions } from '../lib/api';
 import { getDataSession } from '../lib/local-data';
 
-export function ManageCategories({ visible, onClose, onDeleted }: {
-  visible: boolean; onClose: () => void; onDeleted?: (id: string) => void;
+export function ManageCategories({ visible, onClose, onDeleted, referenced = [] }: {
+  visible: boolean; onClose: () => void; onDeleted?: (id: string) => void; referenced?: string[];
 }) {
   const { colors: c } = useTheme();
   const ui = useUI();
@@ -24,7 +24,7 @@ export function ManageCategories({ visible, onClose, onDeleted }: {
   const [icon, setIcon] = useState<CategoryIconName>('grid-outline');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const rows = visibleCategories(catalog);
+  const rows = visibleCategories(catalog, referenced);
   const select = (id: string | null) => {
     setEditing(id);
     const item = rows.find(row => row.id === id);
