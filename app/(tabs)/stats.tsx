@@ -16,7 +16,8 @@ import { ErrorState } from '../../src/components/ui/ErrorState';
 import { euro, isEnded, currentMonthlyCost, overview } from '../../src/lib/subscription-math';
 import { costProjection } from '../../src/lib/stats-projection';
 import { STATS_VIEWS, availableStatsView, statsScenario, type StatsView } from '../../src/lib/stats-views';
-import { categoryLabels } from '../../src/lib/labels';
+import { useCategoryCatalog } from '../../src/hooks/useCategoryCatalog';
+import { categoryName } from '../../src/lib/category-catalog';
 import { CategoryDrilldown, OtherStats } from '../../src/components/StatsBreakdownDetails';
 
 export default function StatsScreen() {
@@ -24,6 +25,7 @@ export default function StatsScreen() {
   const narrow = width < 360, wide = width >= 680;
   const { colors: c } = useTheme();
   const { canUsePlus } = useBilling();
+  const categoryCatalog = useCategoryCatalog();
   const ui = useUI();
   const router = useRouter();
   const [months, setMonths] = useState(6);
@@ -136,7 +138,7 @@ export default function StatsScreen() {
       <View style={[ui.card, wide && { flex: 1.4 }]}>
         <Text style={ui.heading}>Où part votre argent ?</Text>
         {groups.length ? <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <View accessible accessibilityLabel={`Répartition : ${groups.map(([key, cost]) => `${categoryLabels[key] ?? key} ${euro(cost)}`).join(', ')}`}>
+          <View accessible accessibilityLabel={`Répartition : ${groups.map(([key, cost]) => `${categoryName(key, categoryCatalog)} ${euro(cost)}`).join(', ')}`}>
             <Svg width={narrow ? 84 : 108} height={narrow ? 84 : 108} viewBox="0 0 150 150">
               <Circle cx={75} cy={75} r={56} fill="none" stroke={c.surfaceRaised} strokeWidth={24} />
               {groups.map(([key, cost], i) => {
@@ -150,7 +152,7 @@ export default function StatsScreen() {
       </View>
       {topCategory && topSubscription && <View style={[ui.card, wide && { flex: 1 }]} testID="stats-category-insight">
         <Text style={ui.label}>VOTRE PREMIER POSTE</Text>
-        <Text style={ui.heading}>{categoryLabels[topCategory[0]] ?? topCategory[0]}</Text>
+        <Text style={ui.heading}>{categoryName(topCategory[0], categoryCatalog)}</Text>
         <Text style={[ui.value, { color: c.primary, fontFamily: serif }]}>{euro(topCategory[1])}<Text style={{ fontSize: 14 }}> / mois</Text></Text>
         <Text style={ui.body}>{topSubscription.name} représente <Text style={{ color: c.primary, fontWeight: '700' }}>{Math.round(currentMonthlyCost(topSubscription) / topCategory[1] * 100)} %</Text> de cette catégorie.</Text>
       </View>}
