@@ -4,6 +4,9 @@ import type { Palette } from '../../theme/colors';
 import { useRouter } from 'expo-router';
 import { addDays, dayKey, parseDay } from '../../lib/subscription-math';
 import { categoryLabels } from '../../lib/labels';
+import { useCategoryCatalog } from '../../hooks/useCategoryCatalog';
+import { visibleCategories } from '../../lib/category-catalog';
+import { ManageCategories } from '../ManageCategories';
 /**
  * Shared form used by both Add and Edit subscription screens.
  * Covers every field in InsertSubscription from shared/schema.ts.
@@ -254,6 +257,8 @@ export function SubscriptionForm({
 
   const router = useRouter();
   const [apiError, setApiError] = useState('');
+  const catalog = useCategoryCatalog();
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [photos, setPhotos] = useState<PendingPhoto[]>([]);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [iconBusy, setIconBusy] = useState(false);
@@ -463,6 +468,10 @@ export function SubscriptionForm({
               )}
             />
 
+            <Button title="Gérer mes catégories · créer, renommer, supprimer" variant="ghost"
+              onPress={() => setCategoriesOpen(true)} />
+            <ManageCategories visible={categoriesOpen} onClose={() => setCategoriesOpen(false)}
+              onDeleted={id => { if (watch('category') === id) setValue('category', 'other'); }} />
             <Controller
               control={control}
               name="categoryColor"
