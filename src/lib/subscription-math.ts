@@ -32,7 +32,7 @@ export function dayKey(date: Date): string {
 }
 // Calendar dates are deliberately parsed locally: a UTC midnight must not move a due date by one day.
 export function parseDay(value?: string | null): Date | null {
-  if (!value) return null;
+  if (typeof value !== 'string' || !value) return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(value);
   if (!match) return null;
   const [, y, m, d] = match.map(Number);
@@ -115,8 +115,7 @@ export function paidTrialPatch(sub: Subscription, now = new Date()) {
 export function monthlyCost(
   sub: Pick<Subscription, 'price' | 'frequency'>,
 ): number {
-  const price = Number(sub.price.replace(',', '.'));
-  if (!Number.isFinite(price) || price < 0) return 0;
+  const price = priceAmount(sub.price);
   const factor: Record<string, number> = {
     monthly: 1,
     yearly: 1 / 12,
@@ -126,6 +125,43 @@ export function monthlyCost(
     lifetime: 0,
   };
   return price * (factor[sub.frequency] ?? 0);
+}
+/** API/legacy records can contain null or numeric prices despite the string schema. */
+export function priceAmount(value: unknown): number {
+  const price = typeof value === 'string' ? Number(value.trim().replace(',', '.'))
+    : typeof value === 'number' ? value : NaN;
+  return Number.isFinite(price) && price >= 0 ? price : 0;
+}
+
+export type LifetimeAmortization = {
+  status: 'not_lifetime' | 'trial' | 'missing_date' | 'future' | 'expired' | 'active';
+  paid: number;
+  monthly: number;
+  startsOn: string | null;
+  endsOn: string | null;
+};
+/**
+ * Analytical comparison only, never a renewal or a recurring payment.
+ * Calendar interval [purchaseDate, first anniversary), with Feb 29 clamped to
+ * Feb 28. No daily proration and no fallback to createdAt or nextRenewal.
+ */
+export function lifetimeAmortization(
+  sub: Pick<Subscription, 'price' | 'frequency' | 'purchaseDate' | 'isTrial'>,
+  now = new Date(),
+): LifetimeAmortization {
+  const result: LifetimeAmortization = {
+    status: 'not_lifetime', paid: priceAmount(sub.price), monthly: 0,
+    startsOn: null, endsOn: null,
+  };
+  if (sub.frequency !== 'lifetime') return result;
+  if (sub.isTrial) return { ...result, status: 'trial' };
+  const purchase = parseDay(sub.purchaseDate);
+  if (!purchase) return { ...result, status: 'missing_date' };
+  const startsOn = dayKey(purchase);
+  const endsOn = dayKey(cycleDate(purchase, 'yearly', 1)!);
+  const today = dayKey(now);
+  const status = today < startsOn ? 'future' : today >= endsOn ? 'expired' : 'active';
+  return { ...result, status, startsOn, endsOn, monthly: status === 'active' ? result.paid / 12 : 0 };
 }
 function cycleDate(
   anchor: Date,
