@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { Subscription } from '../lib/api';
+import type { CategoryCost, CategoryGroup } from '../lib/category-breakdown';
 import { usageLabels } from '../lib/labels';
 import { useCategoryCatalog } from '../hooks/useCategoryCatalog';
 import { categoryName } from '../lib/category-catalog';
@@ -10,53 +11,56 @@ import { currentMonthlyCost, euro, parseDay, shortDate } from '../lib/subscripti
 import { useTheme } from '../contexts/ThemeContext';
 import { useUI } from './ui/Page';
 
-function DetailRow({ sub, subtitle }: { sub: Subscription; subtitle?: string }) {
+function DetailRow({ sub, subtitle, cost }: { sub: Subscription; subtitle?: string; cost?: CategoryCost }) {
   const router = useRouter();
   const { colors: c } = useTheme();
   const ui = useUI();
   const price = sub.frequency === 'lifetime'
     ? 'Achat unique'
     : sub.isTrial ? 'Essai' : `${euro(currentMonthlyCost(sub))}/mois`;
+  const detail = cost?.amortization
+    ? `Achat à vie · ${euro(cost.amortization.paid)} payés une fois. ${euro(cost.monthly)}/mois amortis, du ${parseDay(cost.amortization.startsOn)!.toLocaleDateString('fr-FR')} au ${parseDay(cost.amortization.endsOn)!.toLocaleDateString('fr-FR')} exclu. Aucun prélèvement récurrent.`
+    : cost ? `${euro(cost.monthly)}/mois` : subtitle;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Voir ${sub.name}`}
+    <Pressable accessibilityRole="button" accessibilityLabel={`Voir ${sub.name}${detail ? `. ${detail}` : ''}`}
       onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingVertical: 4 }}>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[ui.body, { fontWeight: '600' }]}>{sub.name}</Text>
-        {subtitle ? <Text style={ui.small}>{subtitle}</Text> : null}
+        {detail ? <Text style={ui.small}>{detail}</Text> : null}
       </View>
-      <Text style={[ui.small, { color: c.textSecondary }]}>{price}</Text>
+      {!cost && <Text style={[ui.small, { color: c.textSecondary }]}>{price}</Text>}
       <Ionicons name="chevron-forward" size={15} color={c.textMuted} />
     </Pressable>
   );
 }
 
-export function CategoryDrilldown({ groups, active, monthly, palette }: {
-  groups: [string, number][]; active: Subscription[]; monthly: number; palette: string[];
+export function CategoryDrilldown({ groups, analytical, palette }: {
+  groups: CategoryGroup[]; analytical: boolean; palette: string[];
 }) {
   const { colors: c } = useTheme();
   const ui = useUI();
   const catalog = useCategoryCatalog();
   const [selected, setSelected] = useState<string | null>(null);
-  const category = groups.find(([key]) => key === selected);
-  const subs = category ? active.filter(s => s.category === selected && currentMonthlyCost(s) > 0)
-    .sort((a, b) => currentMonthlyCost(b) - currentMonthlyCost(a)) : [];
+  const category = groups.find(group => group.key === selected);
   return (
     <View testID="stats-category-details" style={{ flex: 1, gap: 5 }}>
-      {groups.map(([key, cost], index) => (
+      {groups.map(({ key, monthly, percent }, index) => (
         <Pressable key={key} accessibilityRole="button"
-          accessibilityLabel={`Voir les abonnements : ${categoryName(key, catalog)}`}
+          accessibilityLabel={`Voir les abonnements : ${categoryName(key, catalog)}, ${euro(monthly)} par mois${analytical ? ' en comparaison analytique' : ''}, ${percent} %`}
           accessibilityState={{ expanded: selected === key }}
           onHoverIn={() => setSelected(key)}
-          onPress={() => setSelected(current => current === key ? null : key)}
+          onFocus={() => setSelected(key)}
+          onPress={() => setSelected(key)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6,
-            minHeight: 36, borderRadius: 10, backgroundColor: selected === key ? c.surfaceRaised : 'transparent' }}>
+            minHeight: 44, borderRadius: 10, backgroundColor: selected === key ? c.surfaceRaised : 'transparent' }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[index % palette.length] }} />
           <Text style={[ui.small, { flex: 1 }]}>{categoryName(key, catalog)}</Text>
-          <Text style={[ui.small, { color: c.text, fontWeight: '600' }]}>
-            {monthly ? Math.round(cost / monthly * 100) : 0} %
-          </Text>
-          <Ionicons name="chevron-down" size={14} color={c.textMuted} />
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[ui.small, { color: c.text, fontWeight: '600' }]}>{euro(monthly)}</Text>
+            <Text style={ui.small}>{percent} %</Text>
+          </View>
+          <Ionicons name={selected === key ? 'chevron-up' : 'chevron-down'} size={14} color={c.textMuted} />
         </Pressable>
       ))}
       {category ? (
@@ -64,15 +68,15 @@ export function CategoryDrilldown({ groups, active, monthly, palette }: {
           backgroundColor: c.surfaceRaised, borderColor: c.border, borderWidth: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ flex: 1 }}>
-              <Text style={[ui.heading, { fontSize: 14 }]}>{categoryName(category[0], catalog)} · {subs.length}</Text>
-              <Text style={ui.small}>{euro(category[1])}/mois</Text>
+              <Text style={[ui.heading, { fontSize: 14 }]}>{categoryName(category.key, catalog)} · {category.items.length}</Text>
+              <Text style={ui.small}>{euro(category.monthly)}/mois{analytical ? ' · comparaison analytique' : ''}</Text>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails"
-              onPress={() => setSelected(null)} style={{ padding: 9 }}>
+              onPress={() => setSelected(null)} style={{ padding: 9, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="close" size={18} color={c.textMuted} />
             </Pressable>
           </View>
-          {subs.map(sub => <DetailRow key={sub.id} sub={sub} />)}
+          {category.items.map(cost => <DetailRow key={cost.sub.id} sub={cost.sub} cost={cost} />)}
         </View>
       ) : null}
     </View>

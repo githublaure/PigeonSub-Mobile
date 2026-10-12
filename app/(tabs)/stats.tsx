@@ -16,16 +16,16 @@ import { ErrorState } from '../../src/components/ui/ErrorState';
 import { euro, isEnded, currentMonthlyCost, overview } from '../../src/lib/subscription-math';
 import { costProjection } from '../../src/lib/stats-projection';
 import { STATS_VIEWS, availableStatsView, statsScenario, type StatsView } from '../../src/lib/stats-views';
-import { useCategoryCatalog } from '../../src/hooks/useCategoryCatalog';
-import { categoryName } from '../../src/lib/category-catalog';
-import { CategoryDrilldown, OtherStats } from '../../src/components/StatsBreakdownDetails';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { CategorySpending } from '../../src/components/CategorySpending';
+import { OtherStats } from '../../src/components/StatsBreakdownDetails';
 
 export default function StatsScreen() {
   const { width } = useWindowDimensions();
   const narrow = width < 360, wide = width >= 680;
   const { colors: c } = useTheme();
   const { canUsePlus } = useBilling();
-  const categoryCatalog = useCategoryCatalog();
+  const { scope } = useAuth();
   const ui = useUI();
   const router = useRouter();
   const [months, setMonths] = useState(6);
@@ -39,10 +39,6 @@ export default function StatsScreen() {
   const scenario = statsScenario(data, follow, view);
   const summary = overview(data, follow);
   const active = scenario.included.filter(s => !isEnded(s, follow[s.id]));
-  const categories: Record<string, number> = {};
-  for (const sub of active) categories[sub.category] = (categories[sub.category] ?? 0) + currentMonthlyCost(sub);
-  const groups = Object.entries(categories).filter(([, cost]) => cost > 0).sort((a, b) => b[1] - a[1]);
-  const palette = [c.primary, '#DD8F46', '#4382C4', '#449D9A', '#AD7298', '#7D859B'];
   const projection = costProjection(scenario.included, follow, months);
   const series = [{ month: 'current', label: 'Actuel', amount: scenario.monthly }, ...projection];
   const max = Math.max(1, ...series.map(p => p.amount));
@@ -52,9 +48,6 @@ export default function StatsScreen() {
   const change = scenario.monthly > 0 ? (final / scenario.monthly - 1) * 100 : null;
   const confirmedCount = data.filter(s => follow[s.id]?.decision === 'cancel_confirmed').length;
   const underused = active.filter(s => s.usageFrequency === 'rarely_used' && currentMonthlyCost(s) > 0).sort((a, b) => currentMonthlyCost(b) - currentMonthlyCost(a));
-  const topCategory = groups[0];
-  const topSubscription = topCategory ? active.filter(s => s.category === topCategory[0]).sort((a, b) => currentMonthlyCost(b) - currentMonthlyCost(a))[0] : undefined;
-  let offset = 0;
   const amountSize = Math.min(narrow ? 28 : 34, (width - 44 - (narrow ? 28 : 36) - (narrow ? 84 : 110) - 10) / (euro(scenario.monthly).length * .7));
   const savingSize = narrow ? 32 : Math.min(30, ((width - 54) / 2 - 30) / (euro(summary.confirmedAnnual).length * .7));
   const serif = Platform.OS === 'ios' ? 'Georgia' : Platform.OS === 'web' ? 'Georgia, serif' : 'serif';
@@ -129,34 +122,12 @@ export default function StatsScreen() {
 
     {view !== 'current' && <View style={ui.card} testID="stats-excluded">
       <Text style={ui.heading}>Retirés de cette simulation</Text>
-      {scenario.excluded.length ? scenario.excluded.map(sub => <Pressable key={sub.id} accessibilityRole="button" accessibilityLabel={`Revoir ${sub.name}`} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} style={[ui.row, { minHeight: 44 }]}><Text style={[ui.body, { flex: 1 }]}>{sub.name}</Text><Text style={{ color: c.gold, fontWeight: '700' }}>{euro(currentMonthlyCost(sub))}/mois</Text><Ionicons name="chevron-forward" size={15} color={c.textSecondary} /></Pressable>) : <Text style={ui.body}>Aucun abonnement ne correspond à ce filtre.</Text>}
+      {scenario.excluded.length ? scenario.excluded.map(sub => <Pressable key={sub.id} accessibilityRole="button" accessibilityLabel={`Revoir ${sub.name}`} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} style={[ui.row, { minHeight: 44 }]}><Text style={[ui.body, { flex: 1 }]}>{sub.name}</Text><Text style={{ color: c.gold, fontWeight: '700' }}>{sub.frequency === 'lifetime' ? 'Achat unique · aucun prélèvement évitable' : `${euro(currentMonthlyCost(sub))}/mois`}</Text><Ionicons name="chevron-forward" size={15} color={c.textSecondary} /></Pressable>) : <Text style={ui.body}>Aucun abonnement ne correspond à ce filtre.</Text>}
       {view === 'low_rated' && <Text style={ui.small}>Notes de 1 à 2 étoiles. Les abonnements non notés sont conservés.</Text>}
       {view === 'optimized' && <Text style={ui.small}>Résiliations prévues, peu utilisés et notes de 1 à 2 étoiles.</Text>}
     </View>}
 
-    <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16 }}>
-      <View style={[ui.card, wide && { flex: 1.4 }]}>
-        <Text style={ui.heading}>Où part votre argent ?</Text>
-        {groups.length ? <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <View accessible accessibilityLabel={`Répartition : ${groups.map(([key, cost]) => `${categoryName(key, categoryCatalog)} ${euro(cost)}`).join(', ')}`}>
-            <Svg width={narrow ? 84 : 108} height={narrow ? 84 : 108} viewBox="0 0 150 150">
-              <Circle cx={75} cy={75} r={56} fill="none" stroke={c.surfaceRaised} strokeWidth={24} />
-              {groups.map(([key, cost], i) => {
-                const length = cost / scenario.monthly * 351.86, start = offset; offset += length;
-                return <Circle key={key} cx={75} cy={75} r={56} fill="none" stroke={palette[i % palette.length]} strokeWidth={24} strokeDasharray={`${length} ${Math.max(0, 351.86 - length)}`} strokeDashoffset={-start} transform="rotate(-90 75 75)" />;
-              })}
-            </Svg>
-          </View>
-          <CategoryDrilldown groups={groups} active={active} monthly={scenario.monthly} palette={palette} />
-        </View> : <Text style={ui.body}>Aucune dépense récurrente dans cette vue.</Text>}
-      </View>
-      {topCategory && topSubscription && <View style={[ui.card, wide && { flex: 1 }]} testID="stats-category-insight">
-        <Text style={ui.label}>VOTRE PREMIER POSTE</Text>
-        <Text style={ui.heading}>{categoryName(topCategory[0], categoryCatalog)}</Text>
-        <Text style={[ui.value, { color: c.primary, fontFamily: serif }]}>{euro(topCategory[1])}<Text style={{ fontSize: 14 }}> / mois</Text></Text>
-        <Text style={ui.body}>{topSubscription.name} représente <Text style={{ color: c.primary, fontWeight: '700' }}>{Math.round(currentMonthlyCost(topSubscription) / topCategory[1] * 100)} %</Text> de cette catégorie.</Text>
-      </View>}
-    </View>
+    <CategorySpending key={scope} included={scenario.included} follow={follow} />
     <OtherStats active={data.filter(sub => !isEnded(sub, follow[sub.id]))} wide={wide} />
     <View style={ui.card}>
       <Text style={ui.heading}>Ce que vous payez sans vraiment l’utiliser</Text>
