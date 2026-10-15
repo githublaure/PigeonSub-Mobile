@@ -19,6 +19,7 @@ import { STATS_VIEWS, availableStatsView, statsScenario, type StatsView } from '
 import { useAuth } from '../../src/contexts/AuthContext';
 import { CategorySpending } from '../../src/components/CategorySpending';
 import { OtherStats } from '../../src/components/StatsBreakdownDetails';
+import { FamilyStatsOverview } from '../../src/components/FamilyStatsOverview';
 
 export default function StatsScreen() {
   const { width } = useWindowDimensions();
@@ -127,6 +128,7 @@ export default function StatsScreen() {
       {view === 'optimized' && <Text style={ui.small}>Résiliations prévues, peu utilisés et notes de 1 à 2 étoiles.</Text>}
     </View>}
 
+    <FamilyStatsOverview data={data} follow={follow} />
     <CategorySpending key={scope} included={scenario.included} follow={follow} />
     <OtherStats active={data.filter(sub => !isEnded(sub, follow[sub.id]))} wide={wide} />
     <View style={ui.card}>
