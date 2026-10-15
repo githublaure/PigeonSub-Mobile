@@ -106,7 +106,11 @@ export default function SubscriptionsScreen() {
       testID="subscriptions-family-banner"
       accessibilityRole="button"
       accessibilityLabel="Voir le mode Famille"
-      onPress={() => setFamilyView('family')}
+      onPress={() => family.length
+        ? setFamilyView('family')
+        : active.length
+          ? router.push(`/(tabs)/subscriptions/${active[0].id}`)
+          : router.push('/(tabs)/subscriptions/new')}
       style={[ui.card, { overflow: 'hidden', paddingVertical: 14, backgroundColor: c.goldSurface, borderColor: c.goldBorder }]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -116,7 +120,7 @@ export default function SubscriptionsScreen() {
           <Text style={ui.body}>{family.length
             ? `${familyFreeSeats} place${familyFreeSeats > 1 ? 's' : ''} libre${familyFreeSeats > 1 ? 's' : ''} renseignée${familyFreeSeats > 1 ? 's' : ''}. Suivez aussi le reste à charge dans les Stats.`
             : 'Repérez les abonnements partageables, les places libres et les contributions reçues.'}</Text>
-          <Text style={[ui.small, { color: c.primary, fontWeight: '700' }]}>{family.length ? 'Voir mes abonnements famille →' : 'Configurer le mode Famille →'}</Text>
+          <Text style={[ui.small, { color: c.primary, fontWeight: '700' }]}>{family.length ? 'Voir mes abonnements famille →' : active.length ? 'Ouvrir une fiche pour configurer →' : 'Ajouter un abonnement →'}</Text>
         </View>
         <Image
           source={require('../../../assets/mascots/pigeon-family.png')}
