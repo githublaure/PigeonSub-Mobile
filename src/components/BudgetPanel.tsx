@@ -49,16 +49,17 @@ export function BudgetPanel({ current, simulated, compact = false, embedded = fa
     } catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   };
-  const comparison = (label: string, amount: number, color: string) => {
+  const comparison = (label: string, amount: number, fallbackColor: string) => {
     const difference = budget === null ? 0 : (Math.round(budget * 100) - Math.round(amount * 100)) / 100;
+    const statusColor = budget === null ? fallbackColor : difference < 0 ? c.danger : c.success;
     return (
     <View style={{ gap: 5 }} key={label}>
       <View style={[ui.row, { justifyContent: 'space-between' }]}>
-        {!compact && <Text style={ui.body}>{label}</Text>}<Text style={[ui.heading, { fontSize: compact ? 12 : 16, color }]}>{compact ? 'Budget · ' : ''}{euro(amount)}{budget !== null ? ` sur ${euro(budget)}` : ' / mois'}</Text>
+        {!compact && <Text style={ui.body}>{label}</Text>}<Text style={[ui.heading, { fontSize: compact ? 12 : 16, color: statusColor }]}>{compact ? 'Budget · ' : ''}{euro(amount)}{budget !== null ? ` sur ${euro(budget)}` : ' / mois'}</Text>
         {compact && loaded && <Pressable accessibilityRole="button" accessibilityLabel="Modifier le budget" onPress={() => setEditing(!editing)} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}><Ionicons name="create-outline" size={20} color={c.primary} /></Pressable>}
       </View>
       <View accessibilityRole="progressbar" accessibilityLabel={`${label} : ${euro(amount)}${budget !== null ? ` sur un budget de ${euro(budget)}` : ', budget non défini'}`} accessibilityValue={{ min: 0, max: 100, now: budgetUsage(amount, budget).percent }} style={{ height: 12, borderRadius: 10, backgroundColor: c.surfaceRaised, overflow: 'hidden' }}>
-        <View style={{ height: 12, borderRadius: 10, width: `${budgetUsage(amount, budget).percent}%`, backgroundColor: color }} />
+        <View style={{ height: 12, borderRadius: 10, width: `${budgetUsage(amount, budget).percent}%`, backgroundColor: statusColor }} />
       </View>
       {budget !== null && (!compact || difference < 0) && <Text style={[ui.small, { color: difference < 0 ? c.danger : c.success }]}>
         {difference < 0 ? `${euro(-difference)} au-dessus du budget` : `${euro(difference)} disponibles`}
