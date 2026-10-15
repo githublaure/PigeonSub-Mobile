@@ -28,7 +28,8 @@ function loadRoute(name) {
   const module = { exports: {} };
   const filename = path.join(__dirname, '../routes/', name + '.js');
   vm.runInThisContext('(function(require,module,exports){' + fs.readFileSync(filename, 'utf8') + '\n})', { filename })(id => {
-    const dependencies = { express, '../db': pool, '../middleware/auth': auth,
+    const dependencies = { express, crypto: require('node:crypto'), '../services/category-access': require('../services/category-access'), '../db': pool, '../middleware/auth': auth,
+      '../../shared/family-sharing': require('../../shared/family-sharing'),
       '../services/entitlements': { ...service, sendAccessError }, '../services/subscription-access': accessPolicy };
     if (!(id in dependencies)) throw new Error('Unexpected module: ' + id);
     return dependencies[id];
@@ -41,6 +42,7 @@ async function request(method, route = '', body, user = 1, extra = {}) {
 }
 const item = (patch = {}) => ({ name: 'Test', price: '3.00', frequency: 'monthly', category: 'other', ...patch });
 const create = (patch = {}, user = 1) => request('POST', '/subscriptions', item(patch), user);
+const family = (patch = {}) => ({ shareable: true, totalSeats: 4, occupiedSeats: 2, receivedContribution: '1', estimatedContribution: '0.50', ...patch });
 const ids = async (user = 1) => (await pool.query(`SELECT id FROM subscriptions WHERE user_id = $1 AND ${ACTIVE_SQL}`, [user])).rows;
 const seed = async (count, user = 1) => { for (let i = 0; i < count; i++) assert.equal((await create({ name: 'Service ' + i }, user)).status, 201); };
 
@@ -73,6 +75,7 @@ test.before(async () => {
   const app = express(); app.use(express.json());
   app.use('/api/subscriptions', loadRoute('subscriptions'));
   app.use('/api/billing', loadRoute('billing'));
+  app.use('/api/categories', loadRoute('categories'));
   await new Promise(resolve => { server = app.listen(0, '127.0.0.1', resolve); });
   base = 'http://127.0.0.1:' + server.address().port + '/api';
 });
@@ -86,6 +89,100 @@ test.after(async () => {
   if (server) await new Promise(resolve => server.close(resolve));
   if (db) await db.close();
   if (realPool) { await pool.end(); await realPool.query(`DROP SCHEMA ${schema} CASCADE`); await realPool.end(); }
+});
+
+test('category delete preserves subscriptions, archives, proofs and other users; stale forms cannot recreate references', async () => {
+  const category = await (await request('POST', '/categories', { name: 'Personnel', icon: 'leaf-outline' })).json();
+  const original = await (await create({ category: category.id, note: 'Keep me', purchaseProofImage: 'proof', price: '18', isActive: false })).json();
+  const other = await (await create({ category: 'music' }, 2)).json();
+  assert.equal((await request('PATCH', '/categories/' + category.id, { name: 'Loisirs', icon: 'heart-outline' })).status, 200);
+  assert.equal((await request('DELETE', '/categories/' + category.id)).status, 200);
+  const saved = await (await request('GET', '/subscriptions/' + original.id)).json();
+  assert.deepEqual(saved, { ...original, category: 'other' });
+  assert.equal((await (await request('GET', '/subscriptions/' + other.id, undefined, 2)).json()).category, 'music');
+  assert.equal((await request('PUT', '/subscriptions/' + original.id, { category: category.id })).status, 409);
+  assert.equal((await create({ category: 'custom_unknown' })).status, 409);
+  assert.equal((await request('DELETE', '/categories/other')).status, 400);
+  assert.equal((await request('PATCH', '/categories/other', { name: 'Autre', icon: 'invented-outline' })).status, 400);
+});
+test('category delete and racing subscription writes share the account lock', async () => {
+  const category = await (await request('POST', '/categories', { name: 'Concurrent' })).json();
+  const responses = await Promise.all([
+    create({ category: category.id }), request('DELETE', '/categories/' + category.id),
+    ...Array.from({ length: 3 }, () => create({ category: category.id })),
+  ]);
+  assert(responses.every(r => [200, 201, 409].includes(r.status)));
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM subscriptions WHERE category = $1', [category.id])).rows[0].n, 0);
+});
+test('failed category deletion rolls back reassignment and catalog together', async () => {
+  const original = await (await create({ category: 'music', isActive: false })).json();
+  await request('GET', '/categories');
+  await pool.query("ALTER TABLE user_settings ADD CONSTRAINT category_failure CHECK (NOT (category_catalog->'hidden' @> '[\"music\"]'::jsonb))");
+  try {
+    assert.equal((await request('DELETE', '/categories/music')).status, 500);
+    assert.equal((await (await request('GET', '/subscriptions/' + original.id)).json()).category, 'music');
+    assert(!(await (await request('GET', '/categories')).json()).hidden.includes('music'));
+  } finally { await pool.query('ALTER TABLE user_settings DROP CONSTRAINT category_failure'); }
+});
+test('Family writes require verified Plus and ownership; generic writes/import cannot bypass protection', async () => {
+  const original = await (await create()).json();
+  const route = '/subscriptions/' + original.id + '/family';
+  assert.equal((await request('PUT', route, family())).status, 403);
+  plusUsers.add(2);
+  assert.equal((await request('PUT', route, family(), 2)).status, 404);
+  assert.equal((await request('DELETE', route, undefined, 2)).status, 404);
+  assert.equal((await request('PUT', route, family(), null)).status, 401);
+  assert.equal((await request('PUT', '/subscriptions/' + original.id, { familySharing: family() })).status, 400);
+  assert.equal((await create({ familySharing: family() })).status, 400);
+  assert.equal((await request('POST', '/subscriptions/import', { items: [item({ familySharing: family() }), item()] })).status, 400);
+  unavailable = true;
+  assert.equal((await request('PUT', route, family())).status, 503);
+  assert.equal((await (await request('GET', '/subscriptions/' + original.id)).json()).familySharing, null);
+});
+test('Family data survives Plus loss; free edits and removal preserve the original expense', async () => {
+  const original = await (await create({ note: 'Receipt kept', purchaseProofImage: 'proof' })).json();
+  const route = '/subscriptions/' + original.id + '/family';
+  plusUsers.add(1);
+  assert.equal((await request('PUT', route, family())).status, 200);
+  plusUsers.clear();
+  assert.equal((await request('PUT', route, family({ receivedContribution: '2' }))).status, 403);
+  const saved = await (await request('GET', '/subscriptions/' + original.id)).json();
+  assert.deepEqual(saved, { ...original, familySharing: { ...family({ receivedContribution: '1.00' }), frequency: 'monthly' } });
+  assert.equal((await request('PUT', '/subscriptions/' + original.id, { name: 'New name' })).status, 200);
+  const cleared = await (await request('DELETE', route)).json();
+  assert.deepEqual(cleared, { ...original, name: 'New name' });
+});
+test('Family validates unknown/zero places, occupied bounds, money and billing frequency without changing price', async () => {
+  const original = await (await create({ price: '120', frequency: 'lifetime' })).json();
+  plusUsers.add(1);
+  const route = '/subscriptions/' + original.id + '/family';
+  for (const patch of [{ totalSeats: -1 }, { totalSeats: 0 }, { occupiedSeats: 5 }, { occupiedSeats: 1.5 }, { shareable: 'true' }, { receivedContribution: '-1' }, { receivedContribution: '121' }, { estimatedContribution: '1e2' }, { receivedContribution: '1.234' }])
+    assert.equal((await request('PUT', route, family(patch))).status, 400, JSON.stringify(patch));
+  const saved = await (await request('PUT', route, family({ totalSeats: null, occupiedSeats: 0, receivedContribution: '0', estimatedContribution: null }))).json();
+  assert.equal(saved.familySharing.frequency, 'lifetime');
+  assert.equal(saved.familySharing.receivedContribution, '0.00');
+  assert.equal(saved.price, '120.00');
+  assert.equal(saved.nextRenewal, original.nextRenewal);
+});
+test('additive startup migrations are repeatable and preserve existing categories, expenses and Family metadata', async () => {
+  const original = await (await create({ category: 'music', note: 'Legacy data', isActive: false })).json();
+  plusUsers.add(1);
+  await request('PUT', '/subscriptions/' + original.id + '/family', family());
+  const before = (await pool.query('SELECT * FROM subscriptions WHERE id = $1', [original.id])).rows[0];
+  const sql = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8').match(/await pool.query\(`([\s\S]*?)`\);/)[1];
+  if (db) await db.exec(sql); else await pool.query(sql);
+  assert.deepEqual((await pool.query('SELECT * FROM subscriptions WHERE id = $1', [original.id])).rows[0], before);
+});
+test('upgrade from the pre-Family schema adds only nullable metadata and preserves existing records', async () => {
+  // This database/schema is disposable and created by the test harness only.
+  await pool.query('ALTER TABLE subscriptions DROP COLUMN family_sharing');
+  const sql = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8').match(/await pool.query\(`([\s\S]*?)`\);/)[1];
+  try {
+    await pool.query("INSERT INTO subscriptions (user_id, name, price, frequency, category, note, is_active) VALUES (1, 'Old record', 18, 'yearly', 'music', 'Keep', false)");
+    const before = (await pool.query('SELECT * FROM subscriptions')).rows[0];
+    if (db) await db.exec(sql); else await pool.query(sql);
+    assert.deepEqual((await pool.query('SELECT * FROM subscriptions')).rows[0], { ...before, family_sharing: null });
+  } finally { if (db) await db.exec(sql); else await pool.query(sql); }
 });
 
 test('unauthenticated/forged-token calls never write, even with a claimed demo or Plus identity', async () => {

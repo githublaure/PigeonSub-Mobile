@@ -14,9 +14,19 @@ export function categoryName(id: string | undefined, catalog: CategoryCatalog): 
   return catalog.custom.find(row => row.id === id)?.name ??
     catalog.overrides[id]?.name ?? categoryLabels[id] ?? id;
 }
-export function categoryIcon(id: string, catalog: CategoryCatalog): CategoryIconName {
+export function categoryIcon(id: string, catalog: CategoryCatalog, legacy: Partial<Record<string, CategoryIconName>> = {}): CategoryIconName {
   return catalog.custom.find(row => row.id === id)?.icon ??
-    catalog.overrides[id]?.icon ?? categoryIcons[id as keyof typeof categoryIcons] ?? 'grid-outline';
+    catalog.overrides[id]?.icon ?? legacy[id] ?? categoryIcons[id as keyof typeof categoryIcons] ?? 'grid-outline';
+}
+export function assertCategory(catalog: CategoryCatalog, id: string, previous?: string) {
+  if (!catalog.hidden.includes(id) && (CATEGORY_DEFAULTS.includes(id) || catalog.custom.some(row => row.id === id))) return;
+  if (typeof id === 'string' && id === previous && !id.startsWith('custom_') && !catalog.hidden.includes(id)) return;
+  throw new Error('Cette catégorie a été supprimée ou n’existe pas dans votre espace. Choisissez une catégorie disponible.');
+}
+export function assertUniqueCategoryName(catalog: CategoryCatalog, name: string, except?: string) {
+  const ids = new Set(['other', ...catalog.custom.map(row => row.id), ...Object.keys(catalog.overrides)]);
+  if ([...ids].some(id => id !== except && !catalog.hidden.includes(id) && categoryName(id, catalog).toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr')))
+    throw new Error('Une catégorie porte déjà ce nom.');
 }
 export function visibleCategories(catalog: CategoryCatalog, referenced: string[] = []): CategoryEntry[] {
   const ids = new Set(['other', ...catalog.custom.map(row => row.id),

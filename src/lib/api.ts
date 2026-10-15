@@ -18,6 +18,8 @@ import { hasPlusAccess } from './entitlements-state';
 import * as SecureStore from 'expo-secure-store';
 import { buildApiUrl, stripQueryForLog } from './api-url';
 import { API_BASE_URL } from './config';
+import type { CategoryCatalog } from './category-catalog';
+import type { FamilySharing, FamilySharingInput } from './family-sharing';
 
 // ---------------------------------------------------------------------------
 // Token storage
@@ -111,9 +113,10 @@ async function apiFetch<T>(
     throw new ApiError(res.status, message, code);
   }
 
+  const result = res.status === 204 ? undefined : await res.json();
+  if (requireAuth && getDataSession().scope !== requestScope) throw new Error('La session a changé.');
   if (method !== 'GET' && !path.startsWith('/auth')) dataChanged();
-  if (res.status === 204) return undefined as unknown as T;
-  return res.json() as Promise<T>;
+  return result as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +159,7 @@ export interface Subscription {
   purchaseDate: string | null;
   createdAt: string;
   cancelledEffectiveOn?: string | null;
+  familySharing?: FamilySharing | null;
 }
 
 export interface InsertSubscription {
@@ -292,6 +296,9 @@ export const auth = {
 // Subscriptions API
 // ---------------------------------------------------------------------------
 export const subscriptions = {
+  updateFamily: (id: number, family: FamilySharingInput) =>
+    apiFetch<Subscription>(`/subscriptions/${id}/family`, { method: 'PUT', body: JSON.stringify(family) }),
+  clearFamily: (id: number) => apiFetch<Subscription>(`/subscriptions/${id}/family`, { method: 'DELETE' }),
   importBatch: (items: InsertSubscription[]) =>
     apiFetch<Subscription[]>('/subscriptions/import', { method: 'POST', body: JSON.stringify({ items }) }),
   list: (includeArchived = false) =>
@@ -391,6 +398,15 @@ export const subscriptions = {
 
 export const billingApi = {
   entitlements: () => apiFetch<{ isPlus: boolean; expiresAt: string | null; freeLimit: number }>('/billing/entitlements'),
+};
+
+export const categoryApi = {
+  get: () => apiFetch<CategoryCatalog>('/categories'),
+  mutate: (action: 'create' | 'update' | 'delete', input: { id?: string; name?: string; icon?: string | null }) =>
+    apiFetch(`/categories${action === 'create' ? '' : '/' + encodeURIComponent(input.id || '')}`, {
+      method: action === 'create' ? 'POST' : action === 'delete' ? 'DELETE' : 'PATCH',
+      ...(action === 'delete' ? {} : { body: JSON.stringify({ name: input.name, icon: input.icon }) }),
+    }),
 };
 
 // ---------------------------------------------------------------------------

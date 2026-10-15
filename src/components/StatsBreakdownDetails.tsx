@@ -18,9 +18,12 @@ function DetailRow({ sub, subtitle, cost }: { sub: Subscription; subtitle?: stri
   const price = sub.frequency === 'lifetime'
     ? 'Achat unique'
     : sub.isTrial ? 'Essai' : `${euro(currentMonthlyCost(sub))}/mois`;
-  const detail = cost?.amortization
-    ? `Achat à vie · ${euro(cost.amortization.paid)} payés une fois. ${euro(cost.monthly)}/mois amortis, du ${parseDay(cost.amortization.startsOn)!.toLocaleDateString('fr-FR')} au ${parseDay(cost.amortization.endsOn)!.toLocaleDateString('fr-FR')} exclu. Aucun prélèvement récurrent.`
+  const basis = cost?.amortization
+    ? `Achat à vie · ${euro(cost.amortization.paid)} payés une fois. ${euro(cost.amortization.monthly)}/mois amortis, du ${parseDay(cost.amortization.startsOn)!.toLocaleDateString('fr-FR')} au ${parseDay(cost.amortization.endsOn)!.toLocaleDateString('fr-FR')} exclu. Aucun prélèvement récurrent.`
     : cost ? `${euro(cost.monthly)}/mois` : subtitle;
+  const detail = cost?.family
+    ? `${basis} Brut : ${euro(cost.family.gross)}/mois · reçu déclaré : ${euro(cost.family.contribution)}/mois · reste à charge : ${euro(cost.family.net)}/mois.${cost.amortization ? ' Contribution unique amortie, sans revenu récurrent.' : ''}`
+    : basis;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Voir ${sub.name}${detail ? `. ${detail}` : ''}`}
       onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)}

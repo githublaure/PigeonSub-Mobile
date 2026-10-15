@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUI } from './ui/Page';
@@ -9,7 +9,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { visibleCategories, categoryIcon } from '../lib/category-catalog';
 import { iconChoices, type CategoryIconName } from '../lib/categories';
 import { categoryMutation } from '../lib/category-api';
-import { subscriptions } from '../lib/api';
 import { getDataSession } from '../lib/local-data';
 
 export function ManageCategories({ visible, onClose, onDeleted, referenced = [] }: {
@@ -24,6 +23,8 @@ export function ManageCategories({ visible, onClose, onDeleted, referenced = [] 
   const [icon, setIcon] = useState<CategoryIconName>('grid-outline');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  useEffect(() => { setEditing(null); setName(''); setError(''); setPendingDelete(null); }, [scope, visible]);
   const rows = visibleCategories(catalog, referenced);
   const select = (id: string | null) => {
     setEditing(id);
@@ -33,30 +34,26 @@ export function ManageCategories({ visible, onClose, onDeleted, referenced = [] 
     setError('');
   };
   const save = async () => {
+    if (busy || getDataSession().scope !== scope) return;
     setBusy(true); setError('');
     try {
       await categoryMutation(editing === null ? 'create' : 'update',
         { ...(editing === null ? {} : { id: editing }), name, icon });
-      setEditing(null); setName('');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
+      if (getDataSession().scope === scope) { setEditing(null); setName(''); }
+    } catch (e) { if (getDataSession().scope === scope) setError(e instanceof Error ? e.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   };
-  const remove = (id: string) => {
-    if (id === 'other') return;
-    Alert.alert('Supprimer cette catégorie ?', 'Les abonnements associés seront conservés et déplacés vers Autre.', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Supprimer la catégorie', style: 'destructive', onPress: () => {
-        setBusy(true); setError('');
-        void categoryMutation('delete', { id }, async categoryId => {
-          const old = await subscriptions.list(true);
-          if (getDataSession().scope !== scope) throw new Error('La session a changé.');
-          for (const sub of old.filter(item => item.category === categoryId))
-            await subscriptions.update(sub.id, { category: 'other' });
-        }).then(() => { onDeleted?.(id); if (editing === id) select(null); })
-          .catch(e => setError(e instanceof Error ? e.message : 'Suppression impossible.'))
-          .finally(() => setBusy(false));
-      } },
-    ]);
+  const remove = async () => {
+    const id = pendingDelete;
+    if (!id || id === 'other' || getDataSession().scope !== scope) return;
+    setBusy(true); setError('');
+    try {
+      await categoryMutation('delete', { id });
+      if (getDataSession().scope !== scope) return;
+      onDeleted?.(id); setPendingDelete(null);
+      if (editing === id) select(null);
+    } catch (e) { if (getDataSession().scope === scope) setError(e instanceof Error ? e.message : 'Suppression impossible.'); }
+    finally { setBusy(false); }
   };
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -75,12 +72,18 @@ export function ManageCategories({ visible, onClose, onDeleted, referenced = [] 
                 </Pressable>
                 {row.id !== 'other' && (
                   <Pressable accessibilityRole="button" accessibilityLabel={`Supprimer ${row.name}`}
-                    onPress={() => remove(row.id)} disabled={busy} style={{ padding: 9 }}>
+                    onPress={() => setPendingDelete(row.id)} disabled={busy} style={{ padding: 9 }}>
                     <Ionicons name="trash-outline" size={20} color={c.danger} />
                   </Pressable>
                 )}
               </View>
             ))}
+            {pendingDelete && <View testID="category-delete-confirmation" style={{ gap: 8, padding: 12, borderWidth: 1, borderColor: c.danger, borderRadius: 12 }}>
+              <Text style={ui.heading}>Supprimer cette catégorie ?</Text>
+              <Text style={ui.body}>Les abonnements associés, y compris les archives, seront conservés et déplacés vers Autre.</Text>
+              <Button title="Confirmer la suppression" variant="danger" loading={busy} onPress={() => void remove()} />
+              <Button title="Annuler" variant="ghost" disabled={busy} onPress={() => setPendingDelete(null)} />
+            </View>}
             <Button title="Créer une catégorie" variant="secondary" disabled={busy} onPress={() => select(null)} />
             <Text style={ui.label}>{editing ? 'Modifier la catégorie' : 'Nouvelle catégorie'}</Text>
             <TextInput accessibilityLabel="Nom personnalisé de catégorie" style={ui.input}

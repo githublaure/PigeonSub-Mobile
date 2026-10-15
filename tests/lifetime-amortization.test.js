@@ -15,7 +15,7 @@ function load(name) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
   vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(
-    name => name.startsWith('./') ? load(name) : require(name), module, module.exports);
+    name => name.endsWith('/shared/family-sharing') ? require('../shared/family-sharing') : name.startsWith('./') ? load(name) : require(name), module, module.exports);
   return module.exports;
 }
 const math = load('subscription-math');
@@ -33,6 +33,49 @@ const sub = (patch = {}) => ({
 const amortize = (patch, day = '2026-10-12') => math.lifetimeAmortization(sub(patch), math.parseDay(day));
 const breakdown = (items, options = {}, follow = {}) => categoryBreakdown(items, follow, { now, ...options });
 const close = (actual, expected) => assert(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`);
+
+test('Family never infers receipts from occupied places; null, zero, partial and full shares have distinct costs', () => {
+  const { familyCost, familySeats, validateFamilySharing } = load('family-sharing');
+  const make = patch => sub({ frequency: 'monthly', price: '20', familySharing: validateFamilySharing({ shareable: true, totalSeats: 4, occupiedSeats: 4, ...patch }, '20', 'monthly') });
+  assert.equal(familySeats(make({})), 0);
+  assert.equal(familySeats(make({ totalSeats: null })), null);
+  assert.equal(familyCost(make({}), 20).net, 20);
+  assert.equal(familyCost(make({ receivedContribution: '0' }), 20).net, 20);
+  assert.deepEqual(familyCost(make({ receivedContribution: '5', occupiedSeats: 2, estimatedContribution: '10' }), 20), { gross: 20, contribution: 5, net: 15, potential: 15 });
+  assert.equal(familyCost(make({ receivedContribution: '20' }), 20).net, 0);
+  assert.equal(familyCost(make({ shareable: false, receivedContribution: '5' }), 20).net, 20);
+});
+test('Family annual and lifetime contributions normalize once, combine with amortization, and leave real projections untouched', () => {
+  const { validateFamilySharing } = load('family-sharing');
+  const shared = frequency => sub({ frequency, familySharing: validateFamilySharing({ shareable: true, totalSeats: 4, occupiedSeats: 2, receivedContribution: '60', estimatedContribution: '20' }, '120', frequency) });
+  const rows = [shared('yearly'), shared('lifetime')];
+  rows[1].id = 2;
+  const original = JSON.stringify(rows);
+  assert.equal(breakdown(rows).monthly, 10);
+  assert.equal(breakdown(rows, { simulateFamily: true }).monthly, 5);
+  assert.equal(breakdown(rows, { includeLifetime: true }).monthly, 20);
+  const both = breakdown(rows, { includeLifetime: true, simulateFamily: true });
+  assert.equal(both.monthly, 10);
+  assert.equal(both.grossMonthly, 20);
+  assert.equal(both.contributionMonthly, 10);
+  close(both.potentialMonthly, 80 / 12);
+  assert.equal(costProjection(rows, {}, 1, now)[0].amount, 10);
+  assert.equal(math.overview(rows, {}, now).confirmedAnnual, 0);
+  assert.equal(JSON.stringify(rows), original);
+  assert.equal(breakdown(rows, { includeLifetime: true, simulateFamily: true, now: math.parseDay('2027-09-12') }).monthly, 5);
+});
+test('Family invalidation after frequency changes and caps after price reductions prevent negative or overstated net costs', () => {
+  const { familyCost, validateFamilySharing } = load('family-sharing');
+  const familySharing = validateFamilySharing({ shareable: true, receivedContribution: '18', totalSeats: 4, occupiedSeats: 1, estimatedContribution: '10' }, '20', 'monthly');
+  assert.equal(familyCost(sub({ frequency: 'yearly', familySharing }), 10).contribution, 0);
+  const changed = sub({ frequency: 'monthly', price: '10', familySharing });
+  assert.deepEqual(familyCost(changed, 10), { gross: 10, contribution: 10, net: 0, potential: 0 });
+  const result = breakdown([changed], { simulateFamily: true });
+  assert.equal(result.monthly, 0);
+  assert.equal(result.groups[0].share, 0);
+  assert.equal(result.groups[0].percent, 0);
+  assert.equal(result.groups[0].items.length, 1, 'fully covered records remain inspectable');
+});
 
 test('amortization is price / 12 from the purchase day until the exclusive first anniversary', () => {
   assert.equal(amortize({ purchaseDate: '2026-10-13' }).status, 'future');

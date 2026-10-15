@@ -1,8 +1,10 @@
 import { validCategoryIcons, type Category, type CategoryIconName, type CategoryIconPreferences } from './categories';
 import roadmapFeatures from '../../shared/roadmap.json';
 import { clearSubscriptionIcons } from './subscription-icon-store';
+import { validateFamilySharing } from './family-sharing';
 import { clearPhotos, replaceDemoPhotos } from './subscription-photos';
 import { hasPlusAccess } from './entitlements-state';
+import { assertCategory, assertUniqueCategoryName, emptyCatalog, validCatalog, validCategoryName, type CategoryCatalog } from './category-catalog';
 import { demoProofs } from './demo-proofs';
 import {
   demoOffers,
@@ -129,6 +131,7 @@ interface LocalData {
   subscriptions: Subscription[];
   settings: UserSettings;
   nextId: number;
+  categoryCatalog?: CategoryCatalog;
 }
 const empty = (): LocalData => ({
   subscriptions: [],
@@ -232,6 +235,7 @@ export async function seedDemo() {
     ['Stockage photo', '1.99', 'monthly', 'cloud', 15, 'used', 3, null, true],
   ] as const;
   const data: LocalData = {
+    categoryCatalog: emptyCatalog(),
     nextId: rows.length + 1,
     settings: { budgetCap: '120', monthlyOverrides: null },
     subscriptions: rows.map((r, i) =>
@@ -311,6 +315,9 @@ export async function localRequest<T>(
     const route = url.pathname;
     const method = options.method ?? 'GET';
     const body = options.body ? JSON.parse(String(options.body)) : {};
+    // Migrate legacy catalogs on the next write. Retain the old key as a backup.
+    const catalog = validCatalog(data.categoryCatalog ?? await readJSON(key('category-catalog', namespace), emptyCatalog()));
+    data.categoryCatalog = catalog;
     let result: unknown;
     if (route === '/roadmap' || route.startsWith('/roadmap/')) {
       const votes = await readJSON<string[]>(key('roadmap', namespace), []);
@@ -321,11 +328,45 @@ export async function localRequest<T>(
       await AsyncStorage.setItem(key('roadmap', namespace), JSON.stringify(next));
       return { interested: body.interested } as T;
     }
-    if (route === '/subscriptions' && method === 'GET')
+    if (route === '/categories' || route.startsWith('/categories/')) {
+      const id = decodeURIComponent(route.slice('/categories/'.length));
+      const name = method === 'POST' || method === 'PATCH' ? validCategoryName(body.name) : '';
+      if (method === 'GET') result = catalog;
+      else {
+        if (body.icon !== undefined && body.icon !== null && !Object.values(validCategoryIcons({ other: body.icon })).length) throw new Error('Icône invalide.');
+        if (method === 'POST') {
+          if (catalog.custom.length >= 60) throw new Error('Maximum 60 catégories.');
+          assertUniqueCategoryName(catalog, name);
+          const row = { id: `custom_${Date.now()}-${Math.random().toString(36).slice(2)}`, name, icon: body.icon ?? 'grid-outline' };
+          catalog.custom.push(row); result = row;
+        } else {
+          assertCategory(catalog, id);
+          if (method === 'PATCH') {
+            assertUniqueCategoryName(catalog, name, id);
+            const row = catalog.custom.find(item => item.id === id);
+            if (row) { row.name = name; if (body.icon !== undefined) row.icon = body.icon; result = row; }
+            else { catalog.overrides[id] = { ...catalog.overrides[id], name, ...(body.icon === undefined ? {} : { icon: body.icon }) }; result = { id, ...catalog.overrides[id] }; }
+          } else if (method === 'DELETE') {
+            if (id === 'other') throw new Error('La catégorie Autre doit rester disponible.');
+            const custom = catalog.custom.some(row => row.id === id);
+            let reassignedSubscriptions = 0;
+            data.subscriptions = data.subscriptions.map(sub => {
+              if (sub.category !== id) return sub;
+              reassignedSubscriptions++; return { ...sub, category: 'other' };
+            });
+            catalog.custom = catalog.custom.filter(row => row.id !== id);
+            if (!custom) catalog.hidden.push(id);
+            delete catalog.overrides[id]; result = { reassignedSubscriptions };
+          } else throw new Error('Opération de catégorie invalide.');
+        }
+      }
+    } else if (route === '/subscriptions' && method === 'GET')
       result = data.subscriptions.filter(
         (s) => url.searchParams.get('includeArchived') === 'true' || s.isActive,
       );
     else if (route === '/subscriptions' && method === 'POST') {
+      if ('familySharing' in body || 'family_sharing' in body) throw new Error('Utilisez la modification du partage familial.');
+      assertCategory(catalog, body.category);
       if (body.isActive !== false && !canAddSubscription(data.subscriptions, hasPlusAccess(), await getFollowUps(namespace)))
         throw new Error('PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.');
       const item = subscription(body, data.nextId++);
@@ -337,6 +378,15 @@ export async function localRequest<T>(
         const d = deadlines(s).renewal;
         return d && dayKey(d) <= until;
       });
+    } else if (/^\/subscriptions\/\d+\/family$/.test(route)) {
+      const item = data.subscriptions.find(sub => sub.id === Number(route.split('/')[2]));
+      if (!item) throw new Error('Abonnement introuvable.');
+      if (method === 'PUT') {
+        if (!hasPlusAccess()) throw new Error('PLUS_FAMILY: Le partage familial nécessite PigeonSub Plus.');
+        item.familySharing = validateFamilySharing(body, item.price, item.frequency);
+      } else if (method === 'DELETE') item.familySharing = null;
+      else throw new Error('Opération de partage invalide.');
+      result = item;
     } else if (/^\/subscriptions\/\d+$/.test(route)) {
       const id = Number(route.split('/').pop());
       const index = data.subscriptions.findIndex((s) => s.id === id);
@@ -344,7 +394,9 @@ export async function localRequest<T>(
       if (method === 'DELETE') {
         data.subscriptions.splice(index, 1);
       } else if (method === 'PUT') {
+        if ('familySharing' in body || 'family_sharing' in body) throw new Error('Utilisez la modification du partage familial.');
         const before = data.subscriptions[index];
+        if ('category' in body) assertCategory(catalog, body.category, before.category);
         const follow = await getFollowUps(namespace);
         if (body.isActive === true && isEnded(before, follow[id]) && !canAddSubscription(data.subscriptions, hasPlusAccess(), follow))
           throw new Error('PLUS_LIMIT: La version gratuite permet 5 abonnements actifs.');
@@ -429,6 +481,7 @@ export async function localRequest<T>(
         'Cette fonction nécessite un compte connecté. Vos données locales sont conservées.',
       );
     if (method !== 'GET') {
+      if (namespace !== scope || !isLocalSession()) throw new Error('La session a changé.');
       await AsyncStorage.setItem(key('data', namespace), JSON.stringify(data));
       if (namespace === scope) dataChanged();
     }

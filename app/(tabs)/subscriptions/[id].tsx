@@ -5,7 +5,11 @@ import React from 'react';
 import { Alert, Text, View } from 'react-native';
 import { useSubscriptionData } from '../../../src/hooks/useSubscriptionData';
 import { subscriptions } from '../../../src/lib/api';
-import { categoryLabels, usageLabels } from '../../../src/lib/labels';
+import { usageLabels } from '../../../src/lib/labels';
+import { categoryName } from '../../../src/lib/category-catalog';
+import { useCategoryCatalog } from '../../../src/hooks/useCategoryCatalog';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { FamilySharingPanel } from '../../../src/components/FamilySharingPanel';
 import {
   euro,
   frequencyLabels,
@@ -27,6 +31,7 @@ import { useBilling } from '../../../src/contexts/BillingContext';
 import { SubscriptionProofPreview } from '../../../src/components/SubscriptionProofPreview';
 export default function SubscriptionScreen() {
   const ui = useUI();
+  const catalog = useCategoryCatalog(), { scope } = useAuth();
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -68,7 +73,7 @@ export default function SubscriptionScreen() {
     <Page
       title={sub.name}
       headerAccessory={<SubscriptionIcon id={sub.id} name={sub.name} size={54} />}
-      subtitle={`${categoryLabels[sub.category] ?? sub.category} · ${usageLabels[sub.usageFrequency] ?? sub.usageFrequency}`}
+      subtitle={`${categoryName(sub.category, catalog)} · ${usageLabels[sub.usageFrequency] ?? sub.usageFrequency}`}
     >
       <Button title="Retour" variant="ghost" onPress={() => router.back()} />
       <View style={ui.card}>
@@ -85,6 +90,7 @@ export default function SubscriptionScreen() {
         <TrialStatus key={sub.id} sub={sub} follow={follow[sub.id]} detail />
         <DecisionActions inDetail sub={sub} follow={follow[sub.id]} />
       </View>
+      <FamilySharingPanel key={`${scope}:${sub.id}`} sub={sub} />
       <GuideAnchor id="subscription-proofs"><SubscriptionProofPreview sub={sub} /></GuideAnchor>
       <CancellationPanel sub={sub} follow={follow[sub.id]} />
       <GuideAnchor id="subscription-safety"><SafetyPanel

@@ -1,4 +1,5 @@
 const COPY: Record<string, { title: string; free: string; plus: string }> = {
+  family: { title: 'Suivez votre partage familial', free: 'Vos dépenses et déclarations existantes restent consultables, même après la fin de Plus.', plus: 'Plus permet de renseigner les places et contributions reçues, puis de comparer votre reste à charge. PigeonSub ne gère ni invitations ni paiements.' },
   limit: { title: 'Suivez tous vos abonnements', free: '5 abonnements actifs, essais compris, sont inclus gratuitement.', plus: 'Plus permet de suivre un nombre illimité d’abonnements et d’essais.' },
   import: { title: 'Ajoutez vos abonnements en une fois', free: 'Analyse locale du CSV et ajout individuel dans la limite de vos 5 abonnements actifs gratuits.', plus: 'Plus permet d’importer plusieurs abonnements confirmés en une fois. Le prototype CSV ne fait aucun ajout sans votre validation.' },
   icons: { title: 'Donnez votre style à vos abonnements', free: 'Une icône par défaut accompagne chaque abonnement.', plus: 'Plus permet d’importer vos propres photos comme icônes d’abonnement.' },

@@ -25,6 +25,8 @@ async function withUserLock(pool, userId, work) {
 
 function validateSubscription(body, partial = false) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AccessError(400, 'INVALID_SUBSCRIPTION', 'Abonnement invalide.');
+  if ('familySharing' in body || 'family_sharing' in body)
+    throw new AccessError(400, 'FAMILY_ENDPOINT_REQUIRED', 'Utilisez la modification du partage familial.');
   for (const field of ['isActive', 'isTrial', 'isSuspect', 'isFlagged', 'useSafetyDate']) {
     if (field in body && typeof body[field] !== 'boolean') throw new AccessError(400, 'INVALID_BOOLEAN', `${field} doit être un booléen.`);
   }

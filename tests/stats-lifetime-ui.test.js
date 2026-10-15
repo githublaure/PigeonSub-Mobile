@@ -22,7 +22,11 @@ function harness(platform, width, scheme) {
   const FixedDate = class extends Date {
     constructor(...args) { super(...(args.length ? args : [2026, 9, 12, 12])); }
   };
-  const hooks = { ...React, useState(initial) {
+  const hooks = { ...React, useEffect(effect, deps) {
+    const key = `${frame.path}:effect:${frame.index++}`;
+    const previous = state.get(key);
+    if (!previous || deps.some((value, i) => value !== previous[i])) { state.set(key, deps); effect(); }
+  }, useState(initial) {
     const key = `${frame.path}:${frame.index++}`;
     if (!state.has(key)) state.set(key, typeof initial === 'function' ? initial() : initial);
     return [state.get(key), value => state.set(key, typeof value === 'function' ? value(state.get(key)) : value)];
@@ -39,6 +43,7 @@ function harness(platform, width, scheme) {
       module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.React, esModuleInterop: true,
     } }).outputText;
     const requireLocal = name => {
+      if (name.endsWith('/shared/family-sharing')) return require('../shared/family-sharing');
       if (name === 'react') return hooks;
       if (name === 'react-native') return hosts;
       if (name === 'react-native-svg') return { __esModule: true, default: 'Svg', Circle: 'Circle', Defs: 'Defs', LinearGradient: 'LinearGradient', Line: 'Line', Path: 'Path', Stop: 'Stop', Text: 'SvgText' };
@@ -94,6 +99,38 @@ const byLabel = (tree, label) => nodes(tree).find(node => node.props.accessibili
 const money = value => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
 
 for (const [platform, width, scheme] of [['ios', 320, 'light'], ['ios', 390, 'dark'], ['web', 1280, 'light'], ['web', 320, 'dark']]) {
+  test(`${platform} ${width}px ${scheme}: Family and lifetime combine independently and reset after Plus loss/session change`, () => {
+    const h = harness(platform, width, scheme);
+    h.data[0].familySharing = { shareable: true, totalSeats: 4, occupiedSeats: 2, receivedContribution: '5', estimatedContribution: '5', frequency: 'monthly' };
+    h.data[1].familySharing = { shareable: true, totalSeats: 4, occupiedSeats: 2, receivedContribution: '60', estimatedContribution: '20', frequency: 'lifetime' };
+    let tree = h.render();
+    byId(tree, 'stats-family-toggle').props.onValueChange(true);
+    tree = h.render();
+    assert.equal(text(byId(tree, 'stats-category-total')), money(15));
+    assert(text(byId(tree, 'stats-family-summary')).includes('hypothétique'));
+    byId(tree, 'stats-lifetime-toggle').props.onValueChange(true);
+    tree = h.render();
+    assert.equal(text(byId(tree, 'stats-category-total')), money(20));
+    assert.equal(text(byId(tree, 'stats-current-amount')), money(20));
+    assert.equal(text(byId(tree, 'stats-confirmed-amount')), money(0));
+    byLabel(tree, 'Voir les abonnements : Outils').props.onPress();
+    tree = h.render();
+    assert(text(byId(tree, 'stats-category-preview')).includes(`${money(120)} payés une fois`));
+    assert(text(byId(tree, 'stats-category-preview')).includes(`reste à charge : ${money(5)}`));
+    h.setPlus(false);
+    tree = h.render();
+    assert.equal(byId(tree, 'stats-family-toggle').props.value, false);
+    assert.equal(byId(tree, 'stats-family-toggle').props.disabled, true);
+    assert.equal(text(byId(tree, 'stats-category-total')), money(30));
+    h.setPlus(true);
+    tree = h.render();
+    assert.equal(byId(tree, 'stats-family-toggle').props.value, false);
+    byId(tree, 'stats-family-toggle').props.onValueChange(true);
+    h.setScope('account:second');
+    tree = h.render();
+    assert.equal(byId(tree, 'stats-family-toggle').props.value, false);
+    assert.equal(byId(tree, 'stats-lifetime-toggle').props.value, false);
+  });
   test(`${platform} ${width}px ${scheme}: toggle, ring, amounts, details and correction links use one basis`, () => {
     const h = harness(platform, width, scheme);
     const original = JSON.stringify(h.data);

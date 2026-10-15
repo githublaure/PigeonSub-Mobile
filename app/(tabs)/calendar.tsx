@@ -1,4 +1,5 @@
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
+import { FamilyAvailability } from '../../src/components/FamilyAvailability';
 import { calendarEvents, filterCalendarEvents, type CalendarFilter } from '../../src/lib/calendar-events';
 import { CalendarEventDot, CalendarLegend } from '../../src/components/CalendarLegend';
 import { SubscriptionIcon } from '../../src/components/ui/SubscriptionIcon';
@@ -35,6 +36,7 @@ export default function CalendarScreen() {
     setMonth(date); select(dayKey(date));
   };
   return <Page title="Alertes">
+    <FamilyAvailability data={data} follow={follow} />
     <FilterRail label="Alertes" value={filter} onChange={value => { setFilter(value); setLimit(30); }} options={[
       { id: 'all', label: 'Toutes', icon: 'calendar-outline' },
       { id: 'safety', label: 'Sûreté', icon: 'shield-checkmark-outline', color: c.calendarSafety, foreground: '#201D29' },

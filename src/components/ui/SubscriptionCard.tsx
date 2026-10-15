@@ -11,6 +11,7 @@ import {
 } from '../../lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { familySeats } from '../../lib/family-sharing';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { UsageBadge } from './UsageBadge';
 import { Subscription } from '../../lib/api';
@@ -120,6 +121,7 @@ export function SubscriptionCard({
           <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
         )}
         {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
+        {subscription.familySharing?.shareable && <Text style={styles.renewal}>Famille · {familySeats(subscription) === null ? 'places à renseigner' : `${familySeats(subscription)} place(s) libre(s)`}</Text>}
         {showSafety && !archived && <SafetyDateBadge date={safetyDate} />}
         <View style={styles.footer}>
           <CategoryBadge category={subscription.category} />

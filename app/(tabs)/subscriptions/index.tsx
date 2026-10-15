@@ -1,8 +1,9 @@
 import { CategoryFilters } from '../../../src/components/CategoryFilters';
 import { normalizeCategory } from '../../../src/lib/categories';
 import { useAuth } from '../../../src/contexts/AuthContext';
-import { getDataSession, updateFollowUp } from '../../../src/lib/local-data';
-import { askReminderPermission, syncReminders } from '../../../src/lib/notifications';
+import { getDataSession } from '../../../src/lib/local-data';
+import { askReminderPermission } from '../../../src/lib/notifications';
+import { changeReminder } from '../../../src/lib/reminder-actions';
 import { FilterRail } from '../../../src/components/ui/FilterRail';
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
@@ -62,8 +63,7 @@ export default function SubscriptionsScreen() {
         }
       }
       if (getDataSession().scope !== scope) throw new Error('La session a changé.');
-      await updateFollowUp(subId, { reminderEnabled: !previous });
-      if (mode !== 'demo') await syncReminders();
+      await changeReminder(subId, !previous, scope);
     } catch (error) {
       Alert.alert('Rappels PigeonSub', error instanceof Error ? error.message : 'Impossible de modifier ce rappel.');
     } finally {
