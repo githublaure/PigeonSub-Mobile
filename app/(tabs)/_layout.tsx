@@ -15,11 +15,6 @@ const DASHBOARD_ICONS: PigeonTabIconPair = {
   outline: require('../../assets/icons/navigation/plume-tab-outline.png'),
 };
 
-const CALENDAR_ICONS: PigeonTabIconPair = {
-  filled: require('../../assets/icons/navigation/security-calendar-filled.png'),
-  outline: require('../../assets/icons/navigation/security-calendar-outline.png'),
-};
-
 function tabIcon(
   Colors: Palette,
   focused: boolean,
@@ -35,13 +30,13 @@ function tabIcon(
   );
 }
 
-function pigeonTabIcon(focused: boolean, icons: PigeonTabIconPair) {
+function pigeonTabIcon(Colors: Palette, focused: boolean, icons: PigeonTabIconPair) {
   return (
     <Image
       accessible={false}
       source={focused ? icons.filled : icons.outline}
       resizeMode="contain"
-      style={{ width: 24, height: 24 }}
+      style={{ width: 24, height: 24, tintColor: focused ? Colors.primary : Colors.textMuted }}
     />
   );
 }
@@ -72,7 +67,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Accueil',
-          tabBarIcon: ({ focused }) => pigeonTabIcon(focused, DASHBOARD_ICONS),
+          tabBarIcon: ({ focused }) => pigeonTabIcon(Colors, focused, DASHBOARD_ICONS),
         }}
       />
       <Tabs.Screen
@@ -91,7 +86,8 @@ export default function TabsLayout() {
         name="calendar"
         options={{
           title: 'Alertes',
-          tabBarIcon: ({ focused }) => pigeonTabIcon(focused, CALENDAR_ICONS),
+          tabBarIcon: ({ focused }) =>
+            tabIcon(Colors, focused, 'notifications', 'notifications-outline'),
         }}
       />
       <Tabs.Screen
