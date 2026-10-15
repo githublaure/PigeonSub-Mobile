@@ -234,35 +234,73 @@ export async function seedDemo() {
     ['Microsoft 365', '99.99', 'yearly', 'productivity', 30, 'rarely_used', 3, null, false],
     ['Stockage photo', '1.99', 'monthly', 'cloud', 15, 'used', 3, null, true],
   ] as const;
+  const lifetimeRows = [
+    {
+      name: 'GoodNotes',
+      price: '34.99',
+      frequency: 'lifetime',
+      category: 'productivity',
+      usageFrequency: 'very_used',
+      rating: 5,
+      purchaseDate: dayKey(addDays(now, -45)),
+      note: 'Démo · achat à vie : le prix est réparti sur les 12 premiers mois uniquement dans la comparaison analytique.',
+    },
+    {
+      name: 'Procreate',
+      price: '17.99',
+      frequency: 'lifetime',
+      category: 'design',
+      usageFrequency: 'used',
+      rating: 4,
+      purchaseDate: dayKey(addDays(now, -120)),
+      note: 'Démo · second achat à vie pour visualiser le prorata 12 mois sans créer de prélèvement récurrent.',
+    },
+  ] as const;
   const data: LocalData = {
     categoryCatalog: emptyCatalog(),
-    nextId: rows.length + 1,
+    nextId: rows.length + lifetimeRows.length + 1,
     settings: { budgetCap: '120', monthlyOverrides: null },
-    subscriptions: rows.map((r, i) =>
-      subscription(
-        {
-          name: r[0],
-          price: r[1],
-          frequency: r[2],
-          category: r[3],
-          nextRenewal: dayKey(addDays(now, r[4])),
-          usageFrequency: r[5],
-          rating: r[6],
-          isTrial: r[7] !== null,
-          trialEndsAt: r[7] !== null ? dayKey(addDays(now, r[7])) : null,
-          useSafetyDate: [0, 4, 7, 10, 11, 12].includes(i),
-          safetyDate: [0, 4, 7, 10, 11, 12].includes(i) ? dayKey(addDays(now, r[4] - 2)) : null,
-          purchaseDate: dayKey(addDays(now, r[7] !== null ? -7 : -90)),
-          note: i === 0
-            ? 'Démo · résiliation en cours : 13,49 € × 12 mois = 161,88 € par an possibles. Reçu et demande envoyée dans les justificatifs.'
-            : i === 13
-              ? 'Démo · essai terminé : vérifiez le passage payant avant de l’inclure dans vos dépenses.'
-              : 'Exemple de démonstration. Tarif et documents fictifs.',
-          isActive: r[8],
-        },
-        i + 1,
+    subscriptions: [
+      ...rows.map((r, i) =>
+        subscription(
+          {
+            name: r[0],
+            price: r[1],
+            frequency: r[2],
+            category: r[3],
+            nextRenewal: dayKey(addDays(now, r[4])),
+            usageFrequency: r[5],
+            rating: r[6],
+            isTrial: r[7] !== null,
+            trialEndsAt: r[7] !== null ? dayKey(addDays(now, r[7])) : null,
+            useSafetyDate: [0, 4, 7, 10, 11, 12].includes(i),
+            safetyDate: [0, 4, 7, 10, 11, 12].includes(i) ? dayKey(addDays(now, r[4] - 2)) : null,
+            purchaseDate: dayKey(addDays(now, r[7] !== null ? -7 : -90)),
+            note: i === 0
+              ? 'Démo · résiliation en cours : 13,49 € × 12 mois = 161,88 € par an possibles. Reçu et demande envoyée dans les justificatifs.'
+              : i === 13
+                ? 'Démo · essai terminé : vérifiez le passage payant avant de l’inclure dans vos dépenses.'
+                : 'Exemple de démonstration. Tarif et documents fictifs.',
+            isActive: r[8],
+          },
+          i + 1,
+        ),
       ),
-    ),
+      ...lifetimeRows.map((row, index) =>
+        subscription(
+          {
+            ...row,
+            nextRenewal: null,
+            safetyDate: null,
+            useSafetyDate: false,
+            isTrial: false,
+            trialEndsAt: null,
+            isActive: true,
+          },
+          rows.length + index + 1,
+        ),
+      ),
+    ],
   };
   await AsyncStorage.setItem(key('data', 'demo'), JSON.stringify(data));
   await AsyncStorage.setItem(
