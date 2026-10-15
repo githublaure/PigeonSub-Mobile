@@ -45,43 +45,43 @@ export function CategoryDrilldown({ groups, analytical, palette }: {
   const ui = useUI();
   const catalog = useCategoryCatalog();
   const [selected, setSelected] = useState<string | null>(null);
-  const category = groups.find(group => group.key === selected);
   return (
     <View testID="stats-category-details" style={{ flex: 1, gap: 5 }}>
-      {groups.map(({ key, monthly, percent }, index) => (
-        <Pressable key={key} accessibilityRole="button"
-          accessibilityLabel={`Voir les abonnements : ${categoryName(key, catalog)}, ${euro(monthly)} par mois${analytical ? ' en comparaison analytique' : ''}, ${percent} %`}
-          accessibilityState={{ expanded: selected === key }}
-          onHoverIn={() => setSelected(key)}
-          onFocus={() => setSelected(key)}
-          onPress={() => setSelected(key)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6,
-            minHeight: 44, borderRadius: 10, backgroundColor: selected === key ? c.surfaceRaised : 'transparent' }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[index % palette.length] }} />
-          <Text style={[ui.small, { flex: 1 }]}>{categoryName(key, catalog)}</Text>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[ui.small, { color: c.text, fontWeight: '600' }]}>{euro(monthly)}</Text>
-            <Text style={ui.small}>{percent} %</Text>
-          </View>
-          <Ionicons name={selected === key ? 'chevron-up' : 'chevron-down'} size={14} color={c.textMuted} />
-        </Pressable>
-      ))}
-      {category ? (
-        <View testID="stats-category-preview" style={{ padding: 10, borderRadius: 13,
-          backgroundColor: c.surfaceRaised, borderColor: c.border, borderWidth: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[ui.heading, { fontSize: 14 }]}>{categoryName(category.key, catalog)} · {category.items.length}</Text>
-              <Text style={ui.small}>{euro(category.monthly)}/mois{analytical ? ' · comparaison analytique' : ''}</Text>
+      {groups.map((group, index) => {
+        const open = selected === group.key;
+        return <React.Fragment key={group.key}>
+          <Pressable accessibilityRole="button"
+            accessibilityLabel={`Voir les abonnements : ${categoryName(group.key, catalog)}, ${euro(group.monthly)} par mois${analytical ? ' en comparaison analytique' : ''}, ${group.percent} %`}
+            accessibilityState={{ expanded: open }}
+            onHoverIn={() => setSelected(group.key)}
+            onFocus={() => setSelected(group.key)}
+            onPress={() => setSelected(current => current === group.key ? null : group.key)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6,
+              minHeight: 44, borderRadius: 10, backgroundColor: open ? c.surfaceRaised : 'transparent' }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[index % palette.length] }} />
+            <Text style={[ui.small, { flex: 1 }]}>{categoryName(group.key, catalog)}</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[ui.small, { color: c.text, fontWeight: '600' }]}>{euro(group.monthly)}</Text>
+              <Text style={ui.small}>{group.percent} %</Text>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails"
-              onPress={() => setSelected(null)} style={{ padding: 9, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="close" size={18} color={c.textMuted} />
-            </Pressable>
-          </View>
-          {category.items.map(cost => <DetailRow key={cost.sub.id} sub={cost.sub} cost={cost} />)}
-        </View>
-      ) : null}
+            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={c.textMuted} />
+          </Pressable>
+          {open && <View testID="stats-category-preview" style={{ marginTop: 2, marginBottom: 5, padding: 10, borderRadius: 13,
+            backgroundColor: c.surfaceRaised, borderColor: c.border, borderWidth: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[ui.heading, { fontSize: 14 }]}>{categoryName(group.key, catalog)} · {group.items.length}</Text>
+                <Text style={ui.small}>{euro(group.monthly)}/mois{analytical ? ' · comparaison analytique' : ''}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails"
+                onPress={() => setSelected(null)} style={{ padding: 9, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="close" size={18} color={c.textMuted} />
+              </Pressable>
+            </View>
+            {group.items.map(cost => <DetailRow key={cost.sub.id} sub={cost.sub} cost={cost} />)}
+          </View>}
+        </React.Fragment>;
+      })}
     </View>
   );
 }
@@ -97,7 +97,6 @@ export function OtherStats({ active, wide }: { active: Subscription[]; wide: boo
   }));
   const unknown = active.filter(sub => !levels.some(key => sub.usageFrequency === key));
   if (unknown.length) usageRows.push({ key: 'unknown' as typeof levels[number], label: 'Non renseigné', subs: unknown });
-  const chosen = usageRows.find(row => row.key === usageSelected);
   const trials = active.filter(sub => sub.isTrial).sort((a, b) => (a.trialEndsAt ?? '').localeCompare(b.trialEndsAt ?? ''));
   const suspects = active.filter(sub => sub.isSuspect);
   const group = (key: 'trials' | 'suspects', title: string, subs: Subscription[]) => (
@@ -125,36 +124,39 @@ export function OtherStats({ active, wide }: { active: Subscription[]; wide: boo
       <View style={[ui.card, { gap: 10 }]}>
         <Text style={ui.heading}>Usage de vos abonnements</Text>
         <Text style={ui.small}>Répartition sur {active.length} abonnements actifs · touchez une ligne pour le détail.</Text>
-        {usageRows.map(row => (
-          <Pressable key={row.key} accessibilityRole="button"
-            accessibilityLabel={`Voir ${row.subs.length} abonnements : ${row.label}`}
-            accessibilityState={{ expanded: usageSelected === row.key }}
-            onHoverIn={() => setUsageSelected(row.key)}
-            onPress={() => setUsageSelected(current => current === row.key ? null : row.key)}
-            style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12,
-              flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 57,
-              backgroundColor: usageSelected === row.key ? c.surfaceRaised : c.surface }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[ui.body, { fontWeight: '600' }]}>{row.label}</Text>
-              <Text style={ui.small}>{row.subs.length} abonnement{row.subs.length !== 1 ? 's' : ''}</Text>
-            </View>
-            <Text style={{ color: c.primary, fontWeight: '700' }}>
-              {active.length ? Math.round(row.subs.length / active.length * 100) : 0} %
-            </Text>
-            <Ionicons name="chevron-down" size={15} color={c.textMuted} />
-          </Pressable>
-        ))}
-        {chosen ? <View testID="stats-usage-preview"
-          style={{ borderRadius: 12, padding: 12, backgroundColor: c.surfaceRaised }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={[ui.heading, { flex: 1, fontSize: 15 }]}>{chosen.label} · {chosen.subs.length}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails d'usage"
-              onPress={() => setUsageSelected(null)} style={{ padding: 8 }}>
-              <Ionicons name="close" size={18} color={c.textMuted} />
+        {usageRows.map(row => {
+          const open = usageSelected === row.key;
+          return <React.Fragment key={row.key}>
+            <Pressable accessibilityRole="button"
+              accessibilityLabel={`Voir ${row.subs.length} abonnements : ${row.label}`}
+              accessibilityState={{ expanded: open }}
+              onHoverIn={() => setUsageSelected(row.key)}
+              onPress={() => setUsageSelected(current => current === row.key ? null : row.key)}
+              style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12,
+                flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 57,
+                backgroundColor: open ? c.surfaceRaised : c.surface }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[ui.body, { fontWeight: '600' }]}>{row.label}</Text>
+                <Text style={ui.small}>{row.subs.length} abonnement{row.subs.length !== 1 ? 's' : ''}</Text>
+              </View>
+              <Text style={{ color: c.primary, fontWeight: '700' }}>
+                {active.length ? Math.round(row.subs.length / active.length * 100) : 0} %
+              </Text>
+              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color={c.textMuted} />
             </Pressable>
-          </View>
-          {chosen.subs.map(sub => <DetailRow key={sub.id} sub={sub} />)}
-        </View> : null}
+            {open && <View testID="stats-usage-preview"
+              style={{ marginTop: -2, marginBottom: 4, borderRadius: 12, padding: 12, backgroundColor: c.surfaceRaised }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[ui.heading, { flex: 1, fontSize: 15 }]}>{row.label} · {row.subs.length}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Fermer les détails d'usage"
+                  onPress={() => setUsageSelected(null)} style={{ padding: 8 }}>
+                  <Ionicons name="close" size={18} color={c.textMuted} />
+                </Pressable>
+              </View>
+              {row.subs.map(sub => <DetailRow key={sub.id} sub={sub} />)}
+            </View>}
+          </React.Fragment>;
+        })}
       </View>
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 14 }}>
         {group('trials', 'Essais gratuits', trials)}
