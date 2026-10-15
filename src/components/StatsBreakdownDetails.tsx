@@ -55,7 +55,7 @@ export function CategoryDrilldown({ groups, analytical, palette }: {
             accessibilityState={{ expanded: open }}
             onHoverIn={() => setSelected(group.key)}
             onFocus={() => setSelected(group.key)}
-            onPress={() => setSelected(current => current === group.key ? null : group.key)}
+            onPress={() => setSelected(group.key)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6,
               minHeight: 44, borderRadius: 10, backgroundColor: open ? c.surfaceRaised : 'transparent' }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette[index % palette.length] }} />
@@ -130,7 +130,6 @@ export function OtherStats({ active, wide }: { active: Subscription[]; wide: boo
             <Pressable accessibilityRole="button"
               accessibilityLabel={`Voir ${row.subs.length} abonnements : ${row.label}`}
               accessibilityState={{ expanded: open }}
-              onHoverIn={() => setUsageSelected(row.key)}
               onPress={() => setUsageSelected(current => current === row.key ? null : row.key)}
               style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 12,
                 flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 57,
