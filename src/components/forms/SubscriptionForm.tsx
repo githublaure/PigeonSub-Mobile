@@ -484,7 +484,7 @@ export function SubscriptionForm({
             {/* ── Billing dates ── */}
             <SectionTitle>Vos échéances</SectionTitle>
 
-            <Controller
+            {frequency !== 'lifetime' && <Controller
               control={control}
               name="nextRenewal"
               render={({ field }) => (
@@ -500,14 +500,14 @@ export function SubscriptionForm({
                   onBlur={field.onBlur}
                 />
               )}
-            />
+            />}
 
             <Controller
               control={control}
               name="purchaseDate"
               render={({ field }) => (
                 <DatePickerField
-                  label="Date de souscription"
+                  label={frequency === 'lifetime' ? 'Date d’achat' : 'Date de souscription'}
                   optional
                   error={errors.purchaseDate?.message}
                   value={field.value ?? ''}
