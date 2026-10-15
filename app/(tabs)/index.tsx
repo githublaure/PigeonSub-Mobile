@@ -79,7 +79,7 @@ export default function HomeScreen() {
     <Page
       title={
         mode === 'demo'
-          ? 'Bonjour Camille'
+          ? 'Accueil'
           : user?.name
             ? `Bonjour ${user.name}`
             : 'Vos abonnements'
