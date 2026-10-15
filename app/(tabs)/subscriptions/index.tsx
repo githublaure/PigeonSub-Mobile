@@ -31,17 +31,20 @@ export default function SubscriptionsScreen() {
   const { canUsePlus } = useBilling();
   const { mode, scope } = useAuth();
   const [reminderBusy, setReminderBusy] = useState<number | null>(null);
-  const { view: routeView, reset, select } = useLocalSearchParams<{ view?: string; reset?: string; select?: string }>();
+  const { view: routeView, reset, select, family: routeFamily } = useLocalSearchParams<{ view?: string; reset?: string; select?: string; family?: string }>();
   const [category, setCategory] = useState('all');
+  const [familyView, setFamilyView] = useState<'all' | 'personal' | 'family'>(routeFamily === 'family' ? 'family' : routeFamily === 'personal' ? 'personal' : 'all');
   const [search, setSearch] = useState('');
   const [view, setView] = useState<SubscriptionView>('all');
   const [sort, setSort] = useState<'newest' | 'renewal' | 'name' | 'price'>('newest');
   const [safetyView, setSafetyView] = useState<SafetyView>('hidden');
   useEffect(() => { if (SUBSCRIPTION_VIEWS.some(v => v.id === routeView)) { setView(routeView as SubscriptionView); setCategory('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); } }, [routeView, select]);
-  useEffect(() => { if (reset) { setView('all'); setCategory('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); } }, [reset]);
+  useEffect(() => { setFamilyView(routeFamily === 'family' ? 'family' : routeFamily === 'personal' ? 'personal' : 'all'); }, [routeFamily]);
+  useEffect(() => { if (reset) { setView('all'); setCategory('all'); setFamilyView('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); } }, [reset]);
   if (loading) return <LoadingScreen />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const matching = sortNewestFirst(filterSubscriptions(data, follow, view))
+    .filter(s => familyView === 'all' || (familyView === 'family' ? s.familySharing?.shareable === true : s.familySharing?.shareable !== true))
     .filter(s => category === 'all' || normalizeCategory(s.category) === category)
     .filter(s => `${s.name} ${s.category}`.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr')))
     .sort((a, b) => sort === 'newest' ? 0 : sort === 'name' ? a.name.localeCompare(b.name) : sort === 'price' ? monthlyCost(b) - monthlyCost(a) : (nextRenewal(a)?.getTime() ?? Infinity) - (nextRenewal(b)?.getTime() ?? Infinity));
@@ -75,6 +78,11 @@ export default function SubscriptionsScreen() {
     <GuideAnchor id="subscription-views"><View style={{ gap: 12 }}>
       <View style={[ui.row, { justifyContent: 'space-between' }]}><Text style={ui.label}>VUE DES ABONNEMENTS</Text><Text style={ui.small}>{filtered.length} résultat{filtered.length > 1 ? 's' : ''}</Text></View>
       <FilterRail label="Vue" value={view} onChange={setView} options={SUBSCRIPTION_VIEWS.map(option => ({ ...option, count: filterSubscriptions(data, follow, option.id).length }))} testID="subscription-view-tags" />
+      <FilterRail label="Usage" value={familyView} onChange={setFamilyView} options={[
+        { id: 'all', label: 'Tous', icon: 'apps-outline', count: filterSubscriptions(data, follow, view).length },
+        { id: 'personal', label: 'Perso', icon: 'person-outline', count: filterSubscriptions(data, follow, view).filter(s => s.familySharing?.shareable !== true).length },
+        { id: 'family', label: 'Famille', icon: 'people-outline', count: filterSubscriptions(data, follow, view).filter(s => s.familySharing?.shareable === true).length },
+      ] as const} testID="subscription-family-filter" />
       <CategoryFilters value={category} onChange={setCategory} categories={data.map(s => s.category)} />
       <View style={[ui.input, { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 0 }]}><Ionicons name="search-outline" size={19} color={c.textMuted} /><TextInput accessibilityLabel="Rechercher un abonnement" placeholder="Rechercher un abonnement…" placeholderTextColor={c.textMuted} value={search} onChangeText={setSearch} style={{ flex: 1, minHeight: 46, color: c.text, fontSize: 15 }} /></View>
       <View style={[ui.row, { gap: 6 }]}>
@@ -84,7 +92,7 @@ export default function SubscriptionsScreen() {
     </View></GuideAnchor>
     <View style={{ gap: 10 }} testID="subscription-results">
       {filtered.map(sub => <SubscriptionCard key={sub.id} subscription={sub} archived={isEnded(sub, follow[sub.id])} showSafety={safetyView !== 'hidden'} safetyDate={subscriptionSafetyDate(sub, follow)} remindersEnabled={!!follow[sub.id]?.reminderEnabled} onToggleReminder={() => void toggleReminder(sub.id)} onPress={() => router.push(`/(tabs)/subscriptions/${sub.id}`)} />)}
-      {!filtered.length && <View style={ui.card}><Text style={ui.heading}>Aucun abonnement dans cette vue</Text><Text style={ui.body}>Changez de vue ou de recherche.</Text><Button title="Réinitialiser les filtres" variant="secondary" onPress={() => { setView('all'); setCategory('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); }} /></View>}
+      {!filtered.length && <View style={ui.card}><Text style={ui.heading}>Aucun abonnement dans cette vue</Text><Text style={ui.body}>Changez de vue ou de recherche.</Text><Button title="Réinitialiser les filtres" variant="secondary" onPress={() => { setView('all'); setCategory('all'); setFamilyView('all'); setSearch(''); setSort('newest'); setSafetyView('hidden'); }} /></View>}
     </View>
   </Page>;
 }
