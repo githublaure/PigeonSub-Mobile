@@ -24,7 +24,7 @@ export function FamilyStatsOverview({ data, follow }: { data: Subscription[]; fo
   }
 
   let grossMonthly = 0, contributionMonthly = 0, netMonthly = 0;
-  let totalSeats = 0, occupiedSeats = 0, freeSeats = 0, knownSeatPlans = 0;
+  let totalSeats = 0, occupiedSeats = 0, freeSeats = 0, knownSeatPlans = 0, knownSeatGrossMonthly = 0;
   for (const sub of family) {
     const gross = currentMonthlyCost(sub);
     const costs = familyCost(sub, gross);
@@ -37,10 +37,11 @@ export function FamilyStatsOverview({ data, follow }: { data: Subscription[]; fo
       totalSeats += sharing.totalSeats;
       occupiedSeats += sharing.occupiedSeats;
       freeSeats += familySeats(sub) ?? 0;
+      knownSeatGrossMonthly += gross;
       knownSeatPlans += 1;
     }
   }
-  const averagePerOccupiedSeat = occupiedSeats > 0 ? grossMonthly / occupiedSeats : null;
+  const averagePerOccupiedSeat = occupiedSeats > 0 ? knownSeatGrossMonthly / occupiedSeats : null;
 
   return <View testID="family-stats-overview" style={[ui.card, { gap: 8 }]}>
     <Text style={ui.label}>MODE FAMILLE</Text>
