@@ -15,6 +15,8 @@ import { Button } from '../../src/components/ui/Button';
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen';
 import { ErrorState } from '../../src/components/ui/ErrorState';
 import { useSavedOffers } from '../../src/hooks/useSavedOffers';
+import { useSubscriptionData } from '../../src/hooks/useSubscriptionData';
+import { FamilyAvailability } from '../../src/components/FamilyAvailability';
 import { changeOffer, saveOffer } from '../../src/lib/local-data';
 import {
   emptyOffer,
@@ -32,6 +34,7 @@ export default function CouponsScreen() {
   const { colors: c } = useTheme();
   const { scope, mode } = useAuth();
   const { offers, loading, error, reload } = useSavedOffers();
+  const { data: subscriptions, follow, loading: subscriptionsLoading, error: subscriptionsError, reload: reloadSubscriptions } = useSubscriptionData();
   const { view } = useLocalSearchParams<{ view?: string }>();
   const [section, setSection] = useState(
     view === 'trials' ? 'trials' : 'coupons',
@@ -85,8 +88,8 @@ export default function CouponsScreen() {
     setFailure('');
     setNotice('');
   };
-  if (loading) return <LoadingScreen />;
-  if (error) return <ErrorState message={error} onRetry={reload} />;
+  if (loading || subscriptionsLoading) return <LoadingScreen />;
+  if (error || subscriptionsError) return <ErrorState message={error || subscriptionsError} onRetry={() => { reload(); reloadSubscriptions(); }} />;
   const available = offers.filter((o) => !o.used && offerDays(o) >= 0);
   const rows = offers
     .filter(o => category === 'all' || normalizeCategory(o.category) === category)
@@ -235,6 +238,7 @@ export default function CouponsScreen() {
               accessible={false}
             />
           </View>
+          <FamilyAvailability data={subscriptions} follow={follow} />
           <Button title="+ Ajouter une offre" onPress={() => edit()} />
           <View style={[ui.row, { gap: 5 }]}>
             {(
