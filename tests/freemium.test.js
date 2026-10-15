@@ -1031,7 +1031,7 @@ test('rich demo seeds coherent subscriptions, trials, offers and offline proof i
   const rows = await local.localRequest('/subscriptions?includeArchived=true');
   const follow = await local.getFollowUps();
   const overview = math.overview(rows, follow);
-  assert.equal(rows.length, 16);
+  assert.equal(rows.length, 18);
   assert.equal(overview.trialCount, 4);
   assert.equal(overview.expiredTrials, 1);
   assert.equal(overview.potentialAnnual.toFixed(2), '161.88');
@@ -1059,8 +1059,11 @@ test('rich demo seeds coherent subscriptions, trials, offers and offline proof i
   assert.equal([...h.memory.keys()].filter(k => k.startsWith('pigeonsub.photos.demo.')).length, 9);
   assert.equal(h.memory.get('pigeonsub.v2.guest.data'), 'personal-data');
   assert.equal(h.memory.get('pigeonsub.photos.account%3A9.saved'), 'private-image');
+  assert.deepEqual(rows.filter(row => row.frequency === 'lifetime').map(row => row.name), ['GoodNotes', 'Procreate']);
+  const lifetime = rows.filter(row => row.frequency === 'lifetime');
+  assert(lifetime.every(row => row.purchaseDate));
   const created = await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'New example', price: '1', frequency: 'monthly', category: 'other' }) });
-  assert.equal(created.id, 17);
+  assert.equal(created.id, 19);
 });
 
 test('savings explanation follows actual billing periods and matches overview across statuses', () => {
