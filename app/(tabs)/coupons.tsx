@@ -225,10 +225,10 @@ export default function CouponsScreen() {
               </Text>
               <Text style={[ui.value, { color: c.gold }]}>
                 {available.length}{' '}
-                <Text style={{ fontSize: 18 }}>à suivre</Text>
+                <Text style={{ fontSize: 18 }}>offres à utiliser</Text>
               </Text>
               <Text style={ui.small}>
-                Gardez les bonnes dates, sans multiplier les abonnements.
+                Pensez à en profiter avant leur date de fin.
               </Text>
             </View>
             <Image
@@ -243,7 +243,7 @@ export default function CouponsScreen() {
           <View style={[ui.row, { gap: 5 }]}>
             {(
               [
-                ['saved', 'À suivre'],
+                ['saved', 'À utiliser'],
                 ['soon', 'Fin sous 7 j'],
                 ['all', 'Toutes'],
               ] as const
@@ -402,7 +402,7 @@ export default function CouponsScreen() {
                   {!expired && (
                     <Button
                       title={
-                        offer.used ? 'À suivre de nouveau' : 'Marquer utilisée'
+                        offer.used ? 'À utiliser de nouveau' : 'Marquer utilisée'
                       }
                       size="sm"
                       variant="secondary"
