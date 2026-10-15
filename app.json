@@ -9,6 +9,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.replit.pigeonsub",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "icon": "./assets/branding/app-icon.png"
     },
     "android": {

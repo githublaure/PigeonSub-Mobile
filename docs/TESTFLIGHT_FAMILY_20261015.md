@@ -7,7 +7,7 @@
 - Cette base contient déjà les fonctionnalités des PR #18, #19 et #20, avec la configuration utilisée pour publier. Ne pas réappliquer ces PR.
 - Seul le commit additionnel de #22 (`7283d7a16660d58846fdd604f01e79d1505820ef`) a été repris pour l’amortissement.
 - Aucune fusion dans `main`, aucun changement de base des quatre PR, aucune branche supprimée.
-- `app.json`, `eas.json`, `.replit`, `.easignore`, `.npmrc`, les dépendances verrouillées et le script de construction mobile sont conservés.
+- `eas.json`, `.replit`, `.easignore`, `.npmrc`, les dépendances verrouillées et le script de construction mobile sont conservés. `app.json` reprend uniquement la déclaration Apple `ITSAppUsesNonExemptEncryption: false` déjà présente dans le commit local Replit `2ce356465be179f611caf4e368dceddd09faecc5` ; les autres paramètres restent identiques à la base.
 
 ## Catégories et rappels
 
@@ -37,6 +37,10 @@ L’ajout serveur est `family_sharing JSONB`, nullable, dans la migration additi
 L’ancien serveur ignore ce champ. Un retour au serveur précédent ne doit jamais supprimer la colonne, le catalogue ou les données locales. Conserver les données pour une reprise ultérieure.
 
 ## Vérifications
+
+Validations locales réussies le 15 octobre : TypeScript, 107 tests mobiles, 27 tests serveur, contrôle de la CLI Expo 57.0.27 et exports iOS/Web. Aucun test sur iPhone physique effectué dans cet environnement.
+
+Inspection Replit en lecture seule : dernier build iOS réussi `993bb596-7a4d-4800-822a-009270c78c8e`, version 1.0.0 build 5, commit `e39c673`, profil/environnement production. Ses logs confirment l’API `https://pigeonsub-mobile-app.replit.app/api`. La session Expo `githublaure`, le certificat, le profil de provisioning et la clé de soumission existent ; leur validité sera confirmée par le prochain build/envoi. Le commit local `2ce3564` est exclusivement la déclaration Apple ci-dessus ; l’inspection la plus récente ne détecte plus de modification non enregistrée.
 
 Les commandes de référence sont `npx tsc --noEmit`, `npm test`, `npm run test:backend`, `npm run mobile:check`, `npm run mobile:export:ios` et `npx expo export --platform web --output-dir dist/web`.
 
