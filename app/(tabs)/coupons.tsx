@@ -225,7 +225,7 @@ export default function CouponsScreen() {
               </Text>
               <Text style={[ui.value, { color: c.gold }]}>
                 {available.length}{' '}
-                <Text style={{ fontSize: 18 }}>offres à utiliser</Text>
+                <Text style={{ fontSize: 18 }}>{available.length === 1 ? 'offre à utiliser' : 'offres à utiliser'}</Text>
               </Text>
               <Text style={ui.small}>
                 Pensez à en profiter avant leur date de fin.
