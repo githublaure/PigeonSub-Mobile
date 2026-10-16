@@ -14,13 +14,18 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pen
   const card = { borderRadius: 26, borderWidth: 1, padding: 17, gap: 9, boxShadow: '0 6px 22px rgba(109, 40, 217, 0.07)' };
   return <View style={{ gap: 14 }} testID="home-summary">
     <View style={[card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Image source={require('../../assets/mascots/pigeon-wallet-home.png')} resizeMode="contain" accessible={false} style={{ width: fontScale < 1.5 ? 66 : 52, height: fontScale < 1.5 ? 86 : 68 }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: c.text, fontSize: 35, fontWeight: '800', letterSpacing: -1 }}>{euro(monthly)}<Text style={{ fontSize: 12, fontWeight: '500', letterSpacing: 0 }}> / mois</Text></Text>
           <Text style={{ color: c.textSecondary, fontSize: 17, fontWeight: '600' }}>{euro(monthly * 12)}<Text style={{ fontSize: 11, fontWeight: '400' }}> / an estimés</Text></Text>
           <Text style={{ color: c.textMuted, fontSize: 11 }}>Dépenses actuelles</Text>
         </View>
+        <Image
+          source={require('../../assets/mascots/pigeon-calculator.png')}
+          resizeMode="contain"
+          accessible={false}
+          style={{ width: fontScale < 1.5 ? 78 : 58, height: fontScale < 1.5 ? 94 : 70 }}
+        />
       </View>
       {budget}
     </View>
