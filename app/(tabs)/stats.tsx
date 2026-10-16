@@ -38,6 +38,7 @@ export default function StatsScreen() {
   const view = availableStatsView(chosenView, canUsePlus);
   const selected = STATS_VIEWS.find(v => v.id === view)!;
   const scenario = statsScenario(data, follow, view);
+  const currentScenario = statsScenario(data, follow, 'current');
   const summary = overview(data, follow);
   const active = scenario.included.filter(s => !isEnded(s, follow[s.id]));
   const projection = costProjection(scenario.included, follow, months);
@@ -62,16 +63,25 @@ export default function StatsScreen() {
         {selected.plus && <PlusBadge compact={narrow} reason="stats" />}
       </View>
       {menuOpen && <View style={[ui.card, { padding: 8, gap: 0 }]} testID="stats-view-menu">
-        {STATS_VIEWS.map(option => <View key={option.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingHorizontal: 8, backgroundColor: view === option.id ? c.surfaceRaised : 'transparent' }}>
-          <Pressable accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: view === option.id }} aria-checked={view === option.id} onPress={() => {
-            setMenuOpen(false);
-            if (option.plus && !canUsePlus) router.push('/(tabs)/premium?reason=stats'); else setChosenView(option.id);
-          }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 54, gap: 6 }}>
-            <Text style={[ui.body, { flex: 1, color: c.text }]}>{option.label}</Text>
-            {option.plus && !canUsePlus && <Ionicons name="lock-closed-outline" size={15} color={c.gold} />}
-          </Pressable>
-          {option.plus && <PlusBadge reason="stats" />}
-        </View>)}
+        {STATS_VIEWS.map(option => {
+          const preview = statsScenario(data, follow, option.id);
+          const delta = preview.monthly - currentScenario.monthly;
+          return <View key={option.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingHorizontal: 8, backgroundColor: view === option.id ? c.surfaceRaised : 'transparent' }}>
+            <Pressable accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: view === option.id }} aria-checked={view === option.id} onPress={() => {
+              setMenuOpen(false);
+              if (option.plus && !canUsePlus) router.push('/(tabs)/premium?reason=stats'); else setChosenView(option.id);
+            }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 54, gap: 8 }}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[ui.body, { color: c.text }]}>{option.label}</Text>
+                {option.id !== 'current' && <Text style={[ui.small, { color: delta < 0 ? c.success : delta > 0 ? c.warning : c.textSecondary }]}>
+                  {delta === 0 ? 'Même coût que maintenant' : `${delta < 0 ? '−' : '+'}${euro(Math.abs(delta))}/mois vs actuel`}
+                </Text>}
+              </View>
+              {option.plus && !canUsePlus && <Ionicons name="lock-closed-outline" size={15} color={c.gold} />}
+            </Pressable>
+            {option.plus && <PlusBadge reason="stats" />}
+          </View>;
+        })}
       </View>}
       {view !== 'current' && <Text style={ui.small}>Simulation · aucun abonnement modifié</Text>}
     </View></GuideAnchor>
@@ -86,6 +96,11 @@ export default function StatsScreen() {
             <Text style={[ui.label, { fontSize: 10 }]}>{view === 'current' ? 'COÛT ACTUEL' : 'COÛT SIMULÉ'} · HORS ESSAIS</Text>
             <Text testID="stats-current-amount" style={{ color: c.text, fontFamily: serif, fontSize: amountSize, fontWeight: '700' }}>{euro(scenario.monthly)}</Text>
             <Text style={ui.small}>par mois · {euro(scenario.monthly * 12)} / an</Text>
+            {view !== 'current' && <Text testID="stats-vs-current" style={{ color: scenario.monthly < currentScenario.monthly ? c.success : scenario.monthly > currentScenario.monthly ? c.warning : c.textSecondary, fontWeight: '700', fontSize: 15 }}>
+              {scenario.monthly === currentScenario.monthly
+                ? 'Aucun écart avec le coût actuel'
+                : `${scenario.monthly < currentScenario.monthly ? '−' : '+'}${euro(Math.abs(scenario.monthly - currentScenario.monthly))}/mois · ${scenario.monthly < currentScenario.monthly ? '−' : '+'}${euro(Math.abs((scenario.monthly - currentScenario.monthly) * 12))}/an vs actuel`}
+            </Text>}
           </View>
           <Image source={require('../../assets/mascots/pigeon-professor.png')} style={{ width: narrow ? 84 : 110, height: narrow ? 92 : 115 }} resizeMode="contain" accessible={false} />
         </View>
