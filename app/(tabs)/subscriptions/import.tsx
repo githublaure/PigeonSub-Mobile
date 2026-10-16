@@ -29,6 +29,31 @@ export default function ImportScreen() {
   const load = (text: string, name: string, isExample = false) => {
     const parsed = parseCsv(text); resetAnalysis(); setTable(parsed); setMapping(suggestCsvMapping(parsed.headers)); setFileName(name); setExample(isExample);
   };
+  const loadExample = () => {
+    try {
+      const parsed = parseCsv(CSV_EXAMPLE);
+      const suggested = suggestCsvMapping(parsed.headers);
+      const result = analyzeCsv(parsed, suggested);
+      resetAnalysis();
+      setTable(parsed);
+      setMapping(suggested);
+      setFileName('Exemple fictif PigeonSub');
+      setExample(true);
+      setCandidates(result.candidates.slice(0, 50));
+      setSelected(result.candidates.slice(0, 2).map(row => row.id));
+      setDone([]);
+      setAnalyzed(true);
+      setSummary([
+        `${result.candidates.length} suggestion(s) détectée(s)`,
+        result.invalid && `${result.invalid} ligne(s) non exploitable(s)`,
+        result.credits && `${result.credits} crédit(s)/zéro ignoré(s)`,
+        result.notRecurring && `${result.notRecurring} paiement(s) ponctuel(s) ignoré(s)`,
+      ].filter(Boolean).join(' · '));
+      setMessage('Exemple chargé et analysé. Deux suggestions sont présélectionnées pour tester le parcours.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de charger l’exemple.');
+    }
+  };
   const pick = async () => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
@@ -92,7 +117,7 @@ export default function ImportScreen() {
       <Text style={ui.body}>Choisissez un relevé avec dates, libellés et montants. L’analyse reste sur cet appareil ; seuls les abonnements confirmés sont enregistrés dans votre espace.</Text>
       <Text style={ui.small}>CSV UTF-8 · dates JJ/MM/AAAA ou AAAA-MM-JJ · 500 Ko / 2 000 lignes maximum. Plusieurs mois facilitent la détection.</Text>
       <Button title="Choisir un fichier CSV" loading={busy} onPress={() => void pick()} />
-      <Button title="Essayer avec un exemple fictif" variant="ghost" disabled={busy} onPress={() => load(CSV_EXAMPLE, 'Exemple fictif', true)} />
+      <Button title="Essayer avec un exemple fictif" variant="ghost" disabled={busy} onPress={loadExample} />
     </View>
     {table && mapping && <View style={ui.card} testID="csv-mapping">
       <Text style={ui.heading}>{fileName}</Text><Text style={ui.small}>{table.rows.length} transactions · {table.headers.length} colonnes</Text>
