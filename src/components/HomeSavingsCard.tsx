@@ -15,7 +15,7 @@ export function HomeSavingsCard({ monthly, potentialAnnual, confirmedAnnual, pen
   return <View style={{ gap: 14 }} testID="home-summary">
     <View style={[card, { backgroundColor: c.surface, borderColor: c.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {fontScale < 1.5 && <Image source={require('../../assets/mascots/pigeon-wallet-home.png')} resizeMode="contain" accessible={false} style={{ width: 66, height: 86 }} />}
+        <Image source={require('../../assets/mascots/pigeon-wallet-home.png')} resizeMode="contain" accessible={false} style={{ width: fontScale < 1.5 ? 66 : 52, height: fontScale < 1.5 ? 86 : 68 }} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: c.text, fontSize: 35, fontWeight: '800', letterSpacing: -1 }}>{euro(monthly)}<Text style={{ fontSize: 12, fontWeight: '500', letterSpacing: 0 }}> / mois</Text></Text>
           <Text style={{ color: c.textSecondary, fontSize: 17, fontWeight: '600' }}>{euro(monthly * 12)}<Text style={{ fontSize: 11, fontWeight: '400' }}> / an estimés</Text></Text>
