@@ -3,6 +3,8 @@ const express = require('express');
 const pool = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { requirePlus, sendAccessError } = require('../services/entitlements');
+const { assertCategory } = require('../services/category-access');
+const { validateFamilySharing } = require('../../shared/family-sharing');
 const { FREE_LIMIT, ACTIVE_SQL, LIMIT_MESSAGE, withUserLock, validateSubscription, activeIds, isActiveAfter } = require('../services/subscription-access');
 
 const router = express.Router();
@@ -34,6 +36,7 @@ function toRow(row) {
     trialEndsAt: row.trial_ends_at,
     purchaseDate: row.purchase_date,
     createdAt: row.created_at,
+    familySharing: row.family_sharing ?? null,
     cancelledEffectiveOn: row.cancelled_effective_on instanceof Date ? `${row.cancelled_effective_on.getFullYear()}-${String(row.cancelled_effective_on.getMonth() + 1).padStart(2, '0')}-${String(row.cancelled_effective_on.getDate()).padStart(2, '0')}` : row.cancelled_effective_on,
   };
 }
@@ -86,6 +89,7 @@ router.get('/:id', async (req, res) => {
 });
 
 async function insertSubscription(client, userId, b) {
+  await assertCategory(client, userId, b.category);
   const { rows } = await client.query(
       `INSERT INTO subscriptions
         (user_id, name, price, frequency, category, category_color, usage_frequency,
@@ -159,6 +163,41 @@ router.post('/import', async (req, res) => {
   }
 });
 
+// Family metadata has its own protected write path. Historical reads and removal
+// remain available after Plus expires; no supplier charge is ever changed.
+router.put('/:id/family', async (req, res) => {
+  try {
+    const result = await withUserLock(pool, req.user.id, async client => {
+      const { rows } = await client.query('SELECT * FROM subscriptions WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+      if (!rows.length) return null;
+      await requirePlus(req.user.id, 'PLUS_FAMILY', 'Le partage familial nécessite PigeonSub Plus.');
+      let family;
+      try { family = validateFamilySharing(req.body, rows[0].price, rows[0].frequency); }
+      catch (error) { error.familyValidation = true; throw error; }
+      const updated = await client.query('UPDATE subscriptions SET family_sharing = $1::jsonb WHERE id = $2 AND user_id = $3 RETURNING *', [JSON.stringify(family), req.params.id, req.user.id]);
+      return toRow(updated.rows[0]);
+    });
+    if (!result) return res.status(404).json({ error: 'Abonnement introuvable.' });
+    res.json(result);
+  } catch (error) {
+    if (sendAccessError(res, error)) return;
+    if (error.familyValidation) return res.status(400).json({ error: error.message });
+    console.error('[subscriptions/family]', error.message);
+    res.status(500).json({ error: 'Impossible de modifier le partage familial.' });
+  }
+});
+router.delete('/:id/family', async (req, res) => {
+  try {
+    const { rows } = await withUserLock(pool, req.user.id, client => client.query(
+      'UPDATE subscriptions SET family_sharing = NULL WHERE id = $1 AND user_id = $2 RETURNING *', [req.params.id, req.user.id]));
+    if (!rows.length) return res.status(404).json({ error: 'Abonnement introuvable.' });
+    res.json(toRow(rows[0]));
+  } catch (error) {
+    if (sendAccessError(res, error)) return;
+    res.status(500).json({ error: 'Impossible de retirer le partage familial.' });
+  }
+});
+
 // PUT /api/subscriptions/:id
 router.put('/:id', async (req, res) => {
   const b = req.body || {};
@@ -171,6 +210,7 @@ router.put('/:id', async (req, res) => {
       );
       if (!existing.length) return null;
       const cur = existing[0];
+      if ('category' in b) await assertCategory(client, req.user.id, b.category, cur.category);
       const ids = await activeIds(client, req.user.id);
       if (!ids.includes(cur.id) && await isActiveAfter(client, cur, b) && ids.length >= FREE_LIMIT)
         await requirePlus(req.user.id, 'PLUS_LIMIT', LIMIT_MESSAGE);

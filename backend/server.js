@@ -78,6 +78,7 @@ async function start() {
       );
 
       ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancelled_effective_on DATE;
+      ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS family_sharing JSONB;
       CREATE INDEX IF NOT EXISTS subscriptions_user_active_idx ON subscriptions (user_id, is_active);
 
       CREATE TABLE IF NOT EXISTS user_settings (

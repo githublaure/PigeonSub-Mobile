@@ -13,7 +13,7 @@ export function CategoryBadge({ category }: { category?: string }) {
   const legacy = useCategoryIcons();
   const catalog = useCategoryCatalog();
   const id = category ?? 'other';
-  const icon = (legacy as Record<string, keyof typeof Ionicons.glyphMap>)[id] ?? categoryIcon(id, catalog);
+  const icon = categoryIcon(id, catalog, legacy);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 }}
       testID={`category-badge-${id}`}>
@@ -48,7 +48,7 @@ export function CategoryFilters({ value, onChange, categories, allowAll = true, 
           ...(allowAll ? [{ id: 'all', label: 'Toutes', icon: 'apps-outline' as const }] : []),
           ...items.map(item => ({
             id: item.id, label: item.name,
-            icon: (legacy as Record<string, keyof typeof Ionicons.glyphMap>)[item.id] ?? categoryIcon(item.id, catalog),
+            icon: categoryIcon(item.id, catalog, legacy),
           })),
         ]} testID="category-filters" />
       {customizable && (

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import type { Subscription } from '../lib/api';
 import { updateFollowUp } from '../lib/local-data';
 import {
@@ -56,6 +56,20 @@ export function DecisionActions({
     return <Text style={ui.small}>Abonnement archivé</Text>;
   return (
     <View style={{ gap: 10 }}>
+      {inDetail && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Image
+            source={require('../../assets/mascots/pigeon-stop-renewal.png')}
+            resizeMode="contain"
+            accessible={false}
+            style={{ width: 92, height: 62 }}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[ui.heading, { fontSize: 16 }]}>Conserver ou arrêter ?</Text>
+            <Text style={ui.small}>Votre choix reste modifiable tant que la résiliation n’est pas confirmée.</Text>
+          </View>
+        </View>
+      )}
       {showSavings && monthlyCost(sub) > 0 && (
         <Text style={ui.body}>
           Jusqu’à {euro(monthlyCost(sub) * 12)} / an évitables

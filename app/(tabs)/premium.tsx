@@ -10,6 +10,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { Button } from '../../src/components/ui/Button';
 import { Page, useUI } from '../../src/components/ui/Page';
 import { premiumCopy } from '../../src/lib/premium-copy';
+import { PlusPlanBenefits } from '../../src/components/PlusPlanBenefits';
 const PLANS = [
   {
     type: 'ANNUAL',

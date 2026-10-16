@@ -11,6 +11,7 @@ import {
 } from '../../lib/subscription-math';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { familySeats } from '../../lib/family-sharing';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { UsageBadge } from './UsageBadge';
 import { Subscription } from '../../lib/api';
@@ -61,91 +62,97 @@ export function SubscriptionCard({
     : subscription.categoryColor || Colors.primary;
 
   return (
-    <Pressable
+    <View
       testID={`subscription-card-${subscription.id}`}
-      style={({ pressed }) => [
-        styles.card,
-        archived && styles.archivedCard,
-        pressed && styles.pressed,
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${subscription.name}${archived ? ', archivé' : ''}, ${formatPrice(subscription.price, subscription.frequency)}${showSafety && !archived ? `, ${safetyDate ? `date de sûreté ${safetyDate.toLocaleDateString('fr-FR')}` : 'sans date de sûreté'}` : ''}`}
+      style={[styles.card, archived && styles.archivedCard]}
     >
-      {/* Colour accent bar */}
       <View style={[styles.accent, { backgroundColor: accentColor }]} />
 
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <SubscriptionIcon id={subscription.id} name={subscription.name} size={36} />
-          <View style={styles.nameRow}>
-            <Text
-              style={[styles.name, archived && styles.archivedText]}
-              numberOfLines={2}
-            >
-              {subscription.name}
+      <Pressable
+        style={({ pressed }) => [styles.mainPressable, pressed && styles.pressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${subscription.name}${archived ? ', archivé' : ''}, ${formatPrice(subscription.price, subscription.frequency)}${showSafety && !archived ? `, ${safetyDate ? `date de sûreté ${safetyDate.toLocaleDateString('fr-FR')}` : 'sans date de sûreté'}` : ''}`}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <SubscriptionIcon id={subscription.id} name={subscription.name} size={36} />
+            <View style={styles.nameRow}>
+              <Text
+                style={[styles.name, archived && styles.archivedText]}
+                numberOfLines={2}
+              >
+                {subscription.name}
+              </Text>
+              {!archived && subscription.isTrial && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {trialState(subscription) === 'active'
+                      ? 'ESSAI'
+                      : 'À CONFIRMER'}
+                  </Text>
+                </View>
+              )}
+              {!archived && subscription.isSuspect && (
+                <View style={[styles.badge, styles.badgeSuspect]}>
+                  <Text style={styles.badgeText}>⚠</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.price, archived && styles.archivedText]}>
+              {subscription.isTrial && !archived ? 'Après essai\n' : ''}
+              {formatPrice(subscription.price, subscription.frequency)}
             </Text>
-            {!archived && subscription.isTrial && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {trialState(subscription) === 'active'
-                    ? 'ESSAI'
-                    : 'À CONFIRMER'}
-                </Text>
+          </View>
+
+          {subscription.isTrial && !archived && (
+            <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
+          )}
+          {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
+          {subscription.familySharing?.shareable && <Text style={styles.renewal}>Famille · {familySeats(subscription) === null ? 'places à renseigner' : `${familySeats(subscription)} place(s) libre(s)`}</Text>}
+          {showSafety && !archived && <SafetyDateBadge date={safetyDate} />}
+          <View style={styles.footer}>
+            <CategoryBadge category={subscription.category} />
+            {archived && (
+              <View style={styles.archivedBadge}>
+                <Ionicons
+                  name="archive-outline"
+                  size={12}
+                  color={Colors.archiveText}
+                />
+                <Text style={styles.archivedBadgeText}>Archivé</Text>
               </View>
             )}
-            {!archived && subscription.isSuspect && (
-              <View style={[styles.badge, styles.badgeSuspect]}>
-                <Text style={styles.badgeText}>⚠</Text>
-              </View>
+            {days !== null && (
+              <Text style={[styles.renewal, isUrgent && styles.renewalUrgent]}>
+                <Ionicons name="calendar-outline" size={12} />{' '}
+                {days === 0
+                  ? 'Aujourd’hui'
+                  : days < 0
+                    ? 'À vérifier'
+                    : `dans ${days} j`}
+              </Text>
             )}
           </View>
-          {!!onToggleReminder && !archived && (
-            <Pressable accessibilityRole="button"
-              accessibilityLabel={remindersEnabled ? `Désactiver les rappels de ${subscription.name}` : `Activer les rappels de ${subscription.name}`}
-              accessibilityState={{ checked: remindersEnabled }}
-              onPress={event => { event.stopPropagation(); onToggleReminder(); }}
-              style={{ minWidth: 40, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
-              <Ionicons name={remindersEnabled ? 'notifications' : 'notifications-outline'}
-                size={19} color={remindersEnabled ? Colors.primary : Colors.textMuted} />
-            </Pressable>
-          )}
-          <Text style={[styles.price, archived && styles.archivedText]}>
-            {subscription.isTrial && !archived ? 'Après essai\n' : ''}
-            {formatPrice(subscription.price, subscription.frequency)}
-          </Text>
         </View>
+      </Pressable>
 
-        {subscription.isTrial && !archived && (
-          <Text style={styles.renewal}>{trialLabel(subscription)}</Text>
-        )}
-        {!archived && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}><UsageBadge usageFrequency={subscription.usageFrequency} />{subscription.rating !== null && <Text style={[styles.renewal, { paddingVertical: 4 }]}>★ {subscription.rating}/5</Text>}</View>}
-        {showSafety && !archived && <SafetyDateBadge date={safetyDate} />}
-        <View style={styles.footer}>
-          <CategoryBadge category={subscription.category} />
-          {archived && (
-            <View style={styles.archivedBadge}>
-              <Ionicons
-                name="archive-outline"
-                size={12}
-                color={Colors.archiveText}
-              />
-              <Text style={styles.archivedBadgeText}>Archivé</Text>
-            </View>
-          )}
-          {days !== null && (
-            <Text style={[styles.renewal, isUrgent && styles.renewalUrgent]}>
-              <Ionicons name="calendar-outline" size={12} />{' '}
-              {days === 0
-                ? 'Aujourd’hui'
-                : days < 0
-                  ? 'À vérifier'
-                  : `dans ${days} j`}
-            </Text>
-          )}
-        </View>
-      </View>
-    </Pressable>
+      {!!onToggleReminder && !archived && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={remindersEnabled ? `Désactiver les rappels de ${subscription.name}` : `Activer les rappels de ${subscription.name}`}
+          accessibilityState={{ checked: remindersEnabled }}
+          onPress={onToggleReminder}
+          style={styles.reminderButton}
+        >
+          <Ionicons
+            name={remindersEnabled ? 'notifications' : 'notifications-outline'}
+            size={19}
+            color={remindersEnabled ? Colors.primary : Colors.textMuted}
+          />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -177,10 +184,24 @@ const createStyles = (Colors: Palette) =>
       borderTopLeftRadius: 14,
       borderBottomLeftRadius: 14,
     },
+    mainPressable: {
+      flex: 1,
+    },
     content: {
       flex: 1,
       padding: 14,
+      paddingRight: 54,
       gap: 8,
+    },
+    reminderButton: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      minWidth: 40,
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 12,
     },
     header: {
       flexDirection: 'row',

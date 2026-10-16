@@ -39,6 +39,7 @@ function harness() {
     const requireLocal = (name) =>
       name === './api' ? { subscriptions: { update: async () => ({}) } } :
       name.endsWith('/shared/roadmap.json') ? require('../shared/roadmap.json') :
+      name.endsWith('/shared/family-sharing') ? require('../shared/family-sharing') :
       name === '@react-native-async-storage/async-storage'
         ? storage
         : name.startsWith('./')
@@ -67,6 +68,67 @@ const sub = (patch = {}) => ({
   category: 'other',
   usageFrequency: 'used',
   ...patch,
+});
+
+test('category deletion and reassignment are atomic locally, include archives and reject stale categories', async () => {
+  const h = harness(), local = h.load('local-data');
+  local.setDataSession('guest', 'guest');
+  const call = (route, method, body) => local.localRequest(route, { method, body: body ? JSON.stringify(body) : undefined });
+  const category = await call('/categories', 'POST', { name: 'Loisirs', icon: 'heart-outline' });
+  const original = await call('/subscriptions', 'POST', { name: 'Archive', price: '20', frequency: 'monthly', category: category.id, isActive: false, note: 'Keep', purchaseProofImage: 'proof' });
+  const previous = h.memory.get('pigeonsub.v2.guest.data');
+  const setItem = h.storage.setItem;
+  h.storage.setItem = async () => { throw new Error('Storage full'); };
+  await assert.rejects(call('/categories/' + category.id, 'DELETE'), /Storage full/);
+  assert.equal(h.memory.get('pigeonsub.v2.guest.data'), previous);
+  h.storage.setItem = setItem;
+  await call('/categories/' + category.id, 'DELETE');
+  assert.deepEqual(await call('/subscriptions/' + original.id, 'GET'), { ...original, category: 'other' });
+  await assert.rejects(call('/subscriptions/' + original.id, 'PUT', { category: category.id }), /catégorie/);
+  await assert.rejects(call('/subscriptions', 'POST', { name: 'Orphan', category: 'custom_unknown' }), /catégorie/);
+  local.setDataSession('demo', 'demo');
+  assert.equal((await call('/categories', 'GET')).custom.length, 0);
+});
+test('legacy local category catalog migrates without losing subscriptions or overwriting its backup', async () => {
+  const h = harness(), local = h.load('local-data');
+  local.setDataSession('guest', 'guest');
+  const catalog = { custom: [{ id: 'custom_legacy', name: 'Legacy', icon: null }], overrides: {}, hidden: [] };
+  h.memory.set('pigeonsub.v2.guest.category-catalog', JSON.stringify(catalog));
+  const item = await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'Old', price: '1', frequency: 'monthly', category: 'custom_legacy' }) });
+  assert.equal(item.category, 'custom_legacy');
+  assert.deepEqual((JSON.parse(h.memory.get('pigeonsub.v2.guest.data'))).categoryCatalog, catalog);
+  assert.equal(h.memory.get('pigeonsub.v2.guest.category-catalog'), JSON.stringify(catalog));
+});
+test('local Family protection, downgrade and removal keep expenses readable and isolate sessions', async () => {
+  const h = harness(), local = h.load('local-data'), entitlements = h.load('entitlements-state');
+  local.setDataSession('guest', 'guest');
+  const item = await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'Shared', price: '20', frequency: 'monthly', category: 'other' }) });
+  const data = { shareable: true, totalSeats: 4, occupiedSeats: 2, receivedContribution: '5', estimatedContribution: '5' };
+  const save = () => local.localRequest(`/subscriptions/${item.id}/family`, { method: 'PUT', body: JSON.stringify(data) });
+  await assert.rejects(save(), /PLUS_FAMILY/);
+  entitlements.setPlusAccess(true, 'guest');
+  const saved = await save();
+  assert.equal(saved.price, '20');
+  entitlements.setPlusAccess(false, 'guest');
+  await assert.rejects(save(), /PLUS_FAMILY/);
+  assert.equal((await local.localRequest('/subscriptions/1')).familySharing.receivedContribution, '5.00');
+  await assert.rejects(local.localRequest('/subscriptions/1', { method: 'PUT', body: JSON.stringify({ familySharing: data }) }), /modification du partage/);
+  local.setDataSession('demo', 'demo');
+  await assert.rejects(save(), /introuvable/);
+  local.setDataSession('guest', 'guest');
+  const cleared = await local.localRequest('/subscriptions/1/family', { method: 'DELETE' });
+  assert.deepEqual(cleared, { ...item, familySharing: null });
+});
+test('pending local Family writes cannot move to the next session', async () => {
+  const h = harness(), local = h.load('local-data');
+  local.setDataSession('demo', 'demo');
+  await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'Shared', price: '20', frequency: 'monthly', category: 'other' }) });
+  const before = h.memory.get('pigeonsub.v2.demo.data');
+  const request = local.localRequest('/subscriptions/1/family', { method: 'PUT', body: JSON.stringify({ shareable: true }) });
+  local.setDataSession('guest', 'guest');
+  await assert.rejects(request, /session/);
+  assert.equal(h.memory.get('pigeonsub.v2.demo.data'), before);
+  assert.equal(h.memory.get('pigeonsub.v2.guest.data'), undefined);
 });
 
 test('annual, weekly and lifetime prices do not inflate recurring costs', () => {
@@ -969,7 +1031,7 @@ test('rich demo seeds coherent subscriptions, trials, offers and offline proof i
   const rows = await local.localRequest('/subscriptions?includeArchived=true');
   const follow = await local.getFollowUps();
   const overview = math.overview(rows, follow);
-  assert.equal(rows.length, 16);
+  assert.equal(rows.length, 18);
   assert.equal(overview.trialCount, 4);
   assert.equal(overview.expiredTrials, 1);
   assert.equal(overview.potentialAnnual.toFixed(2), '161.88');
@@ -997,8 +1059,11 @@ test('rich demo seeds coherent subscriptions, trials, offers and offline proof i
   assert.equal([...h.memory.keys()].filter(k => k.startsWith('pigeonsub.photos.demo.')).length, 9);
   assert.equal(h.memory.get('pigeonsub.v2.guest.data'), 'personal-data');
   assert.equal(h.memory.get('pigeonsub.photos.account%3A9.saved'), 'private-image');
+  assert.deepEqual(rows.filter(row => row.frequency === 'lifetime').map(row => row.name), ['GoodNotes', 'Procreate']);
+  const lifetime = rows.filter(row => row.frequency === 'lifetime');
+  assert(lifetime.every(row => row.purchaseDate));
   const created = await local.localRequest('/subscriptions', { method: 'POST', body: JSON.stringify({ name: 'New example', price: '1', frequency: 'monthly', category: 'other' }) });
-  assert.equal(created.id, 17);
+  assert.equal(created.id, 19);
 });
 
 test('savings explanation follows actual billing periods and matches overview across statuses', () => {

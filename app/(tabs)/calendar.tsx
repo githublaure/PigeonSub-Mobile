@@ -1,4 +1,5 @@
 import { GuideAnchor } from '../../src/components/guide/GuideScrollView';
+import { FamilyAvailability } from '../../src/components/FamilyAvailability';
 import { calendarEvents, filterCalendarEvents, type CalendarFilter } from '../../src/lib/calendar-events';
 import { CalendarEventDot, CalendarLegend } from '../../src/components/CalendarLegend';
 import { SubscriptionIcon } from '../../src/components/ui/SubscriptionIcon';
@@ -19,7 +20,7 @@ export default function CalendarScreen() {
   const { data, follow, loading, error, reload } = useSubscriptionData();
   const [month, setMonth] = useState(new Date());
   const [selected, setSelected] = useState(dayKey(new Date()));
-  const [filter, setFilter] = useState<CalendarFilter>('all');
+  const [filter, setFilter] = useState<CalendarFilter>('deadline');
   const [limit, setLimit] = useState(30);
   const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);
   const last = new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
@@ -35,10 +36,11 @@ export default function CalendarScreen() {
     setMonth(date); select(dayKey(date));
   };
   return <Page title="Alertes">
+    <FamilyAvailability data={data} follow={follow} />
     <FilterRail label="Alertes" value={filter} onChange={value => { setFilter(value); setLimit(30); }} options={[
-      { id: 'all', label: 'Toutes', icon: 'calendar-outline' },
-      { id: 'safety', label: 'Sûreté', icon: 'shield-checkmark-outline', color: c.calendarSafety, foreground: '#201D29' },
       { id: 'deadline', label: 'Date limite', icon: 'time-outline', color: c.primary },
+      { id: 'safety', label: 'Sûreté', icon: 'shield-checkmark-outline', color: c.calendarSafety, foreground: '#201D29' },
+      { id: 'all', label: 'Toutes', icon: 'calendar-outline' },
     ]} testID="alert-filters" />
     <GuideAnchor id="calendar-month"><View style={[ui.card, { padding: 12 }]}>
       <View style={[ui.row, { justifyContent: 'space-between', flexWrap: 'nowrap' }]}>

@@ -1,12 +1,13 @@
 const COPY: Record<string, { title: string; free: string; plus: string }> = {
+  family: { title: 'Suivez votre partage familial', free: 'Vos dépenses et déclarations existantes restent consultables, même après la fin de Plus.', plus: 'Plus permet de renseigner les places et contributions reçues, puis de comparer votre reste à charge. PigeonSub ne gère ni invitations ni paiements.' },
   limit: { title: 'Suivez tous vos abonnements', free: '5 abonnements actifs, essais compris, sont inclus gratuitement.', plus: 'Plus permet de suivre un nombre illimité d’abonnements et d’essais.' },
   import: { title: 'Ajoutez vos abonnements en une fois', free: 'Analyse locale du CSV et ajout individuel dans la limite de vos 5 abonnements actifs gratuits.', plus: 'Plus permet d’importer plusieurs abonnements confirmés en une fois. Le prototype CSV ne fait aucun ajout sans votre validation.' },
   icons: { title: 'Donnez votre style à vos abonnements', free: 'Une icône par défaut accompagne chaque abonnement.', plus: 'Plus permet d’importer vos propres photos comme icônes d’abonnement.' },
   photos: { title: 'Gardez davantage de justificatifs', free: '5 photos sont incluses pour chacun de vos 5 abonnements gratuits.', plus: 'Plus permet davantage de photos par abonnement, sur tous vos abonnements.' },
   safety: { title: 'Protégez toutes vos échéances', free: 'Les dates de sûreté personnalisées et rappels sont inclus pour vos 5 abonnements gratuits.', plus: 'Plus étend ces réglages à tous vos abonnements. Les notifications nécessitent votre autorisation sur l’appareil.' },
   history: { title: 'Retrouvez vos décisions', free: 'Vous pouvez conserver, demander une résiliation et confirmer son arrêt gratuitement.', plus: 'Plus donne accès à l’historique des décisions et résiliations de chaque abonnement.' },
-  stats: { title: 'Comparez vos budgets possibles', free: 'Budget, projection, catégories et vue après résiliations sont gratuits.', plus: 'Plus ajoute les vues sans les peu utilisés, sans les notes de 1 à 2 étoiles et la vue combinée.' },
+  stats: { title: 'Voyez ce que vous pourriez économiser', free: 'Budget, projection, catégories et vue après résiliations sont gratuits.', plus: 'Plus compare votre coût actuel avec les vues sans les peu utilisés, sans les notes 1 à 2 étoiles et la vue combinée.' },
 };
 export function premiumCopy(reason?: string) {
-  return COPY[reason ?? ''] ?? { title: 'Passez à PigeonSub Plus', free: 'Le suivi de 5 abonnements, le budget, les essais et les coupons restent gratuits.', plus: 'Abonnements illimités, analyses personnalisées et historique de vos décisions.' };
+  return COPY[reason ?? ''] ?? { title: 'Passez à PigeonSub Plus', free: 'Le suivi de 5 abonnements, leurs rappels et dates de sûreté, 5 justificatifs par abonnement, le budget, le calendrier, les économies et les coupons restent gratuits.', plus: 'Plus ajoute les abonnements illimités, les rappels sur tous vos abonnements, le mode Famille, les comparaisons pour décider quoi résilier, 10 justificatifs par abonnement, l’import CSV, les icônes personnalisées et l’historique de vos décisions.' };
 }

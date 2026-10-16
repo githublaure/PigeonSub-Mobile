@@ -3,6 +3,7 @@ import { dayKey, nextRenewal, parseDay } from './subscription-math';
 
 export const MAX_CSV_LENGTH = 500_000;
 export const CSV_EXAMPLE = 'Date;Libellé;Montant\n01/05/2026;Musique exemple;-9,99\n01/06/2026;Musique exemple;-9,99\n01/07/2026;Musique exemple;-9,99\n04/05/2026;Vidéo exemple;-12,99\n04/06/2026;Vidéo exemple;-12,99\n04/07/2026;Vidéo exemple;-14,99\n06/07/2026;Courses ponctuelles;-42,50\n08/07/2026;Remboursement;9,99';
+export const CSV_EXAMPLE_MAPPING = { date: 0, label: 1, amount: 2, debits: 'negative' } as const;
 export type CsvTable = { headers: string[]; rows: string[][]; delimiter: string };
 export type CsvMapping = { date: number; label: number; amount: number; debits: 'negative' | 'positive' };
 export type ImportCandidate = { id: string; name: string; price: string; frequency: 'weekly' | 'monthly' | 'yearly'; nextRenewal: string; occurrences: number; variable: boolean };

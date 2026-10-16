@@ -185,11 +185,7 @@ export default function ProfileScreen() {
     return (
       <Page
         title="Votre espace"
-        subtitle={
-          mode === 'demo'
-            ? 'Camille · démo'
-            : 'Espace personnel'
-        }
+        subtitle={mode === 'demo' ? 'Mode démo' : 'Espace personnel'}
       >
         <PremiumSettings />
         <ProductTools />
